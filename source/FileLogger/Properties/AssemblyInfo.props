@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <PackageId>Karambolo.Extensions.Logging.File</PackageId>
+    <Version>1.0</Version>
+    <Authors />
+    <Company>Karambolo</Company>
+    <Product>Karambolo.Extensions.Logging.File</Product>
+    <Description />
+    <Copyright>© 2017 Adam Simon</Copyright>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+</Project>
