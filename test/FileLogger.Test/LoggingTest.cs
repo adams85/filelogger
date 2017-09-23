@@ -152,7 +152,8 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var services = new ServiceCollection();
             services.AddOptions();
-            services.AddLogging();
+            services.AddLogging(b => b.AddFile(context));
+            services.Configure<FileLoggerOptions>(config);
 
             if (Directory.Exists(logPath))
                 Directory.Delete(logPath, recursive: true);
@@ -161,8 +162,6 @@ namespace Karambolo.Extensions.Logging.File.Test
             {
                 var ex = new Exception();
                 var serviceProvider = services.BuildServiceProvider();
-
-                serviceProvider.GetService<ILoggerFactory>().AddProvider(new FileLoggerProvider(context, new ConfigurationFileLoggerSettings(config)));
 
                 var logger1 = serviceProvider.GetService<ILogger<LoggingTest>>();
 
