@@ -2,12 +2,15 @@
   <PropertyGroup>
     <PackageId>Karambolo.Extensions.Logging.File</PackageId>
     <Version>1.0.0</Version>
-    <Authors />
+    <Authors>Adam Simon</Authors>
     <Company>Karambolo</Company>
     <Product>Karambolo.Extensions.Logging.File</Product>
-    <Description />
+    <Description>A full-featured file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
     <Copyright>© 2017 Adam Simon</Copyright>
     <AssemblyVersion>1.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
+    <PackageLicenseUrl>https://github.com/adams85/filelogger/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/adams85/filelogger</PackageProjectUrl>
+    <PackageTags>filelogger logger logging</PackageTags>
   </PropertyGroup>
 </Project>
