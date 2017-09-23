@@ -47,13 +47,13 @@ services.Configure<FileLoggerOptions>(config);
  - **BasePath**: path to the base directory of log files (relative to file provider root path).
  - **EnsureBasePath**: tries to create base directory if it does not exist.
  - **FileEncoding**: character encoding to use. Default value: UTF-8.
- - **FileNameMappings**: defines log category name to file name mapping by (prefix, file name) pairs. Order matters, the first matching rule will be effective.
+ - **FileNameMappings**: defines log category name to file name mapping by (prefix, file name) pairs (similarly to log level switches).
  - **DateFormat**: if set, separate files will be created based on date. 
  - **CounterFormat**: specifies the format of the counter if any.
- - **MaxFileSize**: if set, new files will be created when file size limit is reached.
+ - **MaxFileSize**: if greater than 0, new files will be created when file size limit is reached.
  - **TextBuilder**: specifies a custom log text formatter type.
- - **LogLevel**: defines log level switches (exactly as in case of ConsoleLogger).
- - **IncludeScopes**: enables including log scopes in the output (exactly as in case of ConsoleLogger).
+ - **LogLevel**: defines log level switches (exactly as in the case of ConsoleLogger).
+ - **IncludeScopes**: enables including log scopes in the output (exactly as in the case of ConsoleLogger).
  - **MaxQueueSize**: defines the maximum capacity of the (per file) log processor queue. If queue is full, log entries will be discarded. Default value: 64.
 
 #### Sample JSON configuration
@@ -62,11 +62,10 @@ services.Configure<FileLoggerOptions>(config);
   "BasePath": "Logs",
   "EnsureBasePath": true,
   "FileEncoding": "utf-8",
-  "FileNameMappings": [
-    { "Prefix": "MyApp.SomeClass", "FileName": "someclass.log" },
-    { "Prefix": "MyApp", "FileName": "myapp.log" },
-    { "Prefix": "Default", "FileName": "default.log" }
-  ],
+  "FileNameMappings": {
+    "MyApp.SomeClass": "someclass.log",
+    "Default": "default.log"
+  },
   "DateFormat": "yyyyMMdd",
   "CounterFormat": "000",
   "MaxFileSize": 10485760,

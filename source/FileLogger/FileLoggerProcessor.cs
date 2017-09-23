@@ -176,7 +176,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual bool HasPostfix(LogFileInfo logFile, FileLogEntry entry)
         {
-            return !string.IsNullOrEmpty(Settings.DateFormat) || Settings.MaxFileSize != null;
+            return !string.IsNullOrEmpty(Settings.DateFormat) || Settings.MaxFileSize > 0;
         }
 
         protected virtual void BuildPostfix(StringBuilder sb, LogFileInfo logFile, FileLogEntry entry)
@@ -187,7 +187,7 @@ namespace Karambolo.Extensions.Logging.File
                 sb.Append(entry.Timestamp.ToLocalTime().ToString(Settings.DateFormat, CultureInfo.InvariantCulture));
             }
 
-            if (Settings.MaxFileSize != null)
+            if (Settings.MaxFileSize > 0)
             {
                 sb.Append('-');
                 sb.Append(logFile.Counter.ToString(Settings.CounterFormat, CultureInfo.InvariantCulture));
@@ -196,11 +196,11 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual bool CheckLogFile(LogFileInfo logFile, string postfix, Encoding fileEncoding, FileLogEntry entry)
         {
-            if (Settings.MaxFileSize != null)
+            if (Settings.MaxFileSize > 0)
             {
                 var fileInfo = Context.FileProvider.GetFileInfo(logFile.GetFilePath(postfix));
                 if (fileInfo.Exists &&
-                    (fileInfo.IsDirectory || fileInfo.Length + fileEncoding.GetByteCount(entry.Text) > Settings.MaxFileSize.Value))
+                    (fileInfo.IsDirectory || fileInfo.Length + fileEncoding.GetByteCount(entry.Text) > Settings.MaxFileSize))
                 {
                     logFile.Counter++;
                     return false;

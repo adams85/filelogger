@@ -17,7 +17,7 @@ namespace Karambolo.Extensions.Logging.File
         Encoding FileEncoding { get; }
         string DateFormat { get; }
         string CounterFormat { get; }
-        int? MaxFileSize { get; }
+        int MaxFileSize { get; }
         IFileLogEntryTextBuilder TextBuilder { get; }
         bool IncludeScopes { get; }
         int MaxQueueSize { get; }
@@ -74,7 +74,7 @@ namespace Karambolo.Extensions.Logging.File
         public IDictionary<string, string> FileNameMappings { get; set; }
         public string DateFormat { get; set; }
         public string CounterFormat { get; set; }
-        public int? MaxFileSize { get; set; }
+        public int MaxFileSize { get; set; }
         public IFileLogEntryTextBuilder TextBuilder { get; set; }
         public bool IncludeScopes { get; set; }
         public int MaxQueueSize { get; set; } = 64;
@@ -247,7 +247,7 @@ namespace Karambolo.Extensions.Logging.File
             stringValue = Configuration[nameof(FileLoggerOptions.MaxFileSize)];
             SetIfNotNull(
                 !string.IsNullOrEmpty(stringValue) ? int.Parse(stringValue) : (int?)null,
-                v => _options.MaxFileSize = v);
+                v => _options.MaxFileSize = v.Value);
 
             SetIfNotNull(
                 Configuration[nameof(FileLoggerOptions.TextBuilderType)],
@@ -283,7 +283,7 @@ namespace Karambolo.Extensions.Logging.File
         public Encoding FileEncoding => _options.FileEncoding;
         public string DateFormat => _options.DateFormat;
         public string CounterFormat => _options.CounterFormat;
-        public int? MaxFileSize => _options.MaxFileSize;
+        public int MaxFileSize => _options.MaxFileSize;
         public IFileLogEntryTextBuilder TextBuilder => _options.TextBuilder;
         public bool IncludeScopes => _options.IncludeScopes;
         public int MaxQueueSize => _options.MaxQueueSize;

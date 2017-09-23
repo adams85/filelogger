@@ -207,6 +207,7 @@ $@"{{
         {
             var configJson =
 $@"{{ 
+    '{nameof(ConfigurationFileLoggerSettings.MaxFileSize)}' : 10000,
     '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
         '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Information}',
     }}
@@ -240,7 +241,7 @@ $@"{{
                 configJson =
 $@"{{
     '{nameof(ConfigurationFileLoggerSettings.DateFormat)}' : 'yyyyMMdd',
-    '{nameof(ConfigurationFileLoggerSettings.MaxFileSize)}' : 0,
+    '{nameof(ConfigurationFileLoggerSettings.MaxFileSize)}' : 1,
     '{nameof(ConfigurationFileLoggerSettings.CounterFormat)}' : '00',
     '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
         '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Information}',
@@ -260,7 +261,7 @@ $@"{{
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
-            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback.log");
+            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback-0.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
