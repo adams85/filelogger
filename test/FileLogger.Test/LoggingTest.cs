@@ -39,10 +39,10 @@ namespace Karambolo.Extensions.Logging.File.Test
                 {
                     { FileLoggerSettingsBase.DefaultCategoryName, LogLevel.Information }
                 },
-                FileNameMappings = new FileNameMapping[]
+                FileNameMappings = new Dictionary<string, string>
                 {
-                    new FileNameMapping { Prefix = "Karambolo.Extensions.Logging.File.Test", FileName = "test.log", },
-                    new FileNameMapping { Prefix = "Karambolo.Extensions.Logging.File", FileName = "logger.log", },
+                    { "Karambolo.Extensions.Logging.File.Test", "test.log" },
+                    { "Karambolo.Extensions.Logging.File", "logger.log" },
                 },
                 TextBuilder = new CustomLogEntryTextBuilder(),
                 IncludeScopes = true,
@@ -134,10 +134,8 @@ namespace Karambolo.Extensions.Logging.File.Test
                 [$"{nameof(FileLoggerOptions.MaxQueueSize)}"] = "100",
                 [$"{nameof(FileLoggerOptions.DateFormat)}"] = "yyyyMMdd",
                 [$"{ConfigurationFileLoggerSettings.LogLevelSectionName}:{FileLoggerSettingsBase.DefaultCategoryName}"] = "Information",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:0:{nameof(FileNameMapping.Prefix)}"] = "Karambolo.Extensions.Logging.File.Test",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:0:{nameof(FileNameMapping.FileName)}"] = "test.log",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:1:{nameof(FileNameMapping.Prefix)}"] = "Karambolo.Extensions.Logging.File",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:1:{nameof(FileNameMapping.FileName)}"] = "logger.log",
+                [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File.Test"] = "test.log",
+                [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File"] = "logger.log",
             };
 
             var cb = new ConfigurationBuilder();

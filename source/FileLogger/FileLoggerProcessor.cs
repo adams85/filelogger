@@ -190,7 +190,7 @@ namespace Karambolo.Extensions.Logging.File
             if (Settings.MaxFileSize != null)
             {
                 sb.Append('-');
-                sb.Append(logFile.Counter.ToString(Settings.CounterFormat ?? "G", CultureInfo.InvariantCulture));
+                sb.Append(logFile.Counter.ToString(Settings.CounterFormat, CultureInfo.InvariantCulture));
             }
         }
 

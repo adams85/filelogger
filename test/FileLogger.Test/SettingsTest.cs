@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Karambolo.Extensions.Logging.File.Test
 {
-    public class ConfigurationTest
+    public class SettingsTest
     {
         [Fact]
         public void ParsingConfigurationSettings()
@@ -23,10 +23,16 @@ namespace Karambolo.Extensions.Logging.File.Test
                 [$"{nameof(FileLoggerOptions.BasePath)}"] = "Logs",
                 [$"{nameof(FileLoggerOptions.EnsureBasePath)}"] = "true",
                 [$"{nameof(FileLoggerOptions.FileEncodingName)}"] = "UTF-8",
-                [$"{nameof(FileLoggerOptions.MaxQueueSize)}"] = "100",
+                [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File"] = "logger.log",
+                [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File.Test"] = "test.log",
                 [$"{nameof(FileLoggerOptions.DateFormat)}"] = "yyyyMMdd",
+                [$"{nameof(FileLoggerOptions.CounterFormat)}"] = "000",
                 [$"{nameof(FileLoggerOptions.MaxFileSize)}"] = "10",
                 [$"{nameof(FileLoggerOptions.TextBuilderType)}"] = typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName,
+                [$"{ConfigurationFileLoggerSettings.LogLevelSectionName}:Karambolo.Extensions.Logging.File"] = "Warning",
+                [$"{ConfigurationFileLoggerSettings.LogLevelSectionName}:Karambolo.Extensions.Logging.File.Test"] = "Information",
+                [$"{nameof(FileLoggerOptions.IncludeScopes)}"] = "true",
+                [$"{nameof(FileLoggerOptions.MaxQueueSize)}"] = "100",
             };
 
             var cb = new ConfigurationBuilder();
@@ -38,10 +44,20 @@ namespace Karambolo.Extensions.Logging.File.Test
             Assert.Equal("Logs", settings.BasePath);
             Assert.Equal(true, settings.EnsureBasePath);
             Assert.Equal(Encoding.UTF8, settings.FileEncoding);
-            Assert.Equal(100, settings.MaxQueueSize);
+            Assert.Equal("test.log", settings.MapToFileName(typeof(SettingsTest).FullName, "default.log"));
+            Assert.Equal("logger.log", settings.MapToFileName(typeof(FileLogger).FullName, "default.log"));
+            Assert.Equal("default.log", settings.MapToFileName("X.Y", "default.log"));
             Assert.Equal("yyyyMMdd", settings.DateFormat);
+            Assert.Equal("000", settings.CounterFormat);
             Assert.Equal(10, settings.MaxFileSize);
             Assert.Equal(typeof(CustomLogEntryTextBuilder), settings.TextBuilder.GetType());
+            Assert.True(settings.TryGetSwitch(typeof(SettingsTest).Namespace, out LogLevel logLevel));
+            Assert.Equal(LogLevel.Information, logLevel);
+            Assert.True(settings.TryGetSwitch(typeof(FileLogger).Namespace, out logLevel));
+            Assert.Equal(LogLevel.Warning, logLevel);
+            Assert.False(settings.TryGetSwitch("X.Y", out logLevel));
+            Assert.Equal(true, settings.IncludeScopes);
+            Assert.Equal(100, settings.MaxQueueSize);
         }
 
         [Fact]
@@ -52,10 +68,17 @@ $@"{{
     '{nameof(FileLoggerOptions.BasePath)}': 'Logs',
     '{nameof(FileLoggerOptions.EnsureBasePath)}': true,
     '{nameof(FileLoggerOptions.FileEncodingName)}': 'utf-8',
-    '{nameof(FileLoggerOptions.MaxQueueSize)}': 100,
+    '{nameof(FileLoggerOptions.FileNameMappings)}': {{
+        'Karambolo.Extensions.Logging.File': 'logger.log',
+        'Karambolo.Extensions.Logging.File.Test': 'test.log',
+    }},
     '{nameof(FileLoggerOptions.DateFormat)}': 'yyyyMMdd',
+    '{nameof(FileLoggerOptions.CounterFormat)}': '000',
     '{nameof(FileLoggerOptions.MaxFileSize)}': 10,
     '{nameof(FileLoggerOptions.TextBuilderType)}': '{typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName}',
+    '{nameof(FileLoggerOptions.IncludeScopes)}': true,
+    '{nameof(FileLoggerOptions.IncludeScopes)}': true,
+    '{nameof(FileLoggerOptions.MaxQueueSize)}': 100,
 }}";
 
             var fileProvider = new MemoryFileProvider();
@@ -74,119 +97,17 @@ $@"{{
 
             Assert.Equal("Logs", options.BasePath);
             Assert.Equal(true, options.EnsureBasePath);
-            Assert.Equal(Encoding.UTF8, ((IFileLoggerSettingsBase)options).FileEncoding);
-            Assert.Equal(100, options.MaxQueueSize);
-            Assert.Equal("yyyyMMdd", options.DateFormat);
-            Assert.Equal(10, options.MaxFileSize);
-            Assert.Equal(typeof(CustomLogEntryTextBuilder), ((IFileLoggerSettingsBase)options).TextBuilder.GetType());
-        }
-
-        [Fact]
-        public void OptionsMapToFileName1()
-        {
-            var configJson =
-$@"{{ 
-    '{nameof(FileLoggerOptions.FileNameMappings)}': [
-        {{ '{nameof(FileNameMapping.Prefix)}': 'Karambolo.Extensions.Logging.File.Test', '{nameof(FileNameMapping.FileName)}': 'test.log' }},
-        {{ '{nameof(FileNameMapping.Prefix)}': 'Karambolo.Extensions.Logging.File', '{nameof(FileNameMapping.FileName)}': 'logger.log' }},
-    ]
-}}";
-
-            var fileProvider = new MemoryFileProvider();
-            fileProvider.CreateFile("config.json", configJson, Encoding.UTF8);
-
-            var cb = new ConfigurationBuilder();
-            cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: false);
-            var config = cb.Build();
-
-            var services = new ServiceCollection();
-            services.AddOptions();
-            services.Configure<FileLoggerOptions>(config);
-            var serviceProvider = services.BuildServiceProvider();
-
-            var options = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
-
-            Assert.Equal("test.log", options.MapToFileName(typeof(ConfigurationTest).FullName, "default.log"));
+            Assert.Equal(Encoding.UTF8, options.FileEncoding);
+            Assert.Equal("test.log", options.MapToFileName(typeof(SettingsTest).FullName, "default.log"));
             Assert.Equal("logger.log", options.MapToFileName(typeof(FileLogger).FullName, "default.log"));
             Assert.Equal("default.log", options.MapToFileName("X.Y", "default.log"));
-        }
-
-        [Fact]
-        public void SettingsMapToFileName1()
-        {
-            var configData = new Dictionary<string, string>
-            {
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:0:{nameof(FileNameMapping.Prefix)}"] = "Karambolo.Extensions.Logging.File.Test",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:0:{nameof(FileNameMapping.FileName)}"] = "test.log",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:1:{nameof(FileNameMapping.Prefix)}"] = "Karambolo.Extensions.Logging.File",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:1:{nameof(FileNameMapping.FileName)}"] = "logger.log",
-            };
-
-            var cb = new ConfigurationBuilder();
-            cb.AddInMemoryCollection(configData);
-            var config = cb.Build();
-
-            var settings = new ConfigurationFileLoggerSettings(config);
-
-            Assert.Equal("test.log", settings.MapToFileName(typeof(ConfigurationTest).FullName, "default.log"));
-            Assert.Equal("logger.log", settings.MapToFileName(typeof(FileLogger).FullName, "default.log"));
-            Assert.Equal("default.log", settings.MapToFileName("X.Y", "default.log"));
-        }
-
-        [Fact]
-        public void OptionsMapToFileName2()
-        {
-            var configJson =
-$@"{{ 
-    '{nameof(FileLoggerOptions.FileNameMappings)}': [
-        {{ '{nameof(FileNameMapping.Prefix)}': 'Karambolo.Extensions.Logging.File', '{nameof(FileNameMapping.FileName)}': 'logger.log' }},
-        {{ '{nameof(FileNameMapping.Prefix)}': 'Karambolo.Extensions.Logging.File.Test', '{nameof(FileNameMapping.FileName)}': 'test.log' }},
-        {{ '{nameof(FileNameMapping.Prefix)}': '{FileLoggerSettingsBase.DefaultCategoryName}', '{nameof(FileNameMapping.FileName)}': 'other.log' }},
-    ]
-}}";
-
-            var fileProvider = new MemoryFileProvider();
-            fileProvider.CreateFile("config.json", configJson, Encoding.UTF8);
-
-            var cb = new ConfigurationBuilder();
-            cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: false);
-            var config = cb.Build();
-
-            var services = new ServiceCollection();
-            services.AddOptions();
-            services.Configure<FileLoggerOptions>(config);
-            var serviceProvider = services.BuildServiceProvider();
-
-            var options = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
-
-            Assert.Equal("logger.log", options.MapToFileName(typeof(ConfigurationTest).FullName, "default.log"));
-            Assert.Equal("logger.log", options.MapToFileName(typeof(FileLogger).FullName, "default.log"));
-            Assert.Equal("other.log", options.MapToFileName("X.Y", "default.log"));
-        }
-
-        [Fact]
-        public void SettingsMapToFileName2()
-        {
-            var configData = new Dictionary<string, string>
-            {
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:0:{nameof(FileNameMapping.Prefix)}"] = "Karambolo.Extensions.Logging.File",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:0:{nameof(FileNameMapping.FileName)}"] = "logger.log",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:1:{nameof(FileNameMapping.Prefix)}"] = "Karambolo.Extensions.Logging.File.Test",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:1:{nameof(FileNameMapping.FileName)}"] = "test.log",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:2:{nameof(FileNameMapping.Prefix)}"] = FileLoggerSettingsBase.DefaultCategoryName,
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:2:{nameof(FileNameMapping.FileName)}"] = "other.log",
-            };
-
-            var cb = new ConfigurationBuilder();
-            cb.AddInMemoryCollection(configData);
-            var config = cb.Build();
-
-            var settings = new ConfigurationFileLoggerSettings(config);
-
-            Assert.Equal("logger.log", settings.MapToFileName(typeof(ConfigurationTest).FullName, "default.log"));
-            Assert.Equal("logger.log", settings.MapToFileName(typeof(FileLogger).FullName, "default.log"));
-            Assert.Equal("other.log", settings.MapToFileName("X.Y", "default.log"));
-        }
+            Assert.Equal("yyyyMMdd", options.DateFormat);
+            Assert.Equal("000", options.CounterFormat);
+            Assert.Equal(10, options.MaxFileSize);
+            Assert.Equal(typeof(CustomLogEntryTextBuilder), options.TextBuilder.GetType());
+            Assert.Equal(true, options.IncludeScopes);
+            Assert.Equal(100, options.MaxQueueSize);
+        }       
 
         [Fact]
         public void ReloadSettings()
@@ -232,11 +153,10 @@ $@"{{
                 settings.BasePath = "Logs";
                 settings.EnsureBasePath = true;
                 settings.FileEncoding = Encoding.Unicode;
-                settings.FileNameMappings = new[] {
-                    new FileNameMapping
-                    {
-                        Prefix = typeof(LoggingTest).FullName, FileName = "test.log" }
-                    };
+                settings.FileNameMappings = new Dictionary<string, string>
+                {
+                    { typeof(LoggingTest).FullName, "test.log" }
+                };
 
                 completionTasks.Clear();
                 newCts = new CancellationTokenSource();
@@ -373,7 +293,7 @@ $@"{{
 $@"{{ 
     '{nameof(ConfigurationFileLoggerSettings.IncludeScopes)}' : true,
     '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
-        '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Information}',
+        '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Trace}',
     }}
 }}";
 
@@ -401,7 +321,8 @@ $@"{{
 
             using (var serviceProvider = services.BuildServiceProvider())
             {
-                var logger1 = serviceProvider.GetService<ILogger<LoggingTest>>();
+                var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+                var logger1 = loggerFactory.CreateLogger<LoggingTest>();
 
                 using (logger1.BeginScope("SCOPE"))
                 {
@@ -411,7 +332,7 @@ $@"{{
                     {
                         logger1.LogInformation("This is a smart logger.");
 
-                        // changing scopes inclusion
+                        // changing switch and scopes inclusion
                         configJson =
 $@"{{
     '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
@@ -423,7 +344,10 @@ $@"{{
                         Assert.Equal(1, completionTasks.Count);
                         Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
-                        logger1.LogInformation("This shouldn't include scopes.");
+                        logger1 = loggerFactory.CreateLogger<LoggingTest>();
+
+                        logger1.LogInformation("This one shouldn't include scopes.");
+                        logger1.LogTrace("This one shouldn't be included at all.");
                     }
                 }
 
@@ -448,7 +372,7 @@ $@"{{
                 $"      => SCOPE => NESTED SCOPE",
                 $"      This is a smart logger.",
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
-                $"      This shouldn't include scopes.",
+                $"      This one shouldn't include scopes.",
                 ""
             });           
         }

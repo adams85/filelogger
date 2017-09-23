@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -33,23 +34,9 @@ namespace Karambolo.Extensions.Logging.File
         IChangeToken ChangeToken { get; }
     }
 
-    public class FileNameMapping
-    {
-        public FileNameMapping() { }
-
-        public FileNameMapping(FileNameMapping mapping)
-        {
-            Prefix = mapping.Prefix;
-            FileName = mapping.FileName;
-        }
-
-        public string Prefix { get; set; }
-        public string FileName { get; set; }
-    }
-
     public abstract class FileLoggerSettingsBase : IFileLoggerSettingsBase
     {
-        internal delegate bool TryGetLogLevel(string categoryName, out LogLevel level);
+        internal protected delegate bool TryGetLogLevel(string categoryName, out LogLevel level);
 
         public const string DefaultCategoryName = "Default";
 
@@ -70,7 +57,7 @@ namespace Karambolo.Extensions.Logging.File
             }
         }
 
-        internal static Func<string, LogLevel, bool> BuildFilter(string categoryName, TryGetLogLevel tryGetLogLevel)
+        internal protected static Func<string, LogLevel, bool> BuildFilter(string categoryName, TryGetLogLevel tryGetLogLevel)
         {
             foreach (var prefix in GetPrefixes(categoryName))
                 if (tryGetLogLevel(prefix, out LogLevel level))
@@ -84,7 +71,7 @@ namespace Karambolo.Extensions.Logging.File
         public string BasePath { get; set; } = string.Empty;
         public bool EnsureBasePath { get; set; }
         public Encoding FileEncoding { get; set; } = Encoding.UTF8;
-        public FileNameMapping[] FileNameMappings { get; set; }
+        public IDictionary<string, string> FileNameMappings { get; set; }
         public string DateFormat { get; set; }
         public string CounterFormat { get; set; }
         public int? MaxFileSize { get; set; }
@@ -95,19 +82,9 @@ namespace Karambolo.Extensions.Logging.File
         public virtual string MapToFileName(string categoryName, string fallbackFileName)
         {
             if (FileNameMappings != null)
-            {
-                var categoryPrefixes = GetPrefixes(categoryName).ToArray();
-
-                var n = FileNameMappings.Length;
-                var m = categoryPrefixes.Length;
-                for (var i = 0; i < n; i++)
-                {
-                    var mapping = FileNameMappings[i];
-                    for (var j = 0; j < m; j++)
-                        if (categoryPrefixes[j] == mapping.Prefix)
-                            return mapping.FileName ?? fallbackFileName;
-                }
-            }
+                foreach (var prefix in GetPrefixes(categoryName))
+                    if (FileNameMappings.TryGetValue(prefix, out string fileName))
+                        return fileName;
 
             return fallbackFileName;
         }
@@ -129,12 +106,7 @@ namespace Karambolo.Extensions.Logging.File
             clone.FileEncoding = FileEncoding;
 
             if (FileNameMappings != null)
-            {
-                var n = FileNameMappings.Length;
-                clone.FileNameMappings = new FileNameMapping[n];
-                for (var i = 0; i < n; i++)
-                    clone.FileNameMappings[i] = new FileNameMapping(FileNameMappings[i]);
-            }
+                clone.FileNameMappings = new Dictionary<string, string>(FileNameMappings);
 
             clone.FileNameMappings = FileNameMappings;
             clone.DateFormat = DateFormat;
@@ -189,7 +161,13 @@ namespace Karambolo.Extensions.Logging.File
 
     public class FileLoggerSettings : FileLoggerSettingsBase, IFileLoggerSettings
     {
-        public IDictionary<string, LogLevel> Switches { get; set; } = new Dictionary<string, LogLevel>();
+        public FileLoggerSettings()
+        {
+            FileNameMappings = new Dictionary<string, string>();
+            Switches = new Dictionary<string, LogLevel>();
+        }
+
+        public IDictionary<string, LogLevel> Switches { get; set; }
 
         public IChangeToken ChangeToken { get; set; }
 
@@ -198,7 +176,7 @@ namespace Karambolo.Extensions.Logging.File
             return this;
         }
 
-        protected virtual bool TryGetSwitch(string categoryName, out LogLevel level)
+        public virtual bool TryGetSwitch(string categoryName, out LogLevel level)
         {
             return Switches.TryGetValue(categoryName, out level);
         }
@@ -222,6 +200,7 @@ namespace Karambolo.Extensions.Logging.File
         public const string LogLevelSectionName = "LogLevel";
 
         readonly FileLoggerOptions _options;
+        Dictionary<string, LogLevel> _switches;
 
         public ConfigurationFileLoggerSettings(IConfiguration configuration)
         {
@@ -251,13 +230,10 @@ namespace Karambolo.Extensions.Logging.File
                 Configuration[nameof(FileLoggerOptions.FileEncodingName)],
                 v => _options.FileEncodingName = v);
 
-            SetIfNotNull(
+            SetIfNotNull(new ReadOnlyDictionary<string, string>(
                 Configuration.GetSection(nameof(FileLoggerOptions.FileNameMappings))
                     .GetChildren()
-                    .Select(cs => new { Section = cs, Index = int.TryParse(cs.Key, out int result) ? result : (int?)null })
-                    .Where(cs => cs.Index != null)
-                    .Select(cs => new FileNameMapping { Prefix = cs.Section[nameof(FileNameMapping.Prefix)], FileName = cs.Section[nameof(FileNameMapping.FileName)] })
-                    .ToArray(),
+                    .ToDictionary(cs => cs.Key, cs => cs.Value)),
                 v => _options.FileNameMappings = v);
 
             SetIfNotNull(
@@ -276,6 +252,12 @@ namespace Karambolo.Extensions.Logging.File
             SetIfNotNull(
                 Configuration[nameof(FileLoggerOptions.TextBuilderType)],
                 v => _options.TextBuilderType = v);
+
+            _switches = Configuration.GetSection(LogLevelSectionName)
+                .GetChildren()
+                .ToDictionary(
+                    cs => cs.Key, 
+                    cs => Enum.TryParse(cs.Value, out LogLevel value) ? value : throw new ArgumentException(null, $"Requested value '{cs.Value}' was not found."));
 
             stringValue = Configuration[nameof(FileLoggerOptions.IncludeScopes)];
             SetIfNotNull(
@@ -323,20 +305,9 @@ namespace Karambolo.Extensions.Logging.File
             return _options.MapToFileName(categoryName, fallbackFileName);
         }
 
-        protected virtual bool TryGetSwitch(string categoryName, out LogLevel level)
+        public virtual bool TryGetSwitch(string categoryName, out LogLevel level)
         {
-            var section = Configuration.GetSection(LogLevelSectionName);
-            string text;
-            if (section == null || string.IsNullOrEmpty(text = section[categoryName]))
-            {
-                level = LogLevel.None;
-                return false;
-            }
-
-            if (Enum.TryParse(text, true, out level))
-                return true;
-
-            throw new InvalidOperationException($"Configuration value '{text}' for category '{categoryName}' is not supported.");
+            return _switches.TryGetValue(categoryName, out level);
         }
 
         public Func<string, LogLevel, bool> BuildFilter(string categoryName)
