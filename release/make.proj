@@ -93,7 +93,7 @@ var minor = int.Parse(match.Groups[2].Value);
 var patch = int.Parse(match.Groups[3].Value);
 var revision = int.Parse(Revision);
 
-var assemblyVersion = string.Format("{0}.0", major);
+var assemblyVersion = string.Format("{0}.{1}", major, minor);
 var fileVersion = string.Format("{0}.{1}.{2}.{3}", major, minor, patch, revision);
 var nugetVersion = string.Format("{0}.{1}.{2}", major, minor, patch);
 
