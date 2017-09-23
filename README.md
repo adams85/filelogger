@@ -4,10 +4,10 @@ This class library contains an implementation of the [Microsoft.Extensions.Loggi
 
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 
-The code is based on ConsoleLogger and its **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing log messages is done in the background**. File system access is implemented using the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.fileproviders.ifileprovider) abstraction, so persistent storage can be replaced.
+The code is based on ConsoleLogger and its **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.fileproviders.ifileprovider) abstraction, so backing storage can be replaced.
 
 ### Additional features:
- - Routing log messages based on category to different files.
+ - Routing log messages based on category name to different files.
  - Rolling log files with customizable counter format.
  - Seperate log files based on log entry date.
  - Customizable log text formatting.
@@ -15,7 +15,7 @@ The code is based on ConsoleLogger and its **full feature set is implemented** (
 
 ### Usage
 
-#### NET Core 1.x
+#### .NET Core 1.x
 ```
 // build configuration...
 
@@ -26,7 +26,7 @@ var context = new FileLoggerContext(AppContext.BaseDirectory, "fallback.log");
 
 loggerFactory.AddFile(context, settings);
 ```
-#### NET Core 2.x
+#### .NET Core 2.x
 ```
 // build configuration...
 
@@ -39,18 +39,43 @@ services.AddLogging(b => b.AddFile(context));
 
 services.Configure<FileLoggerOptions>(config);
 
-// inject or resolve ILogger or ILoggerFactory from the service provider
+// inject or resolve ILogger<T> or ILoggerFactory from the service provider
 ```
+
 ### Settings
 
  - **BasePath**: path to the base directory of log files (relative to file provider root path).
- - **EnsureBasePath**: tries to create base directory if not exist.
+ - **EnsureBasePath**: tries to create base directory if it does not exist.
  - **FileEncoding**: character encoding to use. Default value: UTF-8.
- - **FileNameMappings**: defines log category name to file name mapping with (prefix, file name) pairs. Order matters, the first matching rule will be effective.
- - **DateFormat**: if set, separate files will be created based on date.
+ - **FileNameMappings**: defines log category name to file name mapping by (prefix, file name) pairs. Order matters, the first matching rule will be effective.
+ - **DateFormat**: if set, separate files will be created based on date. 
  - **CounterFormat**: specifies the format of the counter if any.
  - **MaxFileSize**: if set, new files will be created when file size limit is reached.
  - **TextBuilder**: specifies a custom log text formatter type.
- - **LogLevel**: defines log level switches (exactly as in case of ConsoleLogger)
- - **IncludeScopes**: enables including log scopes in the output (exactly as in case of ConsoleLogger)
+ - **LogLevel**: defines log level switches (exactly as in case of ConsoleLogger).
+ - **IncludeScopes**: enables including log scopes in the output (exactly as in case of ConsoleLogger).
  - **MaxQueueSize**: defines the maximum capacity of the (per file) log processor queue. If queue is full, log entries will be discarded. Default value: 64.
+
+#### Sample JSON configuration
+```
+{
+  "BasePath": "Logs",
+  "EnsureBasePath": true,
+  "FileEncoding": "utf-8",
+  "FileNameMappings": [
+    { "Prefix": "MyApp.SomeClass", "FileName": "someclass.log" },
+    { "Prefix": "MyApp", "FileName": "myapp.log" },
+    { "Prefix": "Default", "FileName": "default.log" }
+  ],
+  "DateFormat": "yyyyMMdd",
+  "CounterFormat": "000",
+  "MaxFileSize": 10485760,
+  "TextBuilder": "MyApp.CustomLogEntryTextBuilder, MyApp",
+  "LogLevel": {
+    "MyApp": "Information",
+    "Default": "Warning"
+  },
+  "IncludeScopes": true,
+  "MaxQueueSize": 100
+}
+```
