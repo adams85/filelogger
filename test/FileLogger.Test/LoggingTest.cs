@@ -17,11 +17,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 {
     public class LoggingTest
     {
-#if NETCOREAPP2_0
-        const string logsDirName = "Logs.Netstd20";
-#elif NETCOREAPP1_1
-        const string logsDirName = "Logs.Netstd13";
-#endif
+        const string logsDirName = "Logs";
 
         [Fact]
         public void LoggingToMemoryUsingFactory()
@@ -156,12 +152,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var services = new ServiceCollection();
             services.AddOptions();
-#if !NETCOREAPP1_1
-            services.AddLogging(b => b.AddFile(context));
-            services.Configure<FileLoggerOptions>(config);
-#else
             services.AddLogging();
-#endif
 
             if (Directory.Exists(logPath))
                 Directory.Delete(logPath, recursive: true);
@@ -171,9 +162,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 var ex = new Exception();
                 var serviceProvider = services.BuildServiceProvider();
 
-#if NETCOREAPP1_1
                 serviceProvider.GetService<ILoggerFactory>().AddProvider(new FileLoggerProvider(context, new ConfigurationFileLoggerSettings(config)));
-#endif
 
                 var logger1 = serviceProvider.GetService<ILogger<LoggingTest>>();
 

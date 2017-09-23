@@ -3,9 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26730.8
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger.Netstd13", "FileLogger\FileLogger.Netstd13.csproj", "{0E983CEE-A1C0-4992-83FC-5544EFA04BE7}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger.Netstd20", "FileLogger\FileLogger.Netstd20.csproj", "{A3636ED8-098F-41D0-9379-33390B257CF1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger", "FileLogger\FileLogger.csproj", "{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +11,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0E983CEE-A1C0-4992-83FC-5544EFA04BE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{0E983CEE-A1C0-4992-83FC-5544EFA04BE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0E983CEE-A1C0-4992-83FC-5544EFA04BE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{0E983CEE-A1C0-4992-83FC-5544EFA04BE7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A3636ED8-098F-41D0-9379-33390B257CF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A3636ED8-098F-41D0-9379-33390B257CF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A3636ED8-098F-41D0-9379-33390B257CF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A3636ED8-098F-41D0-9379-33390B257CF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

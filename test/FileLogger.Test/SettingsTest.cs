@@ -107,7 +107,7 @@ $@"{{
             Assert.Equal(typeof(CustomLogEntryTextBuilder), options.TextBuilder.GetType());
             Assert.Equal(true, options.IncludeScopes);
             Assert.Equal(100, options.MaxQueueSize);
-        }       
+        }
 
         [Fact]
         public void ReloadSettings()
@@ -251,7 +251,7 @@ $@"{{
                 Assert.Equal(1, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
-                logger1.LogInformation("This is a smart logger.");               
+                logger1.LogInformation("This is a smart logger.");
 
                 // ensuring that the entry is processed
                 completionTasks.Clear();
@@ -284,98 +284,5 @@ $@"{{
                 ""
             });
         }
-
-#if !NETCOREAPP1_1
-        [Fact]
-        public void ReloadOptionsSettings()
-        {
-            var configJson =
-$@"{{ 
-    '{nameof(ConfigurationFileLoggerSettings.IncludeScopes)}' : true,
-    '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
-        '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Trace}',
-    }}
-}}";
-
-            var fileProvider = new MemoryFileProvider();
-            fileProvider.CreateFile("config.json", configJson, Encoding.UTF8);
-
-            var cb = new ConfigurationBuilder();
-            cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true);
-            var config = cb.Build();
-
-            var settings = new ConfigurationFileLoggerSettings(config);
-
-            var cts = new CancellationTokenSource();
-            var context = new TestFileLoggerContext(cts.Token);
-
-            var completionTasks = new List<Task>();
-            context.Complete += (s, e) => completionTasks.Add(e);
-
-            context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-
-            var services = new ServiceCollection();
-            services.AddOptions();
-            services.AddLogging(b => b.AddFile(context));
-            services.Configure<FileLoggerOptions>(config);
-
-            using (var serviceProvider = services.BuildServiceProvider())
-            {
-                var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-                var logger1 = loggerFactory.CreateLogger<LoggingTest>();
-
-                using (logger1.BeginScope("SCOPE"))
-                {
-                    logger1.LogInformation("This is a nice logger.");
-
-                    using (logger1.BeginScope("NESTED SCOPE"))
-                    {
-                        logger1.LogInformation("This is a smart logger.");
-
-                        // changing switch and scopes inclusion
-                        configJson =
-$@"{{
-    '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
-        '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Information}',
-    }}
-}}";
-                        fileProvider.WriteContent("config.json", configJson);
-
-                        Assert.Equal(1, completionTasks.Count);
-                        Task.WhenAll(completionTasks).GetAwaiter().GetResult();
-
-                        logger1 = loggerFactory.CreateLogger<LoggingTest>();
-
-                        logger1.LogInformation("This one shouldn't include scopes.");
-                        logger1.LogTrace("This one shouldn't be included at all.");
-                    }
-                }
-
-                // ensuring that the entry is processed
-                completionTasks.Clear();
-                cts.Cancel();
-                Assert.Equal(1, completionTasks.Count);
-                Task.WhenAll(completionTasks).GetAwaiter().GetResult();
-            }
-
-            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback.log");
-            Assert.True(logFile.Exists && !logFile.IsDirectory);
-
-            var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
-            {
-                $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
-                $"      => SCOPE",
-                $"      This is a nice logger.",
-                $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
-                $"      => SCOPE => NESTED SCOPE",
-                $"      This is a smart logger.",
-                $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
-                $"      This one shouldn't include scopes.",
-                ""
-            });           
-        }
-#endif
     }
 }

@@ -1,4 +1,4 @@
-<Project>
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard1.3</TargetFramework>
@@ -6,23 +6,9 @@
     <RootNamespace>Karambolo.Extensions.Logging.File</RootNamespace>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>Karambolo.Public.snk</AssemblyOriginatorKeyFile>
-    <BaseIntermediateOutputPath>obj\netstd12\</BaseIntermediateOutputPath>
   </PropertyGroup>
 
   <Import Project="Properties\AssemblyInfo.props" />
-
-  <!-- https://stackoverflow.com/questions/45750068/setting-of-baseintermediateoutputpath-prevents-running-targets-from-nuget -->
-  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
-  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
-  <ItemGroup>
-    <Compile Remove="obj\**" />
-    <EmbeddedResource Remove="obj\**" />
-    <None Remove="obj\**" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="FileLoggerExtensions.NotNetstd13.cs" />
-    <Compile Remove="TypeConverters.cs" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="1.1.2" />

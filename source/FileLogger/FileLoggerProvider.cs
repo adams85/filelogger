@@ -6,13 +6,8 @@ using Microsoft.Extensions.Options;
 
 namespace Karambolo.Extensions.Logging.File
 {
-#if !NETSTANDARD1_3
-    [ProviderAlias(Alias)]
-#endif
     public class FileLoggerProvider : ILoggerProvider
     {
-        public const string Alias = "File";
-
         readonly Dictionary<string, FileLogger> _loggers;
 
         IFileLoggerSettings _settingsRef;
