@@ -44,7 +44,7 @@ services.Configure<FileLoggerOptions>(config);
 
 ### Settings
 
- - **BasePath**: path to the base directory of log files (relative to file provider root path).
+ - **BasePath**: path to the base directory of log files. Path is relative to (but cannot access outside of) the file provider root path.
  - **EnsureBasePath**: tries to create base directory if it does not exist.
  - **FileEncoding**: character encoding to use. Default value: UTF-8.
  - **FileNameMappings**: defines log category name to file name mapping by (prefix, file name) pairs (similarly to log level switches).
