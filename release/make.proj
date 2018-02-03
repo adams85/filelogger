@@ -75,14 +75,14 @@
 <![CDATA[
 // building version
 
-var match = Regex.Match(TagVersion, @"^(\d+)\.(\d+).(\d+)-(\d+)-\w+$");
+var match = Regex.Match(TagVersion, @"^(\d+)\.(\d+).(\d+)(-\w+)?-(\d+)-\w+$");
 if (!match.Success)
 {
     Log.LogError("Tag name must match the pattern '{major-version}.{minor-version}.{patch-number}'.");
     return false;
 }
 
-if (int.Parse(match.Groups[4].Value) != 0)
+if (int.Parse(match.Groups[5].Value) != 0)
 {
     Log.LogError("Tag must not contain changes.");
     return false;
@@ -91,11 +91,12 @@ if (int.Parse(match.Groups[4].Value) != 0)
 var major = int.Parse(match.Groups[1].Value);
 var minor = int.Parse(match.Groups[2].Value);
 var patch = int.Parse(match.Groups[3].Value);
+var prerelease = match.Groups[4].Value;
 var revision = int.Parse(Revision);
 
 var assemblyVersion = string.Format("{0}.{1}", major, minor);
 var fileVersion = string.Format("{0}.{1}.{2}.{3}", major, minor, patch, revision);
-var nugetVersion = string.Format("{0}.{1}.{2}", major, minor, patch);
+var nugetVersion = string.Format("{0}.{1}.{2}{3}", major, minor, patch, prerelease);
 
 // updating files
 Action<string, string, MatchEvaluator> update = (path, regex, replacer) =>
