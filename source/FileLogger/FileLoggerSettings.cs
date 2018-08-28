@@ -108,7 +108,6 @@ namespace Karambolo.Extensions.Logging.File
             if (FileNameMappings != null)
                 clone.FileNameMappings = new Dictionary<string, string>(FileNameMappings);
 
-            clone.FileNameMappings = FileNameMappings;
             clone.DateFormat = DateFormat;
             clone.CounterFormat = CounterFormat;
             clone.MaxFileSize = MaxFileSize;
