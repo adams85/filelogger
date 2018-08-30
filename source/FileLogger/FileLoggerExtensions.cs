@@ -14,7 +14,7 @@ namespace Karambolo.Extensions.Logging.File
     class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
         where TProvider : FileLoggerProvider
     {
-        public FileLoggerOptionsChangeTokenSource(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration) 
+        public FileLoggerOptionsChangeTokenSource(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
             : base(optionsName, providerConfiguration.Configuration) { }
     }
 
@@ -94,12 +94,9 @@ namespace Karambolo.Extensions.Logging.File
             return ((MethodCallExpression)callExpr.Body).Method.GetGenericMethodDefinition();
         });
 
-        public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, string optionsName, IFileLoggerContext context = null, Action<FileLoggerOptions> configure = null)
+        static Func<IServiceProvider, TProvider> CreateProviderFactory<TProvider>(IFileLoggerContext context, string optionsName)
             where TProvider : FileLoggerProvider
         {
-            if (optionsName == null)
-                throw new ArgumentNullException(nameof(optionsName));
-
             var constructorArgTypes = new[] { typeof(IFileLoggerContext), typeof(IOptionsMonitor<FileLoggerOptions>), typeof(string) };
 
             var constructor = typeof(TProvider).GetConstructor(constructorArgTypes);
@@ -113,8 +110,16 @@ namespace Karambolo.Extensions.Logging.File
                 Expression.Constant(optionsName, typeof(string)));
 
             var factory = Expression.Lambda<Func<IServiceProvider, TProvider>>(newExpr, param).Compile();
+            return factory;
+        }
 
-            builder.AddFile(optionsName, factory);
+        public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, IFileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
+            where TProvider : FileLoggerProvider
+        {
+            if (optionsName == null)
+                optionsName = typeof(TProvider).FullName;
+
+            builder.AddFile(optionsName, CreateProviderFactory<TProvider>(context, optionsName));
             builder.Services.Configure(optionsName, configure);
             return builder;
         }

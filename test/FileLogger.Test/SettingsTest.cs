@@ -473,7 +473,7 @@ $@"{{
             {
                 lb.AddConfiguration(config);
                 lb.AddFile(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
-                lb.AddFile<OtherFileLoggerProvider>(OtherFileLoggerProvider.Alias, context, o => o.FileAppender = o.FileAppender ?? fileAppender);
+                lb.AddFile<OtherFileLoggerProvider>(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
             });
 
             using (var sp = services.BuildServiceProvider())
