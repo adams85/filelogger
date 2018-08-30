@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
     <AssemblyName>Karambolo.Extensions.Logging.File.Test</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File.Test</RootNamespace>
+    <LangVersion>7.1</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
