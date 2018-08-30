@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File
 {
@@ -19,7 +20,7 @@ namespace Karambolo.Extensions.Logging.File
     {
         protected class LogFileInfo
         {
-            public string BasePath => Settings.BasePath;
+            public string BasePath { get; set; }
             public string FileName { get; set; }
             public string Extension { get; set; }
 
@@ -38,6 +39,7 @@ namespace Karambolo.Extensions.Logging.File
         [ThreadStatic]
         static StringBuilder stringBuilder;
 
+        readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
         readonly Dictionary<string, LogFileInfo> _logFiles;
 
         readonly CancellationTokenRegistration _completeTokenRegistration;
@@ -52,8 +54,18 @@ namespace Karambolo.Extensions.Logging.File
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
 
+#pragma warning disable CS0618 // Type or member is obsolete
+            var physicalFileProvider = context.FileProvider == null ? null : context.FileProvider as PhysicalFileProvider ??
+#pragma warning restore CS0618 // Type or member is obsolete
+                throw new ArgumentException($"File provider must be {nameof(PhysicalFileProvider)}", nameof(context));
+
+            _fallbackFileAppender =
+                physicalFileProvider != null ?
+                new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(physicalFileProvider)) :
+                new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(Environment.CurrentDirectory));
+
             Context = context;
-            Settings = settings.ToImmutable();
+            Settings = settings.Freeze();
 
             _logFiles = new Dictionary<string, LogFileInfo>();
 
@@ -67,6 +79,9 @@ namespace Karambolo.Extensions.Logging.File
 
             _shutdownTokenSource.Cancel();
             _shutdownTokenSource.Dispose();
+
+            if (_fallbackFileAppender.IsValueCreated)
+                _fallbackFileAppender.Value.Dispose();
         }
 
         public void Dispose()
@@ -117,7 +132,7 @@ namespace Karambolo.Extensions.Logging.File
                 _logFiles.Clear();
 
                 if (newSettings != null)
-                    Settings = newSettings.ToImmutable();
+                    Settings = newSettings.Freeze();
             }
 
             await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout));
@@ -129,6 +144,29 @@ namespace Karambolo.Extensions.Logging.File
         protected virtual LogFileInfo CreateLogFile()
         {
             return new LogFileInfo();
+        }
+
+        protected virtual LogFileInfo CreateLogFile(string fileName)
+        {
+            var logFile = CreateLogFile();
+
+            logFile.BasePath = Settings.BasePath ?? string.Empty;
+            logFile.FileName = Path.ChangeExtension(fileName, null);
+            logFile.Extension = Path.GetExtension(fileName);
+
+            logFile.Settings = Settings;
+
+            // important: closure must pick up the current token!
+            var shutdownToken = _shutdownTokenSource.Token;
+            logFile.Queue = new ActionBlock<FileLogEntry>(
+                e => WriteEntryAsync(logFile, e, shutdownToken),
+                new ExecutionDataflowBlockOptions
+                {
+                    MaxDegreeOfParallelism = 1,
+                    BoundedCapacity = Settings.MaxQueueSize,
+                });
+
+            return logFile;
         }
 
         public void Enqueue(string fileName, FileLogEntry entry)
@@ -144,33 +182,20 @@ namespace Karambolo.Extensions.Logging.File
                     return;
 
                 if (!_logFiles.TryGetValue(fileName, out logFile))
-                {
-                    logFile = CreateLogFile();
-                    logFile.FileName = Path.ChangeExtension(fileName, null);
-                    logFile.Extension = Path.GetExtension(fileName);
-
-                    logFile.Settings = Settings;
-
-                    // important: closure must pick up the current token!
-                    var shutdownToken = _shutdownTokenSource.Token;
-                    logFile.Queue = new ActionBlock<FileLogEntry>(
-                        e => WriteEntryAsync(logFile, e, shutdownToken),
-                        new ExecutionDataflowBlockOptions
-                        {
-                            MaxDegreeOfParallelism = 1,
-                            BoundedCapacity = Settings.MaxQueueSize,
-                        });
-
-                    _logFiles.Add(fileName, logFile);
-                }
+                    _logFiles.Add(fileName, logFile = CreateLogFile(fileName));
             }
 
             logFile.Queue.Post(entry);
         }
 
+        protected virtual IFileAppender GetFileAppender(LogFileInfo logFile)
+        {
+            return logFile.Settings.FileAppender ?? _fallbackFileAppender.Value;
+        }
+
         protected virtual Encoding GetFileEncoding(LogFileInfo logFile, FileLogEntry entry)
         {
-            return logFile.Settings.FileEncoding;
+            return logFile.Settings.FileEncoding ?? Encoding.UTF8;
         }
 
         protected virtual bool HasPostfix(LogFileInfo logFile, FileLogEntry entry)
@@ -193,11 +218,11 @@ namespace Karambolo.Extensions.Logging.File
             }
         }
 
-        protected virtual bool CheckLogFile(LogFileInfo logFile, string postfix, Encoding fileEncoding, FileLogEntry entry)
+        protected virtual bool CheckLogFile(LogFileInfo logFile, string postfix, IFileAppender fileAppender, Encoding fileEncoding, FileLogEntry entry)
         {
             if (logFile.Settings.MaxFileSize > 0)
             {
-                var fileInfo = Context.FileProvider.GetFileInfo(logFile.GetFilePath(postfix));
+                var fileInfo = fileAppender.FileProvider.GetFileInfo(logFile.GetFilePath(postfix));
                 if (fileInfo.Exists &&
                     (fileInfo.IsDirectory || fileInfo.Length + fileEncoding.GetByteCount(entry.Text) > logFile.Settings.MaxFileSize))
                 {
@@ -209,7 +234,7 @@ namespace Karambolo.Extensions.Logging.File
             return true;
         }
 
-        string GetPostfix(LogFileInfo logFile, Encoding fileEncoding, FileLogEntry entry)
+        string GetPostfix(LogFileInfo logFile, IFileAppender fileAppender, Encoding fileEncoding, FileLogEntry entry)
         {
             if (HasPostfix(logFile, entry))
             {
@@ -224,7 +249,7 @@ namespace Karambolo.Extensions.Logging.File
                     var postfix = sb.ToString();
                     sb.Clear();
 
-                    if (CheckLogFile(logFile, postfix, fileEncoding, entry))
+                    if (CheckLogFile(logFile, postfix, fileAppender, fileEncoding, entry))
                     {
                         if (sb.Capacity > 64)
                             sb.Capacity = 64;
@@ -244,22 +269,19 @@ namespace Karambolo.Extensions.Logging.File
             // discarding remaining entries on shutdown
             shutdownToken.ThrowIfCancellationRequested();
 
-            Encoding fileEncoding;
-            string filePath;
-            bool ensureBasePath;
+            var fileAppender = GetFileAppender(logFile);
+            var fileEncoding = GetFileEncoding(logFile, entry);
+            var postfix = GetPostfix(logFile, fileAppender, fileEncoding, entry);
+            var filePath = logFile.GetFilePath(postfix);
+            var ensureBasePath = logFile.Settings.EnsureBasePath;
 
-            fileEncoding = GetFileEncoding(logFile, entry);
-            var postfix = GetPostfix(logFile, fileEncoding, entry);
-            filePath = logFile.GetFilePath(postfix);
-            ensureBasePath = logFile.Settings.EnsureBasePath;
-
-            var fileInfo = Context.FileProvider.GetFileInfo(filePath);
+            var fileInfo = fileAppender.FileProvider.GetFileInfo(filePath);
 
             while (true)
             {
                 try
                 {
-                    await Context.AppendAllTextAsync(fileInfo, entry.Text, fileEncoding).ConfigureAwait(false);
+                    await fileAppender.AppendAllTextAsync(fileInfo, entry.Text, fileEncoding, shutdownToken).ConfigureAwait(false);
                     return;
                 }
                 catch
@@ -267,9 +289,9 @@ namespace Karambolo.Extensions.Logging.File
                     if (ensureBasePath)
                         try
                         {
-                            if (await Context.EnsureDirAsync(fileInfo).ConfigureAwait(false))
+                            if (await fileAppender.EnsureDirAsync(fileInfo, shutdownToken).ConfigureAwait(false))
                             {
-                                await Context.AppendAllTextAsync(fileInfo, entry.Text, fileEncoding).ConfigureAwait(false);
+                                await fileAppender.AppendAllTextAsync(fileInfo, entry.Text, fileEncoding, shutdownToken).ConfigureAwait(false);
                                 return;
                             }
                         }

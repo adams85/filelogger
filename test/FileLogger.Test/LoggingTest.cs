@@ -18,12 +18,16 @@ namespace Karambolo.Extensions.Logging.File.Test
     public class LoggingTest
     {
         const string logsDirName = "Logs";
+        public const string FallbackFileName = "default.log";
 
         [Fact]
         public void LoggingToMemoryUsingFactory()
         {
+            var fileProvider = new MemoryFileProvider();
+
             var settings = new FileLoggerSettings
             {
+                FileAppender = new MemoryFileAppender(fileProvider),
                 BasePath = logsDirName,
                 EnsureBasePath = true,
                 FileEncoding = Encoding.UTF8,
@@ -77,45 +81,45 @@ namespace Karambolo.Extensions.Logging.File.Test
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
-            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000.log");
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"[info]: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        This is a nice logger.",
                 ""
-            });
+            }, lines);
 
-            logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-001.log");
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-001.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"[warn]: {typeof(LoggingTest).FullName}[1] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        => SCOPE",
                 $"        This is a smart logger.",
                 ""
-            });
+            }, lines);
 
-            logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo(
-                $@"{logsDirName}\{Path.ChangeExtension(context.FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000{Path.GetExtension(context.FallbackFileName)}");
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo(
+                $@"{logsDirName}\{Path.ChangeExtension(FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000{Path.GetExtension(FallbackFileName)}");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"[fail]: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        => SCOPE => NESTED SCOPE",
                 $"        Some failure!",
             }
             .Concat(ex.ToString().Split(new[] { Environment.NewLine }, StringSplitOptions.None))
-            .Append(""));
+            .Append(""), lines);
         }
 
         [Fact]
@@ -142,7 +146,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             var tempPath = Path.GetTempPath();
             var logPath = Path.Combine(tempPath, logsDirName);
 
-            var context = new TestFileLoggerContext(new PhysicalFileProvider(tempPath), cts.Token);
+            var context = new TestFileLoggerContext(new PhysicalFileProvider(tempPath), "fallback.log", cts.Token);
 
             var completionTasks = new List<Task>();
             context.Complete += (s, e) => completionTasks.Add(e);
@@ -183,33 +187,37 @@ namespace Karambolo.Extensions.Logging.File.Test
                 Assert.Equal(1, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
+#pragma warning disable CS0618 // Type or member is obsolete
                 var logFile = context.FileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}.log");
+#pragma warning restore CS0618 // Type or member is obsolete
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
                 var lines = ReadContent(logFile, out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
                 Assert.Equal(Encoding.Unicode, encoding);
-                Assert.Equal(lines, new[]
+                Assert.Equal(new[]
                 {
                     $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                     $"      This is a nice logger.",
                     $"warn: {typeof(LoggingTest).FullName}[1] @ {context.GetTimestamp().ToLocalTime():o}",
                     $"      This is a smart logger.",
                     ""
-                });
+                }, lines);
 
+#pragma warning disable CS0618 // Type or member is obsolete
                 logFile = context.FileProvider.GetFileInfo(
                     $@"{logsDirName}\{Path.ChangeExtension(context.FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}{Path.GetExtension(context.FallbackFileName)}");
+#pragma warning restore CS0618 // Type or member is obsolete
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
                 lines = ReadContent(logFile, out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
                 Assert.Equal(Encoding.Unicode, encoding);
-                Assert.Equal(lines, new[]
+                Assert.Equal(new[]
                 {
                     $"fail: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
                     $"      Some failure!",
                 }
                 .Concat(ex.ToString().Split(new[] { Environment.NewLine }, StringSplitOptions.None))
-                .Append(""));
+                .Append(""), lines);
             }
             finally
             {

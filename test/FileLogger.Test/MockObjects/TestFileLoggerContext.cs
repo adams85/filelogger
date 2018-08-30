@@ -10,13 +10,16 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
     class TestFileLoggerContext : FileLoggerContext
     {
         public TestFileLoggerContext(CancellationToken completeToken = default)
-            : this(new MemoryFileAppender(), completeToken) { }
+            : base(completeToken)
+        {
+            _writeRetryDelay = base.WriteRetryDelay;
+            _completionTimeout = base.CompletionTimeout;
+        }
 
-        public TestFileLoggerContext(PhysicalFileProvider fileProvider, CancellationToken completeToken = default)
-            : this(new PhysicalFileAppender(fileProvider), completeToken) { }
-
-        public TestFileLoggerContext(IFileAppender fileAppender, CancellationToken completeToken = default)
-            : base(fileAppender, "fallback.log", completeToken)
+        public TestFileLoggerContext(PhysicalFileProvider fileProvider, string fallbackFileName, CancellationToken completeToken = default)
+#pragma warning disable CS0618 // Type or member is obsolete
+            : base(fileProvider, fallbackFileName, completeToken)
+#pragma warning restore CS0618 // Type or member is obsolete
         {
             _writeRetryDelay = base.WriteRetryDelay;
             _completionTimeout = base.CompletionTimeout;

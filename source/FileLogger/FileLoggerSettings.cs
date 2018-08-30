@@ -12,9 +12,11 @@ namespace Karambolo.Extensions.Logging.File
 {
     public interface IFileLoggerSettingsBase
     {
+        IFileAppender FileAppender { get; }
         string BasePath { get; }
         bool EnsureBasePath { get; }
         Encoding FileEncoding { get; }
+        string FallbackFileName { get; }
         string DateFormat { get; }
         string CounterFormat { get; }
         int MaxFileSize { get; }
@@ -25,7 +27,7 @@ namespace Karambolo.Extensions.Logging.File
         string MapToFileName(string categoryName, string fallbackFileName);
         Func<string, LogLevel, bool> BuildFilter(string categoryName);
 
-        IFileLoggerSettingsBase ToImmutable();
+        IFileLoggerSettingsBase Freeze();
     }
 
     public interface IFileLoggerSettings : IFileLoggerSettingsBase
@@ -66,11 +68,34 @@ namespace Karambolo.Extensions.Logging.File
             return (c, l) => false;
         }
 
-        bool _immutable;
+        bool _isFrozen;
 
-        public string BasePath { get; set; } = string.Empty;
+        protected FileLoggerSettingsBase() { }
+
+        protected FileLoggerSettingsBase(FileLoggerSettingsBase other)
+        {
+            FileAppender = other.FileAppender;
+            BasePath = other.BasePath;
+            EnsureBasePath = other.EnsureBasePath;
+            FileEncoding = other.FileEncoding;
+
+            FallbackFileName = other.FallbackFileName;
+            if (other.FileNameMappings != null)
+                FileNameMappings = new Dictionary<string, string>(other.FileNameMappings);
+
+            DateFormat = other.DateFormat;
+            CounterFormat = other.CounterFormat;
+            MaxFileSize = other.MaxFileSize;
+            TextBuilder = other.TextBuilder;
+            IncludeScopes = other.IncludeScopes;
+            MaxQueueSize = other.MaxQueueSize;
+        }
+
+        public IFileAppender FileAppender { get; set; }
+        public string BasePath { get; set; }
         public bool EnsureBasePath { get; set; }
-        public Encoding FileEncoding { get; set; } = Encoding.UTF8;
+        public Encoding FileEncoding { get; set; }
+        public string FallbackFileName { get; set; }
         public IDictionary<string, string> FileNameMappings { get; set; }
         public string DateFormat { get; set; }
         public string CounterFormat { get; set; }
@@ -93,34 +118,29 @@ namespace Karambolo.Extensions.Logging.File
 
         protected abstract FileLoggerSettingsBase CreateClone();
 
-        public IFileLoggerSettingsBase ToImmutable()
+        IFileLoggerSettingsBase IFileLoggerSettingsBase.Freeze()
         {
-            if (_immutable)
+            if (_isFrozen)
                 return this;
 
             var clone = CreateClone();
-            clone._immutable = true;
-
-            clone.BasePath = BasePath;
-            clone.EnsureBasePath = EnsureBasePath;
-            clone.FileEncoding = FileEncoding;
-
-            if (FileNameMappings != null)
-                clone.FileNameMappings = new Dictionary<string, string>(FileNameMappings);
-
-            clone.DateFormat = DateFormat;
-            clone.CounterFormat = CounterFormat;
-            clone.MaxFileSize = MaxFileSize;
-            clone.TextBuilder = TextBuilder;
-            clone.IncludeScopes = IncludeScopes;
-            clone.MaxQueueSize = MaxQueueSize;
-
+            clone._isFrozen = true;
             return clone;
         }
     }
 
     public class FileLoggerOptions : FileLoggerSettingsBase
     {
+        public FileLoggerOptions() { }
+
+        protected FileLoggerOptions(FileLoggerOptions other) : base(other) { }
+
+        public string RootPath
+        {
+            get => (FileAppender as PhysicalFileAppender)?.FileProvider.Root;
+            set => FileAppender = new PhysicalFileAppender(value);
+        }
+
         public string FileEncodingName
         {
             get => FileEncoding?.WebName;
@@ -154,7 +174,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected override FileLoggerSettingsBase CreateClone()
         {
-            return new FileLoggerOptions();
+            return new FileLoggerOptions(this);
         }
     }
 
@@ -164,6 +184,12 @@ namespace Karambolo.Extensions.Logging.File
         {
             FileNameMappings = new Dictionary<string, string>();
             Switches = new Dictionary<string, LogLevel>();
+        }
+
+        protected FileLoggerSettings(FileLoggerSettings other) : base(other)
+        {
+            if (other.Switches != null)
+                Switches = new Dictionary<string, LogLevel>(other.Switches);
         }
 
         public IDictionary<string, LogLevel> Switches { get; set; }
@@ -187,10 +213,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected override FileLoggerSettingsBase CreateClone()
         {
-            return new FileLoggerSettings
-            {
-                Switches = Switches != null ? new Dictionary<string, LogLevel>(Switches) : null
-            };
+            return new FileLoggerSettings(this);
         }
     }
 
@@ -198,88 +221,39 @@ namespace Karambolo.Extensions.Logging.File
     {
         public const string LogLevelSectionName = "LogLevel";
 
+        readonly Action<FileLoggerSettingsBase> _postConfigure;
         readonly FileLoggerOptions _options;
         Dictionary<string, LogLevel> _switches;
 
         public ConfigurationFileLoggerSettings(IConfiguration configuration)
+            : this(configuration, null) { }
+
+        public ConfigurationFileLoggerSettings(IConfiguration configuration, Action<FileLoggerSettingsBase> postConfigure)
         {
             if (configuration == null)
                 throw new ArgumentNullException(nameof(configuration));
 
             Configuration = configuration;
+            _postConfigure = postConfigure;
 
             _options = CreateLoggerOptions();
-            LoadOptions();
+            configuration.Bind(_options);
+
+            _switches = new Dictionary<string, LogLevel>();
+            configuration.Bind(LogLevelSectionName, _switches);
+
+            _postConfigure?.Invoke(_options);
 
             ChangeToken = Configuration.GetReloadToken();
         }
 
-        void LoadOptions()
-        {
-            SetIfNotNull(
-                Configuration[nameof(FileLoggerOptions.BasePath)],
-                v => _options.BasePath = v);
-
-            var stringValue = Configuration[nameof(FileLoggerOptions.EnsureBasePath)];
-            SetIfNotNull(
-                !string.IsNullOrEmpty(stringValue) ? bool.Parse(stringValue) : (bool?)null,
-                v => _options.EnsureBasePath = v.Value);
-
-            SetIfNotNull(
-                Configuration[nameof(FileLoggerOptions.FileEncodingName)],
-                v => _options.FileEncodingName = v);
-
-            SetIfNotNull(new ReadOnlyDictionary<string, string>(
-                Configuration.GetSection(nameof(FileLoggerOptions.FileNameMappings))
-                    .GetChildren()
-                    .ToDictionary(cs => cs.Key, cs => cs.Value)),
-                v => _options.FileNameMappings = v);
-
-            SetIfNotNull(
-                Configuration[nameof(FileLoggerOptions.DateFormat)],
-                v => _options.DateFormat = v);
-
-            SetIfNotNull(
-                Configuration[nameof(FileLoggerOptions.CounterFormat)],
-                v => _options.CounterFormat = v);
-
-            stringValue = Configuration[nameof(FileLoggerOptions.MaxFileSize)];
-            SetIfNotNull(
-                !string.IsNullOrEmpty(stringValue) ? int.Parse(stringValue) : (int?)null,
-                v => _options.MaxFileSize = v.Value);
-
-            SetIfNotNull(
-                Configuration[nameof(FileLoggerOptions.TextBuilderType)],
-                v => _options.TextBuilderType = v);
-
-            _switches = Configuration.GetSection(LogLevelSectionName)
-                .GetChildren()
-                .ToDictionary(
-                    cs => cs.Key, 
-                    cs => Enum.TryParse(cs.Value, out LogLevel value) ? value : throw new ArgumentException(null, $"Requested value '{cs.Value}' was not found."));
-
-            stringValue = Configuration[nameof(FileLoggerOptions.IncludeScopes)];
-            SetIfNotNull(
-                !string.IsNullOrEmpty(stringValue) ? bool.Parse(stringValue) : (bool?)null,
-                v => _options.IncludeScopes = v.Value);
-
-            stringValue = Configuration[nameof(FileLoggerOptions.MaxQueueSize)];
-            SetIfNotNull(
-                !string.IsNullOrEmpty(stringValue) ? int.Parse(stringValue) : (int?)null,
-                v => _options.MaxQueueSize = v.Value);
-
-            void SetIfNotNull<T>(T value, Action<T> setter)
-            {
-                if (value != null)
-                    setter(value);
-            }
-        }
-
         protected IConfiguration Configuration { get; }
 
+        public IFileAppender FileAppender => _options.FileAppender;
         public string BasePath => _options.BasePath;
         public bool EnsureBasePath => _options.EnsureBasePath;
         public Encoding FileEncoding => _options.FileEncoding;
+        public string FallbackFileName => _options.FallbackFileName;
         public string DateFormat => _options.DateFormat;
         public string CounterFormat => _options.CounterFormat;
         public int MaxFileSize => _options.MaxFileSize;
@@ -296,7 +270,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual ConfigurationFileLoggerSettings CreateLoggerSettings()
         {
-            return new ConfigurationFileLoggerSettings(Configuration);
+            return new ConfigurationFileLoggerSettings(Configuration, _postConfigure);
         }
 
         public string MapToFileName(string categoryName, string fallbackFileName)
@@ -320,7 +294,7 @@ namespace Karambolo.Extensions.Logging.File
             return CreateLoggerSettings();
         }
 
-        public IFileLoggerSettingsBase ToImmutable()
+        IFileLoggerSettingsBase IFileLoggerSettingsBase.Freeze()
         {
             return this;
         }

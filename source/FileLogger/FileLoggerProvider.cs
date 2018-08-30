@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -19,18 +22,19 @@ namespace Karambolo.Extensions.Logging.File
 
         protected FileLoggerProvider(IFileLoggerContext context, IFileLoggerSettingsBase settings)
         {
-            if (context == null)
-                throw new ArgumentNullException(nameof(context));
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
 
-            Context = context;
-            Settings = settings.ToImmutable();
+            Context = context ?? FileLoggerContext.Default;
+            Settings = settings.Freeze();
 
             Processor = CreateProcessor(Settings);
 
             _loggers = new Dictionary<string, FileLogger>();
         }
+
+        public FileLoggerProvider(IFileLoggerSettings settings)
+            : this(null, settings) { }
 
         public FileLoggerProvider(IFileLoggerContext context, IFileLoggerSettings settings)
             : this(context, (IFileLoggerSettingsBase)settings)
@@ -42,6 +46,9 @@ namespace Karambolo.Extensions.Logging.File
                 settings.ChangeToken.RegisterChangeCallback(HandleSettingsChanged, null) :
                 null;
         }
+
+        public FileLoggerProvider(IOptionsMonitor<FileLoggerOptions> options)
+            : this(null, options) { }
 
         public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options)
             : this(context, options != null ? options.CurrentValue : throw new ArgumentNullException(nameof(options)))
@@ -84,7 +91,9 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual string GetFallbackFileName(string categoryName)
         {
-            return Context.FallbackFileName;
+#pragma warning disable CS0618 // Type or member is obsolete
+            return Settings.FallbackFileName ?? Context.FallbackFileName ?? "default.log";
+#pragma warning restore CS0618 // Type or member is obsolete
         }
 
         bool HandleSettingsChangedCore(IFileLoggerSettingsBase settings)
@@ -94,7 +103,7 @@ namespace Karambolo.Extensions.Logging.File
                 if (_isDisposed)
                     return false;
 
-                Settings = settings.ToImmutable();
+                Settings = settings.Freeze();
 
                 foreach (var logger in _loggers.Values)
                     logger.Update(GetFallbackFileName(logger.CategoryName), Settings);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,9 +21,11 @@ namespace Karambolo.Extensions.Logging.File.Test
         {
             var configData = new Dictionary<string, string>
             {
+                [$"{nameof(FileLoggerOptions.RootPath)}"] = Path.DirectorySeparatorChar.ToString(),
                 [$"{nameof(FileLoggerOptions.BasePath)}"] = "Logs",
                 [$"{nameof(FileLoggerOptions.EnsureBasePath)}"] = "true",
                 [$"{nameof(FileLoggerOptions.FileEncodingName)}"] = "UTF-8",
+                [$"{nameof(FileLoggerOptions.FallbackFileName)}"] = "other.log",
                 [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File"] = "logger.log",
                 [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File.Test"] = "test.log",
                 [$"{nameof(FileLoggerOptions.DateFormat)}"] = "yyyyMMdd",
@@ -41,16 +44,19 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var settings = new ConfigurationFileLoggerSettings(config);
 
+            Assert.True(settings.FileAppender is PhysicalFileAppender);
+            Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)settings.FileAppender).FileProvider.Root);
             Assert.Equal("Logs", settings.BasePath);
             Assert.Equal(true, settings.EnsureBasePath);
             Assert.Equal(Encoding.UTF8, settings.FileEncoding);
+            Assert.Equal("other.log", settings.FallbackFileName);
             Assert.Equal("test.log", settings.MapToFileName(typeof(SettingsTest).FullName, "default.log"));
             Assert.Equal("logger.log", settings.MapToFileName(typeof(FileLogger).FullName, "default.log"));
             Assert.Equal("default.log", settings.MapToFileName("X.Y", "default.log"));
             Assert.Equal("yyyyMMdd", settings.DateFormat);
             Assert.Equal("000", settings.CounterFormat);
             Assert.Equal(10, settings.MaxFileSize);
-            Assert.Equal(typeof(CustomLogEntryTextBuilder), settings.TextBuilder.GetType());
+            Assert.True(settings.TextBuilder is CustomLogEntryTextBuilder);
             Assert.True(settings.TryGetSwitch(typeof(SettingsTest).Namespace, out LogLevel logLevel));
             Assert.Equal(LogLevel.Information, logLevel);
             Assert.True(settings.TryGetSwitch(typeof(FileLogger).Namespace, out logLevel));
@@ -65,9 +71,11 @@ namespace Karambolo.Extensions.Logging.File.Test
         {
             var configJson =
 $@"{{ 
+    '{nameof(FileLoggerOptions.RootPath)}': '{Path.DirectorySeparatorChar.ToString().Replace(@"\", @"\\")}',
     '{nameof(FileLoggerOptions.BasePath)}': 'Logs',
     '{nameof(FileLoggerOptions.EnsureBasePath)}': true,
     '{nameof(FileLoggerOptions.FileEncodingName)}': 'utf-8',
+    '{nameof(FileLoggerOptions.FallbackFileName)}': 'other.log',
     '{nameof(FileLoggerOptions.FileNameMappings)}': {{
         'Karambolo.Extensions.Logging.File': 'logger.log',
         'Karambolo.Extensions.Logging.File.Test': 'test.log',
@@ -95,9 +103,12 @@ $@"{{
 
             var options = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
 
+            Assert.True(options.FileAppender is PhysicalFileAppender);
+            Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)options.FileAppender).FileProvider.Root);
             Assert.Equal("Logs", options.BasePath);
             Assert.Equal(true, options.EnsureBasePath);
             Assert.Equal(Encoding.UTF8, options.FileEncoding);
+            Assert.Equal("other.log", options.FallbackFileName);
             Assert.Equal("test.log", options.MapToFileName(typeof(SettingsTest).FullName, "default.log"));
             Assert.Equal("logger.log", options.MapToFileName(typeof(FileLogger).FullName, "default.log"));
             Assert.Equal("default.log", options.MapToFileName("X.Y", "default.log"));
@@ -112,10 +123,13 @@ $@"{{
         [Fact]
         public void ReloadSettings()
         {
+            var fileProvider = new MemoryFileProvider();
+
             var cts = new CancellationTokenSource();
 
             var settings = new FileLoggerSettings
             {
+                FileAppender = new MemoryFileAppender(fileProvider),
                 Switches = new Dictionary<string, LogLevel>
                 {
                     { FileLoggerSettingsBase.DefaultCategoryName, LogLevel.Information }
@@ -123,13 +137,14 @@ $@"{{
                 ChangeToken = new CancellationChangeToken(cts.Token)
             };
 
-            var context = new TestFileLoggerContext(CancellationToken.None);
+            var context = new TestFileLoggerContext();
 
             var completionTasks = new List<Task>();
             context.Complete += (s, e) => completionTasks.Add(e);
 
             context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
+            var otherFileAppender = new MemoryFileAppender();
             using (var loggerFactory = new LoggerFactory())
             {
                 loggerFactory.AddFile(context, settings);
@@ -158,48 +173,72 @@ $@"{{
                     { typeof(LoggingTest).FullName, "test.log" }
                 };
 
-                completionTasks.Clear();
                 newCts = new CancellationTokenSource();
                 settings.ChangeToken = new CancellationChangeToken(newCts.Token);
                 cts.Cancel();
                 cts = newCts;
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Equal(2, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                 logger1.LogWarning("This goes to another file.");
 
-                // ensuring that the entry is processed
-                completionTasks.Clear();
+                // changing file appender and fallback filename
+                settings.FileAppender = otherFileAppender;
+                settings.FallbackFileName = "test.log";
+                settings.FileNameMappings = null;
+
+                newCts = new CancellationTokenSource();
+                settings.ChangeToken = new CancellationChangeToken(newCts.Token);
                 cts.Cancel();
-                Assert.Equal(1, completionTasks.Count);
+                cts = newCts;
+                Assert.Equal(3, completionTasks.Count);
+                Task.WhenAll(completionTasks).GetAwaiter().GetResult();
+
+                logger1.LogWarning("This goes to another file provider.");
+
+                // ensuring that the entry is processed
+                cts.Cancel();
+                Assert.Equal(4, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
-            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback.log");
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo(LoggingTest.FallbackFileName);
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"      This is a nice logger.",
                 $"[info]: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        This is a smart logger.",
                 ""
-            });
+            }, lines);
 
-            logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"Logs\test.log");
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"Logs\test.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.Unicode, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"[warn]: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        This goes to another file.",
                 ""
-            });
+            }, lines);
+
+            logFile = (MemoryFileInfo)otherFileAppender.FileProvider.GetFileInfo($@"Logs\test.log");
+            Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+            lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.Unicode, logFile.Encoding);
+            Assert.Equal(new[]
+            {
+                $"[warn]: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"        This goes to another file provider.",
+                ""
+            }, lines);
         }
 
         [Fact]
@@ -220,7 +259,8 @@ $@"{{
             cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true);
             var config = cb.Build();
 
-            var settings = new ConfigurationFileLoggerSettings(config);
+            var fileAppender = new MemoryFileAppender(fileProvider);
+            var settings = new ConfigurationFileLoggerSettings(config, o => o.FileAppender = o.FileAppender ?? fileAppender);
 
             var cts = new CancellationTokenSource();
             var context = new TestFileLoggerContext(cts.Token);
@@ -261,39 +301,41 @@ $@"{{
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
-            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback-0.log");
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{Path.ChangeExtension(LoggingTest.FallbackFileName, null)}-0{Path.GetExtension(LoggingTest.FallbackFileName)}");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"      This is a nice logger.",
                 ""
-            });
+            }, lines);
 
-            logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-00.log");
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{Path.ChangeExtension(LoggingTest.FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-00{Path.GetExtension(LoggingTest.FallbackFileName)}");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"      This is a smart logger.",
                 ""
-            });
+            }, lines);
         }
 
         [Fact]
         public void ReloadOptionsSettings()
         {
             var configJson =
-$@"{{ 
-    '{nameof(ConfigurationFileLoggerSettings.IncludeScopes)}' : true,
-    '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
-        '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Trace}',
+$@"{{
+    '{FileLoggerProvider.Alias}': {{
+        '{nameof(ConfigurationFileLoggerSettings.IncludeScopes)}' : true,
+        '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
+            '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Trace}',
+        }}
     }}
 }}";
 
@@ -303,8 +345,6 @@ $@"{{
             var cb = new ConfigurationBuilder();
             cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true);
             var config = cb.Build();
-
-            var settings = new ConfigurationFileLoggerSettings(config);
 
             var cts = new CancellationTokenSource();
             var context = new TestFileLoggerContext(cts.Token);
@@ -316,8 +356,16 @@ $@"{{
 
             var services = new ServiceCollection();
             services.AddOptions();
-            services.AddLogging(b => b.AddFile(context));
-            services.Configure<FileLoggerOptions>(config);
+            services.AddLogging(b =>
+            {
+                b.AddConfiguration(config);
+                b.AddFile(context);
+            });
+
+            services.Configure<FileLoggerOptions>(config.GetSection(FileLoggerProvider.Alias));
+
+            var fileAppender = new MemoryFileAppender(fileProvider);
+            services.Configure<FileLoggerOptions>(o => o.FileAppender = o.FileAppender ?? fileAppender);
 
             using (var serviceProvider = services.BuildServiceProvider())
             {
@@ -326,7 +374,7 @@ $@"{{
 
                 using (logger1.BeginScope("SCOPE"))
                 {
-                    logger1.LogInformation("This is a nice logger.");
+                    logger1.LogTrace("This is a nice logger.");
 
                     using (logger1.BeginScope("NESTED SCOPE"))
                     {
@@ -335,8 +383,10 @@ $@"{{
                         // changing switch and scopes inclusion
                         configJson =
 $@"{{
-    '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
-        '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Information}',
+    '{FileLoggerProvider.Alias}': {{
+        '{ConfigurationFileLoggerSettings.LogLevelSectionName}': {{
+            '{FileLoggerSettingsBase.DefaultCategoryName}': '{LogLevel.Information}',
+        }}
     }}
 }}";
                         fileProvider.WriteContent("config.json", configJson);
@@ -358,14 +408,14 @@ $@"{{
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
-            var logFile = (MemoryFileInfo)context.FileProvider.GetFileInfo($@"fallback.log");
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo(LoggingTest.FallbackFileName);
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
-            Assert.Equal(lines, new[]
+            Assert.Equal(new[]
             {
-                $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"trce: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"      => SCOPE",
                 $"      This is a nice logger.",
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
@@ -374,7 +424,7 @@ $@"{{
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"      This one shouldn't include scopes.",
                 ""
-            });           
-        }        
-    }    
+            }, lines);
+        }
+    }
 }

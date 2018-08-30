@@ -8,8 +8,10 @@ namespace Karambolo.Extensions.Logging.File
 {
     public interface IFileLoggerContext
     {
+        [Obsolete("This property will be removed in a future version.")]
         IFileProvider FileProvider { get; }
 
+        [Obsolete("This property will be removed in a future version.")]
         string FallbackFileName { get; }
 
         DateTimeOffset GetTimestamp();
@@ -21,39 +23,49 @@ namespace Karambolo.Extensions.Logging.File
         event Action<IFileLoggerProcessor, Task> Complete;
 
         void OnComplete(IFileLoggerProcessor sender, Task completionTask);
-
-        Task<bool> EnsureDirAsync(IFileInfo fileInfo);
-        Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding);
     }
 
     public class FileLoggerContext : IFileLoggerContext
     {
-        readonly IFileAppender _fileAppender;
+        public static readonly FileLoggerContext Default = new FileLoggerContext(default);
 
-        public FileLoggerContext(string rootPath, string fallbackFileName, CancellationToken completeToken = default)
-            : this(new PhysicalFileAppender(rootPath ?? throw new ArgumentNullException(nameof(rootPath))), fallbackFileName, completeToken) { }
+        public FileLoggerContext(CancellationToken completeToken)
+            : this(completeToken, TimeSpan.FromMilliseconds(1500), TimeSpan.FromMilliseconds(500)) { }
 
-        public FileLoggerContext(IFileProvider fileProvider, string fallbackFileName, CancellationToken completeToken = default)
-            : this(fileProvider == null ? throw new ArgumentNullException(nameof(fileProvider)) : new PhysicalFileAppender(fileProvider as PhysicalFileProvider ??
-                      throw new ArgumentException($"Only {nameof(PhysicalFileProvider)} is supported currently. To use another file provider type, you need to implement {nameof(IFileAppender)}.", nameof(fileProvider))),
-                  fallbackFileName, completeToken) { }
-
-        protected FileLoggerContext(IFileAppender fileAppender, string fallbackFileName, CancellationToken completeToken = default)
+        public FileLoggerContext(CancellationToken completeToken, TimeSpan completionTimeout, TimeSpan writeRetryDelay)
         {
+            CompleteToken = completeToken;
+            CompletionTimeout = completionTimeout;
+            WriteRetryDelay = writeRetryDelay;
+        }
+
+        [Obsolete("This constructor is obsolete and will be removed in a future version. Apart from completeToken, configure " +
+            nameof(FileLoggerOptions) + "." + nameof(FileLoggerOptions.RootPath) + " and " + nameof(FileLoggerOptions) + "." + nameof(FileLoggerOptions.FallbackFileName) + " instead.")]
+        public FileLoggerContext(string rootPath, string fallbackFileName, CancellationToken completeToken = default)
+            : this(new PhysicalFileProvider(rootPath ?? throw new ArgumentNullException(nameof(rootPath))), fallbackFileName, completeToken) { }
+
+        [Obsolete("This constructor is obsolete and will be removed in a future version. Apart from completeToken, configure " +
+            nameof(FileLoggerOptions) + "." + nameof(FileLoggerOptions.FileAppender) + " and " + nameof(FileLoggerOptions) + "." + nameof(FileLoggerOptions.FallbackFileName) + " instead.")]
+        public FileLoggerContext(IFileProvider fileProvider, string fallbackFileName, CancellationToken completeToken = default)
+            : this(completeToken)
+        {
+            if (fileProvider == null)
+                throw new ArgumentNullException(nameof(fileProvider));
+
             if (fallbackFileName == null)
                 throw new ArgumentNullException(nameof(fallbackFileName));
 
-            _fileAppender = fileAppender;
+            if (!(fileProvider is PhysicalFileProvider))
+                throw new ArgumentException($"Only {nameof(PhysicalFileProvider)} is supported currently. To use another file provider type, you need to implement {nameof(IFileAppender)}.", nameof(fileProvider));
+
+            FileProvider = fileProvider;
             FallbackFileName = fallbackFileName;
-
-            CompleteToken = completeToken;
-
-            WriteRetryDelay = TimeSpan.FromMilliseconds(500);
-            CompletionTimeout = TimeSpan.FromMilliseconds(1500);
         }
 
-        public IFileProvider FileProvider => _fileAppender.FileProvider;
+        [Obsolete("This property will be removed in a future version.")]
+        public IFileProvider FileProvider { get; }
 
+        [Obsolete("This property will be removed in a future version.")]
         public string FallbackFileName { get; }
 
         public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
@@ -66,19 +78,9 @@ namespace Karambolo.Extensions.Logging.File
 
         public event Action<IFileLoggerProcessor, Task> Complete;
 
-        public virtual void OnComplete(IFileLoggerProcessor sender, Task completionTask)
+        void IFileLoggerContext.OnComplete(IFileLoggerProcessor sender, Task completionTask)
         {
             Complete?.Invoke(sender, completionTask);
-        }
-
-        public virtual Task<bool> EnsureDirAsync(IFileInfo fileInfo)
-        {
-            return _fileAppender.EnsureDirAsync(fileInfo);
-        }
-
-        public virtual Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding)
-        {
-            return _fileAppender.AppendAllTextAsync(fileInfo, text, encoding);
         }
     }
 }

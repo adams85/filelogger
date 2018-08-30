@@ -28,7 +28,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             Directory.CreateDirectory(logPath);
             try
             {
-                var context = new TestFileLoggerContext(new PhysicalFileProvider(tempPath));
+                var context = new TestFileLoggerContext(new PhysicalFileProvider(tempPath), "fallback.log");
 
                 context.SetWriteRetryDelay(TimeSpan.FromMilliseconds(250));
                 context.SetCompletionTimeout(TimeSpan.FromMilliseconds(2000));
