@@ -77,7 +77,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                 // ensuring that all entries are processed
                 cts.Cancel();
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Single(completionTasks);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
@@ -184,7 +184,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                 // ensuring that all entries are processed
                 cts.Cancel();
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Single(completionTasks);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
 #pragma warning disable CS0618 // Type or member is obsolete

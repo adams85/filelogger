@@ -62,7 +62,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                     settings.ChangeToken = new CancellationChangeToken(newCts.Token);
                     cts.Cancel();
                     cts = newCts;
-                    Assert.Equal(1, completionTasks.Count);
+                    Assert.Single(completionTasks);
                     Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                     using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))

@@ -48,7 +48,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             Assert.True(settings.FileAppender is PhysicalFileAppender);
             Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)settings.FileAppender).FileProvider.Root);
             Assert.Equal("Logs", settings.BasePath);
-            Assert.Equal(true, settings.EnsureBasePath);
+            Assert.True(settings.EnsureBasePath);
             Assert.Equal(Encoding.UTF8, settings.FileEncoding);
             Assert.Equal("other.log", settings.FallbackFileName);
             Assert.Equal("test.log", settings.MapToFileName(typeof(SettingsTest).FullName, "default.log"));
@@ -63,7 +63,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             Assert.True(settings.TryGetSwitch(typeof(FileLogger).Namespace, out logLevel));
             Assert.Equal(LogLevel.Warning, logLevel);
             Assert.False(settings.TryGetSwitch("X.Y", out logLevel));
-            Assert.Equal(true, settings.IncludeScopes);
+            Assert.True(settings.IncludeScopes);
             Assert.Equal(100, settings.MaxQueueSize);
         }
 
@@ -107,7 +107,7 @@ $@"{{
             Assert.True(options.FileAppender is PhysicalFileAppender);
             Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)options.FileAppender).FileProvider.Root);
             Assert.Equal("Logs", options.BasePath);
-            Assert.Equal(true, options.EnsureBasePath);
+            Assert.True(options.EnsureBasePath);
             Assert.Equal(Encoding.UTF8, options.FileEncoding);
             Assert.Equal("other.log", options.FallbackFileName);
             Assert.Equal("test.log", options.MapToFileName(typeof(SettingsTest).FullName, "default.log"));
@@ -117,7 +117,7 @@ $@"{{
             Assert.Equal("000", options.CounterFormat);
             Assert.Equal(10, options.MaxFileSize);
             Assert.Equal(typeof(CustomLogEntryTextBuilder), options.TextBuilder.GetType());
-            Assert.Equal(true, options.IncludeScopes);
+            Assert.True(options.IncludeScopes);
             Assert.Equal(100, options.MaxQueueSize);
         }
 
@@ -160,7 +160,7 @@ $@"{{
                 settings.ChangeToken = new CancellationChangeToken(newCts.Token);
                 cts.Cancel();
                 cts = newCts;
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Single(completionTasks);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                 logger1.LogInformation("This is a smart logger.");
@@ -290,7 +290,7 @@ $@"{{
 }}";
                 fileProvider.WriteContent("config.json", configJson);
 
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Single(completionTasks);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                 logger1.LogInformation("This is a smart logger.");
@@ -298,7 +298,7 @@ $@"{{
                 // ensuring that the entry is processed
                 completionTasks.Clear();
                 cts.Cancel();
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Single(completionTasks);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
@@ -392,7 +392,7 @@ $@"{{
 }}";
                         fileProvider.WriteContent("config.json", configJson);
 
-                        Assert.Equal(1, completionTasks.Count);
+                        Assert.Single(completionTasks);
                         Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                         logger1 = loggerFactory.CreateLogger<LoggingTest>();
@@ -405,7 +405,7 @@ $@"{{
                 // ensuring that the entry is processed
                 completionTasks.Clear();
                 cts.Cancel();
-                Assert.Equal(1, completionTasks.Count);
+                Assert.Single(completionTasks);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
