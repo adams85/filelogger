@@ -61,7 +61,7 @@ namespace Karambolo.Extensions.Logging.File
             _settingsChangeToken?.Dispose();
 
             // blocking in Dispose() seems to be a design flaw, however ConsoleLoggerProcess.Dispose() implemented this way as well
-            ResetProcessor(null);            
+            ResetProcessor(null);
             Processor.Dispose();
         }
 
@@ -96,9 +96,10 @@ namespace Karambolo.Extensions.Logging.File
 
                 foreach (var logger in _loggers.Values)
                     logger.Update(GetFallbackFileName(logger.CategoryName), Settings);
-            }
 
-            ResetProcessor(Settings);
+                // we must try to wait for the current queues to complete to avoid concurrent file I/O
+                ResetProcessor(Settings);
+            }
 
             return true;
         }

@@ -19,7 +19,7 @@ namespace Karambolo.Extensions.Logging.File
     {
         protected class LogFileInfo
         {
-            public string BasePath { get; set; }
+            public string BasePath => Settings.BasePath;
             public string FileName { get; set; }
             public string Extension { get; set; }
 
@@ -27,6 +27,8 @@ namespace Karambolo.Extensions.Logging.File
             {
                 return Path.Combine(BasePath, string.Concat(FileName, postfix, Extension));
             }
+
+            public IFileLoggerSettingsBase Settings { get; set; }
 
             public ActionBlock<FileLogEntry> Queue { get; set; }
 
@@ -37,8 +39,6 @@ namespace Karambolo.Extensions.Logging.File
         static StringBuilder stringBuilder;
 
         readonly Dictionary<string, LogFileInfo> _logFiles;
-
-        readonly ReaderWriterLockSlim _settingsLock;
 
         readonly CancellationTokenRegistration _completeTokenRegistration;
         readonly CancellationTokenSource _disposeTokenSource;
@@ -57,8 +57,6 @@ namespace Karambolo.Extensions.Logging.File
 
             _logFiles = new Dictionary<string, LogFileInfo>();
 
-            _settingsLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
-
             _disposeTokenSource = new CancellationTokenSource();
             _completeTokenRegistration = context.CompleteToken.Register(Complete, useSynchronizationContext: false);
         }
@@ -66,8 +64,6 @@ namespace Karambolo.Extensions.Logging.File
         protected virtual void DisposeCore()
         {
             _completeTokenRegistration.Dispose();
-
-            _settingsLock.Dispose();
 
             _disposeTokenSource.Cancel();
             _disposeTokenSource.Dispose();
@@ -99,7 +95,7 @@ namespace Karambolo.Extensions.Logging.File
             return result;
         }
 
-        async Task CompleteCoreAsync(IFileLoggerSettingsBase newSettings)
+        Task CompleteCoreAsync(IFileLoggerSettingsBase newSettings)
         {
             Task[] completionTasks;
             lock (_logFiles)
@@ -116,17 +112,10 @@ namespace Karambolo.Extensions.Logging.File
                 _logFiles.Clear();
 
                 if (newSettings != null)
-                {
-                    newSettings = newSettings.ToImmutable();
-
-                    _settingsLock.EnterWriteLock();
-                    try { Settings = newSettings; }
-                    finally { _settingsLock.ExitWriteLock(); }
-                }
+                    Settings = newSettings.ToImmutable();
             }
 
-            try { await Task.WhenAll(completionTasks).ConfigureAwait(false); }
-            catch (OperationCanceledException) { }
+            return Task.WhenAll(completionTasks);
         }
 
         protected virtual LogFileInfo CreateLogFile()
@@ -149,10 +138,10 @@ namespace Karambolo.Extensions.Logging.File
                 if (!_logFiles.TryGetValue(fileName, out logFile))
                 {
                     logFile = CreateLogFile();
-
-                    logFile.BasePath = Settings.BasePath;
                     logFile.FileName = Path.ChangeExtension(fileName, null);
                     logFile.Extension = Path.GetExtension(fileName);
+
+                    logFile.Settings = Settings;
 
                     logFile.Queue = new ActionBlock<FileLogEntry>(
                         e => WriteEntryAsync(logFile, e, _disposeTokenSource.Token),
@@ -171,36 +160,36 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual Encoding GetFileEncoding(LogFileInfo logFile, FileLogEntry entry)
         {
-            return Settings.FileEncoding;
+            return logFile.Settings.FileEncoding;
         }
 
         protected virtual bool HasPostfix(LogFileInfo logFile, FileLogEntry entry)
         {
-            return !string.IsNullOrEmpty(Settings.DateFormat) || Settings.MaxFileSize > 0;
+            return !string.IsNullOrEmpty(logFile.Settings.DateFormat) || logFile.Settings.MaxFileSize > 0;
         }
 
         protected virtual void BuildPostfix(StringBuilder sb, LogFileInfo logFile, FileLogEntry entry)
         {
-            if (!string.IsNullOrEmpty(Settings.DateFormat))
+            if (!string.IsNullOrEmpty(logFile.Settings.DateFormat))
             {
                 sb.Append('-');
-                sb.Append(entry.Timestamp.ToLocalTime().ToString(Settings.DateFormat, CultureInfo.InvariantCulture));
+                sb.Append(entry.Timestamp.ToLocalTime().ToString(logFile.Settings.DateFormat, CultureInfo.InvariantCulture));
             }
 
-            if (Settings.MaxFileSize > 0)
+            if (logFile.Settings.MaxFileSize > 0)
             {
                 sb.Append('-');
-                sb.Append(logFile.Counter.ToString(Settings.CounterFormat, CultureInfo.InvariantCulture));
+                sb.Append(logFile.Counter.ToString(logFile.Settings.CounterFormat, CultureInfo.InvariantCulture));
             }
         }
 
         protected virtual bool CheckLogFile(LogFileInfo logFile, string postfix, Encoding fileEncoding, FileLogEntry entry)
         {
-            if (Settings.MaxFileSize > 0)
+            if (logFile.Settings.MaxFileSize > 0)
             {
                 var fileInfo = Context.FileProvider.GetFileInfo(logFile.GetFilePath(postfix));
                 if (fileInfo.Exists &&
-                    (fileInfo.IsDirectory || fileInfo.Length + fileEncoding.GetByteCount(entry.Text) > Settings.MaxFileSize))
+                    (fileInfo.IsDirectory || fileInfo.Length + fileEncoding.GetByteCount(entry.Text) > logFile.Settings.MaxFileSize))
                 {
                     logFile.Counter++;
                     return false;
@@ -249,15 +238,10 @@ namespace Karambolo.Extensions.Logging.File
             string filePath;
             bool ensureBasePath;
 
-            _settingsLock.EnterReadLock();
-            try
-            {
-                fileEncoding = GetFileEncoding(logFile, entry);
-                var postfix = GetPostfix(logFile, fileEncoding, entry);
-                filePath = logFile.GetFilePath(postfix);
-                ensureBasePath = Settings.EnsureBasePath;
-            }
-            finally { _settingsLock.ExitReadLock(); }
+            fileEncoding = GetFileEncoding(logFile, entry);
+            var postfix = GetPostfix(logFile, fileEncoding, entry);
+            filePath = logFile.GetFilePath(postfix);
+            ensureBasePath = logFile.Settings.EnsureBasePath;
 
             var fileInfo = Context.FileProvider.GetFileInfo(filePath);
 
