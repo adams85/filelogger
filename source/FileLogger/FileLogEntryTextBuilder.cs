@@ -9,7 +9,7 @@ namespace Karambolo.Extensions.Logging.File
     public interface IFileLogEntryTextBuilder
     {
         void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, Exception exception,
-            FileLogScope logScope, DateTimeOffset timestamp);
+            IExternalScopeProvider scopeProvider, DateTimeOffset timestamp);
     }
 
     public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
@@ -50,8 +50,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual void AppendLogLevel(StringBuilder sb, LogLevel logLevel)
         {
-            sb.Append(GetLogLevelString(logLevel));
-            sb.Append(": ");
+            sb.Append(GetLogLevelString(logLevel)).Append(": ");
         }
 
         protected virtual void AppendCategoryName(StringBuilder sb, string categoryName)
@@ -61,41 +60,39 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual void AppendEventId(StringBuilder sb, EventId eventId)
         {
-            sb.Append('[');
-            sb.Append(eventId);
-            sb.Append(']');
+            sb.Append('[').Append(eventId).Append(']');
         }
 
         protected virtual void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp)
         {
-            sb.Append(" @ ");
-            sb.AppendLine(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
+            sb.Append(" @ ").AppendLine(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
         }
 
-        protected virtual void AppendLogScope(StringBuilder sb, FileLogScope logScope)
+        protected virtual void AppendLogScope(StringBuilder sb, object scope)
         {
-            sb.Append("=> ");
-            sb.Append(logScope);
+            sb.Append("=> ").Append(scope);
         }
 
-        protected virtual void AppendLogScopeInfo(StringBuilder sb, FileLogScope logScope)
+        protected virtual void AppendLogScopeInfo(StringBuilder sb, IExternalScopeProvider scopeProvider)
         {
-            sb.Append(_messagePadding);
+            var initialLength = sb.Length;
 
-            var list = new List<FileLogScope>();
-            do { list.Add(logScope); }
-            while ((logScope = logScope.Parent) != null);
-
-            var n = list.Count;
-
-            AppendLogScope(sb, list[n - 1]);
-            for (var i = n - 2; i >= 0; i--)
+            scopeProvider.ForEachScope((scope, state) =>
             {
-                sb.Append(' ');
-                AppendLogScope(sb, list[i]);
-            }
+                var (builder, length) = state;
 
-            sb.AppendLine();          
+                var first = length == builder.Length;
+                if (!first)
+                    builder.Append(' ');
+
+                AppendLogScope(builder, scope);
+            }, (sb, initialLength));
+
+            if (sb.Length > initialLength)
+            {
+                sb.Insert(initialLength, _messagePadding);
+                sb.AppendLine();
+            }
         }
 
         protected virtual void AppendMessage(StringBuilder sb, string message)
@@ -113,7 +110,7 @@ namespace Karambolo.Extensions.Logging.File
         }
 
         public virtual void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, Exception exception,
-            FileLogScope logScope, DateTimeOffset timestamp)
+            IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
         {
             AppendLogLevel(sb, logLevel);
 
@@ -123,8 +120,8 @@ namespace Karambolo.Extensions.Logging.File
 
             AppendTimestamp(sb, timestamp);
 
-            if (logScope != null)
-                AppendLogScopeInfo(sb, logScope);
+            if (scopeProvider != null)
+                AppendLogScopeInfo(sb, scopeProvider);
 
             if (!string.IsNullOrEmpty(message))
                 AppendMessage(sb, message);

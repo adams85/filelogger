@@ -2,6 +2,7 @@
 using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions.Internal;
 
 namespace Karambolo.Extensions.Logging.File
 {
@@ -11,7 +12,7 @@ namespace Karambolo.Extensions.Logging.File
         {
             public string FileName;
             public Func<string, LogLevel, bool> Filter;
-            public bool IncludeScopes;
+            public IExternalScopeProvider ScopeProvider;
             public IFileLogEntryTextBuilder TextBuilder;
         }
 
@@ -30,18 +31,26 @@ namespace Karambolo.Extensions.Logging.File
 
         public FileLogger(string categoryName, string fallbackFileName, IFileLoggerProcessor processor, IFileLoggerSettingsBase settings,
             Func<DateTimeOffset> timestampGetter = null)
+            : this(categoryName, fallbackFileName, processor, settings, settings.IncludeScopes ? new LoggerExternalScopeProvider() : null, timestampGetter) { }
+
+        public FileLogger(string categoryName, string fallbackFileName, IFileLoggerProcessor processor, IFileLoggerSettingsBase settings,
+            IExternalScopeProvider scopeProvider = null, Func<DateTimeOffset> timestampGetter = null)
             : this(
                 categoryName ?? throw new ArgumentNullException(nameof(categoryName)),
                 settings?.MapToFileName(categoryName, fallbackFileName ?? throw new ArgumentNullException(nameof(fallbackFileName))) ??
                     throw new ArgumentNullException(nameof(settings)),
                 processor,
                 settings.BuildFilter(categoryName),
-                settings.IncludeScopes,
+                scopeProvider,
                 settings.TextBuilder,
                 timestampGetter: timestampGetter) { }
 
-        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null, bool includeScopes = false,
-            IFileLogEntryTextBuilder textBuilder = null, Func<DateTimeOffset> timestampGetter = null)
+        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null, 
+            bool includeScopes = false, IFileLogEntryTextBuilder textBuilder = null, Func<DateTimeOffset> timestampGetter = null)
+            : this(categoryName, fileName, processor, filter, includeScopes ? new LoggerExternalScopeProvider() : null, textBuilder, timestampGetter) { }
+
+        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null,
+            IExternalScopeProvider scopeProvider = null, IFileLogEntryTextBuilder textBuilder = null, Func<DateTimeOffset> timestampGetter = null)
         {
             if (categoryName == null)
                 throw new ArgumentNullException(nameof(categoryName));
@@ -58,7 +67,7 @@ namespace Karambolo.Extensions.Logging.File
             {
                 FileName = fileName,
                 Filter = filter ?? ((c, l) => true),
-                IncludeScopes = includeScopes,
+                ScopeProvider = scopeProvider,
                 TextBuilder = textBuilder ?? FileLogEntryTextBuilder.Instance,
             };
 
@@ -71,7 +80,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public Func<string, LogLevel, bool> Filter => State.Filter;
 
-        public bool IncludeScopes => State.IncludeScopes;
+        public bool IncludeScopes => State.ScopeProvider != null;
 
         protected virtual UpdatableState CreateState(IFileLoggerSettingsBase settings)
         {
@@ -80,6 +89,11 @@ namespace Karambolo.Extensions.Logging.File
 
         public void Update(string fallbackFileName, IFileLoggerSettingsBase settings)
         {
+            Update(fallbackFileName, settings, settings.IncludeScopes ? new LoggerExternalScopeProvider() : null);
+        }
+
+        public void Update(string fallbackFileName, IFileLoggerSettingsBase settings, IExternalScopeProvider scopeProvider)
+        {
             // full thread synchronization is omitted for performance reasons
             // as it is considered non-critical (ConsoleLogger is implemented in a similar way)
 
@@ -87,7 +101,7 @@ namespace Karambolo.Extensions.Logging.File
 
             state.FileName = settings.MapToFileName(CategoryName, fallbackFileName);
             state.Filter = settings.BuildFilter(CategoryName);
-            state.IncludeScopes = settings.IncludeScopes;
+            state.ScopeProvider = scopeProvider;
             state.TextBuilder = settings.TextBuilder ?? FileLogEntryTextBuilder.Instance;
 
             State = state;
@@ -118,7 +132,7 @@ namespace Karambolo.Extensions.Logging.File
 
             var timestamp = _timestampGetter();
             var message = FormatState(state, exception, formatter);
-            var logScope = IncludeScopes ? FileLogScope.Current : null;
+            var logScope = State.ScopeProvider;
 
             var sb = stringBuilder;
             stringBuilder = null;
@@ -146,7 +160,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public virtual IDisposable BeginScope<TState>(TState state)
         {
-            return FileLogScope.Push(state);
+            return State.ScopeProvider?.Push(state) ?? NullScope.Instance;
         }
     }
 }

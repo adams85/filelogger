@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 namespace Karambolo.Extensions.Logging.File
 {
     [ProviderAlias(Alias)]
-    public class FileLoggerProvider : ILoggerProvider
+    public class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
     {
         public const string Alias = "File";
 
@@ -19,6 +19,7 @@ namespace Karambolo.Extensions.Logging.File
         string _optionsName;
         IFileLoggerSettings _settingsRef;
         IDisposable _settingsChangeToken;
+        IExternalScopeProvider _scopeProvider;
         bool _isDisposed;
 
         protected FileLoggerProvider(IFileLoggerContext context, IFileLoggerSettingsBase settings)
@@ -110,8 +111,9 @@ namespace Karambolo.Extensions.Logging.File
 
                 Settings = settings.Freeze();
 
+                var scopeProvider = GetScopeProvider();
                 foreach (var logger in _loggers.Values)
-                    logger.Update(GetFallbackFileName(logger.CategoryName), Settings);
+                    logger.Update(GetFallbackFileName(logger.CategoryName), Settings, scopeProvider);
 
                 // we must try to wait for the current queues to complete to avoid concurrent file I/O
                 ResetProcessor(Settings);
@@ -142,7 +144,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual FileLogger CreateLoggerCore(string categoryName)
         {
-            return new FileLogger(categoryName, GetFallbackFileName(categoryName), Processor, Settings, Context.GetTimestamp);
+            return new FileLogger(categoryName, GetFallbackFileName(categoryName), Processor, Settings, GetScopeProvider(), Context.GetTimestamp);
         }
 
         public ILogger CreateLogger(string categoryName)
@@ -159,6 +161,19 @@ namespace Karambolo.Extensions.Logging.File
             }
 
             return logger;
+        }
+
+        IExternalScopeProvider GetScopeProvider()
+        {
+            if (_scopeProvider == null && Settings.IncludeScopes)
+                _scopeProvider = new LoggerExternalScopeProvider();
+
+            return Settings.IncludeScopes ? _scopeProvider : null;
+        }
+
+        public void SetScopeProvider(IExternalScopeProvider scopeProvider)
+        {
+            _scopeProvider = scopeProvider;
         }
     }
 }
