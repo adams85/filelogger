@@ -107,9 +107,14 @@ namespace Karambolo.Extensions.Logging.File
             State = state;
         }
 
+        protected virtual bool IsEnabled(UpdatableState state, LogLevel logLevel)
+        {
+            return state.Filter(CategoryName, logLevel);
+        }
+
         public virtual bool IsEnabled(LogLevel logLevel)
         {
-            return Filter(CategoryName, logLevel);
+            return IsEnabled(State, logLevel);
         }
 
         protected virtual FileLogEntry CreateLogEntry()
@@ -124,7 +129,9 @@ namespace Karambolo.Extensions.Logging.File
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            if (!IsEnabled(logLevel))
+            var objState = State;
+
+            if (!IsEnabled(objState, logLevel))
                 return;
 
             if (formatter == null)
@@ -132,14 +139,14 @@ namespace Karambolo.Extensions.Logging.File
 
             var timestamp = _timestampGetter();
             var message = FormatState(state, exception, formatter);
-            var logScope = State.ScopeProvider;
+            var logScope = objState.ScopeProvider;
 
             var sb = stringBuilder;
             stringBuilder = null;
             if (sb == null)
                 sb = new StringBuilder();
 
-            State.TextBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
+            objState.TextBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
 
             if (sb.Length > 0)
             {
@@ -148,7 +155,7 @@ namespace Karambolo.Extensions.Logging.File
                 entry.Text = sb.ToString();
                 entry.Timestamp = timestamp;
 
-                _processor.Enqueue(FileName, entry);
+                _processor.Enqueue(objState.FileName, entry);
             }
 
             sb.Clear();
