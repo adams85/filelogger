@@ -72,7 +72,6 @@ namespace Karambolo.Extensions.Logging.File.Test
                 }
 
                 // ensuring that all entries are processed
-                // Dispose() would force shutdown, remaining entries in the queue would be discarded
                 cts.Cancel();
                 Assert.Equal(1, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
@@ -181,7 +180,6 @@ namespace Karambolo.Extensions.Logging.File.Test
                 }
 
                 // ensuring that all entries are processed
-                // Dispose() would force shutdown, remaining entries in the queue would be discarded
                 cts.Cancel();
                 Assert.Equal(1, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();

@@ -41,7 +41,7 @@ namespace Karambolo.Extensions.Logging.File
         readonly Dictionary<string, LogFileInfo> _logFiles;
 
         readonly CancellationTokenRegistration _completeTokenRegistration;
-        readonly CancellationTokenSource _disposeTokenSource;
+        CancellationTokenSource _shutdownTokenSource;
 
         bool _isDisposed;
 
@@ -57,7 +57,7 @@ namespace Karambolo.Extensions.Logging.File
 
             _logFiles = new Dictionary<string, LogFileInfo>();
 
-            _disposeTokenSource = new CancellationTokenSource();
+            _shutdownTokenSource = new CancellationTokenSource();
             _completeTokenRegistration = context.CompleteToken.Register(Complete, useSynchronizationContext: false);
         }
 
@@ -65,8 +65,8 @@ namespace Karambolo.Extensions.Logging.File
         {
             _completeTokenRegistration.Dispose();
 
-            _disposeTokenSource.Cancel();
-            _disposeTokenSource.Dispose();
+            _shutdownTokenSource.Cancel();
+            _shutdownTokenSource.Dispose();
         }
 
         public void Dispose()
@@ -85,7 +85,7 @@ namespace Karambolo.Extensions.Logging.File
 
         void Complete()
         {
-            Context.OnComplete(this, CompleteCoreAsync(null));
+            CompleteAsync(null);
         }
 
         public Task CompleteAsync(IFileLoggerSettingsBase newSettings)
@@ -95,13 +95,18 @@ namespace Karambolo.Extensions.Logging.File
             return result;
         }
 
-        Task CompleteCoreAsync(IFileLoggerSettingsBase newSettings)
+        async Task CompleteCoreAsync(IFileLoggerSettingsBase newSettings)
         {
+            CancellationTokenSource shutdownTokenSource;
             Task[] completionTasks;
+
             lock (_logFiles)
             {
                 if (_isDisposed)
                     throw new ObjectDisposedException(nameof(FileLoggerProcessor));
+
+                shutdownTokenSource = _shutdownTokenSource;
+                _shutdownTokenSource = new CancellationTokenSource();
 
                 completionTasks = _logFiles.Values.Select(lf =>
                 {
@@ -115,7 +120,10 @@ namespace Karambolo.Extensions.Logging.File
                     Settings = newSettings.ToImmutable();
             }
 
-            return Task.WhenAll(completionTasks);
+            await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout));
+
+            shutdownTokenSource.Cancel();
+            shutdownTokenSource.Dispose();
         }
 
         protected virtual LogFileInfo CreateLogFile()
@@ -143,8 +151,10 @@ namespace Karambolo.Extensions.Logging.File
 
                     logFile.Settings = Settings;
 
+                    // important: closure must pick up the current token!
+                    var shutdownToken = _shutdownTokenSource.Token;
                     logFile.Queue = new ActionBlock<FileLogEntry>(
-                        e => WriteEntryAsync(logFile, e, _disposeTokenSource.Token),
+                        e => WriteEntryAsync(logFile, e, shutdownToken),
                         new ExecutionDataflowBlockOptions
                         {
                             MaxDegreeOfParallelism = 1,
@@ -229,10 +239,10 @@ namespace Karambolo.Extensions.Logging.File
                 return null;
         }
 
-        async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken disposeToken)
+        async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken shutdownToken)
         {
-            // discarding remaining entries if queue got disposed
-            disposeToken.ThrowIfCancellationRequested();
+            // discarding remaining entries on shutdown
+            shutdownToken.ThrowIfCancellationRequested();
 
             Encoding fileEncoding;
             string filePath;
@@ -266,8 +276,11 @@ namespace Karambolo.Extensions.Logging.File
                         catch { }
                 }
 
-                // discarding failed entry if queue got disposed
-                await Task.Delay(1000, disposeToken).ConfigureAwait(false);
+                // discarding failed entry on shutdown
+                if (Context.WriteRetryDelay > TimeSpan.Zero)
+                    await Task.Delay(Context.WriteRetryDelay, shutdownToken).ConfigureAwait(false);
+                else
+                    shutdownToken.ThrowIfCancellationRequested();
             }
         }
     }

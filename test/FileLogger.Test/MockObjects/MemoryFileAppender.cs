@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
 
@@ -23,7 +24,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 
         IFileProvider IFileAppender.FileProvider => FileProvider;
 
-        public Task<bool> EnsureDirAsync(IFileInfo fileInfo)
+        public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
         {
             var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
@@ -36,7 +37,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
             return Task.FromResult(true);
         }
 
-        public Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding)
+        public Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding, CancellationToken cancellationToken = default)
         {
             var memoryFileInfo = (MemoryFileInfo)fileInfo;
 

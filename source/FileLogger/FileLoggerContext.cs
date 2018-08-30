@@ -14,6 +14,9 @@ namespace Karambolo.Extensions.Logging.File
 
         DateTimeOffset GetTimestamp();
 
+        TimeSpan WriteRetryDelay { get; }
+        TimeSpan CompletionTimeout { get; }
+
         CancellationToken CompleteToken { get; }
         event Action<IFileLoggerProcessor, Task> Complete;
 
@@ -44,6 +47,9 @@ namespace Karambolo.Extensions.Logging.File
             FallbackFileName = fallbackFileName;
 
             CompleteToken = completeToken;
+
+            WriteRetryDelay = TimeSpan.FromMilliseconds(500);
+            CompletionTimeout = TimeSpan.FromMilliseconds(1500);
         }
 
         public IFileProvider FileProvider => _fileAppender.FileProvider;
@@ -51,6 +57,10 @@ namespace Karambolo.Extensions.Logging.File
         public string FallbackFileName { get; }
 
         public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
+
+        public virtual TimeSpan WriteRetryDelay { get; }
+
+        public virtual TimeSpan CompletionTimeout { get; }
 
         public CancellationToken CompleteToken { get; }
 
