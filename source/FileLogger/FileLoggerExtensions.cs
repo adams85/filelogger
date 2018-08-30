@@ -4,12 +4,27 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Karambolo.Extensions.Logging.File
 {
+    class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
+        where TProvider : FileLoggerProvider
+    {
+        public FileLoggerOptionsChangeTokenSource(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration) 
+            : base(optionsName, providerConfiguration.Configuration) { }
+    }
+
+    class FileLoggerOptionsSetup<TProvider> : NamedConfigureFromConfigurationOptions<FileLoggerOptions>
+        where TProvider : FileLoggerProvider
+    {
+        public FileLoggerOptionsSetup(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
+            : base(optionsName, providerConfiguration.Configuration) { }
+    }
+
     public static partial class FileLoggerExtensions
     {
         public static ILoggerFactory AddFile(this ILoggerFactory factory, IFileLoggerContext context, IFileLoggerSettings settings)
@@ -29,12 +44,13 @@ namespace Karambolo.Extensions.Logging.File
         {
             builder.AddConfiguration();
 
-            builder.Services.AddSingleton<ILoggerProvider, TProvider>(providerFactory);
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, TProvider>(providerFactory));
 
-            builder.Services.AddSingleton<IOptionsChangeTokenSource<FileLoggerOptions>>(sp => 
-                new ConfigurationChangeTokenSource<FileLoggerOptions>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>().Configuration));
-            builder.Services.AddSingleton<IConfigureOptions<FileLoggerOptions>>(sp =>
-                new NamedConfigureFromConfigurationOptions<FileLoggerOptions>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>().Configuration));
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IOptionsChangeTokenSource<FileLoggerOptions>, FileLoggerOptionsChangeTokenSource<TProvider>>(sp =>
+                new FileLoggerOptionsChangeTokenSource<TProvider>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>())));
+
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<FileLoggerOptions>, FileLoggerOptionsSetup<TProvider>>(sp =>
+                new FileLoggerOptionsSetup<TProvider>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>())));
 
             return builder;
         }
