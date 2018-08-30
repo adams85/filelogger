@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Karambolo.Extensions.Logging.File.Test
@@ -423,6 +424,114 @@ $@"{{
                 $"      This is a smart logger.",
                 $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"      This one shouldn't include scopes.",
+                ""
+            }, lines);
+        }
+
+        [ProviderAlias(Alias)]
+        class OtherFileLoggerProvider : FileLoggerProvider
+        {
+            public new const string Alias = "OtherFile";
+
+            public OtherFileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName) 
+                : base(context, options, optionsName) { }
+        }
+
+        [Fact]
+        public void ReloadOptionsSettingsMultipleProviders()
+        {
+            var fileProvider = new MemoryFileProvider();
+            var fileAppender = new MemoryFileAppender(fileProvider);
+
+            dynamic settings = new JObject();
+            var globalFilters = settings[ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
+            globalFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.None.ToString();
+
+            settings[FileLoggerProvider.Alias] = new JObject();
+            var fileFilters = settings[FileLoggerProvider.Alias][ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
+            fileFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.Warning.ToString();
+
+            settings[OtherFileLoggerProvider.Alias] = new JObject();
+            settings[OtherFileLoggerProvider.Alias][nameof(FileLoggerOptions.FallbackFileName)] = "fallback.log";
+            var otherFileFilters = settings[OtherFileLoggerProvider.Alias][ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
+            otherFileFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.Information.ToString();
+            var settingsJson = ((JObject)settings).ToString();
+
+            fileProvider.CreateFile("config.json", settingsJson);
+
+            var config = new ConfigurationBuilder()
+                .AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            var context = new TestFileLoggerContext();
+
+            var completionTasks = new List<Task>();
+            context.Complete += (s, e) => completionTasks.Add(e);
+
+            var services = new ServiceCollection();
+            services.AddOptions();
+            services.AddLogging(lb =>
+            {
+                lb.AddConfiguration(config);
+
+                lb.Services.Configure<FileLoggerOptions>(config.GetSection(FileLoggerProvider.Alias));
+                lb.AddFile(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
+
+                lb.Services.Configure<FileLoggerOptions>(OtherFileLoggerProvider.Alias, config.GetSection(OtherFileLoggerProvider.Alias));
+                lb.AddFile<OtherFileLoggerProvider>(OtherFileLoggerProvider.Alias, context, o => o.FileAppender = o.FileAppender ?? fileAppender);
+            });
+
+            using (var sp = services.BuildServiceProvider())
+            {
+                var opts = sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>();
+                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+
+                var logger = loggerFactory.CreateLogger("X");
+
+                logger.LogInformation("This is an info.");
+                logger.LogWarning("This is a warning.");
+
+                fileFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.Information.ToString();
+                otherFileFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.Warning.ToString();
+                settingsJson = ((JObject)settings).ToString();
+                fileProvider.WriteContent("config.json", settingsJson);
+
+                Assert.Equal(2, completionTasks.Count);
+                Task.WhenAll(completionTasks).GetAwaiter().GetResult();
+
+                logger.LogInformation("This is another info.");
+                logger.LogWarning("This is another warning.");
+            }
+
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo(LoggingTest.FallbackFileName);
+            Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+            var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            Assert.Equal(new[]
+            {
+                $"warn: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This is a warning.",
+                $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This is another info.",
+                $"warn: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This is another warning.",
+                ""
+            }, lines);
+
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo((string)settings[OtherFileLoggerProvider.Alias].FallbackFileName);
+            Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+            lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            Assert.Equal(new[]
+            {
+                $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This is an info.",
+                $"warn: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This is a warning.",
+                $"warn: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This is another warning.",
                 ""
             }, lines);
         }

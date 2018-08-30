@@ -81,8 +81,8 @@ namespace Karambolo.Extensions.Logging.File.Test
                 var lines = System.IO.File.ReadAllLines(filePath);
                 Assert.Equal(lines, new[]
                 {
-                    "info: X[0] @ 0001-01-01T01:00:00.0000000+01:00",
-                    "      This should get through.",
+                    $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                    $"      This should get through.",
                 });
             }
             finally

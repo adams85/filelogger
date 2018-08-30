@@ -16,6 +16,7 @@ namespace Karambolo.Extensions.Logging.File
 
         readonly Dictionary<string, FileLogger> _loggers;
 
+        string _optionsName;
         IFileLoggerSettings _settingsRef;
         IDisposable _settingsChangeToken;
         bool _isDisposed;
@@ -51,8 +52,12 @@ namespace Karambolo.Extensions.Logging.File
             : this(null, options) { }
 
         public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options)
-            : this(context, options != null ? options.CurrentValue : throw new ArgumentNullException(nameof(options)))
+            : this(context, options, Options.DefaultName) { }
+
+        public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
+            : this(context, options != null ? options.Get(optionsName) : throw new ArgumentNullException(nameof(options)))
         {
+            _optionsName = optionsName ?? Options.DefaultName;
             _settingsChangeToken = options.OnChange(HandleOptionsChanged);
         }
 
@@ -115,9 +120,10 @@ namespace Karambolo.Extensions.Logging.File
             return true;
         }
 
-        void HandleOptionsChanged(IFileLoggerSettingsBase options)
+        void HandleOptionsChanged(IFileLoggerSettingsBase options, string optionsName)
         {
-            HandleSettingsChangedCore(options);
+            if (optionsName == _optionsName)
+                HandleSettingsChangedCore(options);
         }
 
         void HandleSettingsChanged(object state)
