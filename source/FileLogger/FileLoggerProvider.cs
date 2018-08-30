@@ -79,8 +79,7 @@ namespace Karambolo.Extensions.Logging.File
 
         void ResetProcessor(IFileLoggerSettingsBase newSettings)
         {
-            var timeoutTask = Task.Delay(1500);
-            Task.WhenAny(Processor.CompleteAsync(newSettings), timeoutTask).ConfigureAwait(false).GetAwaiter().GetResult();
+            Processor.CompleteAsync(Settings).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         protected virtual string GetFallbackFileName(string categoryName)
