@@ -77,7 +77,7 @@ namespace Karambolo.Extensions.Logging.File
         public int MaxFileSize { get; set; }
         public IFileLogEntryTextBuilder TextBuilder { get; set; }
         public bool IncludeScopes { get; set; }
-        public int MaxQueueSize { get; set; } = 64;
+        public int MaxQueueSize { get; set; } = -1;
 
         public virtual string MapToFileName(string categoryName, string fallbackFileName)
         {
