@@ -363,8 +363,6 @@ $@"{{
                 b.AddFile(context);
             });
 
-            services.Configure<FileLoggerOptions>(config.GetSection(FileLoggerProvider.Alias));
-
             var fileAppender = new MemoryFileAppender(fileProvider);
             services.Configure<FileLoggerOptions>(o => o.FileAppender = o.FileAppender ?? fileAppender);
 
@@ -392,7 +390,8 @@ $@"{{
 }}";
                         fileProvider.WriteContent("config.json", configJson);
 
-                        Assert.Single(completionTasks);
+                        // reload is triggered twice due to a bug in the framework (https://github.com/aspnet/Logging/issues/874)
+                        Assert.Equal(1 * 2, completionTasks.Count);
                         Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                         logger1 = loggerFactory.CreateLogger<LoggingTest>();
@@ -433,7 +432,7 @@ $@"{{
         {
             public new const string Alias = "OtherFile";
 
-            public OtherFileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName) 
+            public OtherFileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
                 : base(context, options, optionsName) { }
         }
 
@@ -473,17 +472,12 @@ $@"{{
             services.AddLogging(lb =>
             {
                 lb.AddConfiguration(config);
-
-                lb.Services.Configure<FileLoggerOptions>(config.GetSection(FileLoggerProvider.Alias));
                 lb.AddFile(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
-
-                lb.Services.Configure<FileLoggerOptions>(OtherFileLoggerProvider.Alias, config.GetSection(OtherFileLoggerProvider.Alias));
                 lb.AddFile<OtherFileLoggerProvider>(OtherFileLoggerProvider.Alias, context, o => o.FileAppender = o.FileAppender ?? fileAppender);
             });
 
             using (var sp = services.BuildServiceProvider())
             {
-                var opts = sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>();
                 var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
                 var logger = loggerFactory.CreateLogger("X");
@@ -496,7 +490,8 @@ $@"{{
                 settingsJson = ((JObject)settings).ToString();
                 fileProvider.WriteContent("config.json", settingsJson);
 
-                Assert.Equal(2, completionTasks.Count);
+                // reload is triggered twice due to a bug in the framework (https://github.com/aspnet/Logging/issues/874)
+                Assert.Equal(2 * 2, completionTasks.Count);
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
                 logger.LogInformation("This is another info.");
