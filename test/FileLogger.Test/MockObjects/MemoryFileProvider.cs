@@ -100,6 +100,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 
         public void WriteContent(string path, string content, bool append = false)
         {
+            CancellationTokenSource changeTokenSource = null;
             lock (_catalog)
             {
                 if (!_catalog.TryGetValue(path, out File file))
@@ -112,11 +113,12 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 
                 if (file.ChangeTokenSource != null)
                 {
-                    var changeTokenSource = file.ChangeTokenSource;
+                    changeTokenSource = file.ChangeTokenSource;
                     file.ChangeTokenSource = new CancellationTokenSource();
-                    changeTokenSource.Cancel();
                 }
             }
+
+            changeTokenSource?.Cancel();
         }
 
         public IDirectoryContents GetDirectoryContents(string subpath)
