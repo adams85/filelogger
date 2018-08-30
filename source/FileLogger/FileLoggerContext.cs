@@ -1,10 +1,8 @@
 ﻿using System;
-using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.FileProviders.Physical;
 
 namespace Karambolo.Extensions.Logging.File
 {
@@ -27,24 +25,28 @@ namespace Karambolo.Extensions.Logging.File
 
     public class FileLoggerContext : IFileLoggerContext
     {
-        public FileLoggerContext(string rootPath, string fallbackFileName, CancellationToken completeToken = default(CancellationToken))
-            : this(new PhysicalFileProvider(rootPath), fallbackFileName, completeToken) { }
+        readonly IFileAppender _fileAppender;
 
-        public FileLoggerContext(IFileProvider fileProvider, string fallbackFileName, CancellationToken completeToken = default(CancellationToken))
+        public FileLoggerContext(string rootPath, string fallbackFileName, CancellationToken completeToken = default)
+            : this(new PhysicalFileAppender(rootPath ?? throw new ArgumentNullException(nameof(rootPath))), fallbackFileName, completeToken) { }
+
+        public FileLoggerContext(IFileProvider fileProvider, string fallbackFileName, CancellationToken completeToken = default)
+            : this(fileProvider == null ? throw new ArgumentNullException(nameof(fileProvider)) : new PhysicalFileAppender(fileProvider as PhysicalFileProvider ??
+                      throw new ArgumentException($"Only {nameof(PhysicalFileProvider)} is supported currently. To use another file provider type, you need to implement {nameof(IFileAppender)}.", nameof(fileProvider))),
+                  fallbackFileName, completeToken) { }
+
+        protected FileLoggerContext(IFileAppender fileAppender, string fallbackFileName, CancellationToken completeToken = default)
         {
-            if (fileProvider == null)
-                throw new ArgumentNullException(nameof(fileProvider));
-
             if (fallbackFileName == null)
                 throw new ArgumentNullException(nameof(fallbackFileName));
 
-            FileProvider = fileProvider;
+            _fileAppender = fileAppender;
             FallbackFileName = fallbackFileName;
 
             CompleteToken = completeToken;
         }
 
-        public IFileProvider FileProvider { get; }
+        public IFileProvider FileProvider => _fileAppender.FileProvider;
 
         public string FallbackFileName { get; }
 
@@ -61,33 +63,12 @@ namespace Karambolo.Extensions.Logging.File
 
         public virtual Task<bool> EnsureDirAsync(IFileInfo fileInfo)
         {
-            if (!(fileInfo is PhysicalFileInfo))
-                throw new NotSupportedException("File system is not supported.");
-
-            var dirPath = Path.GetDirectoryName(fileInfo.PhysicalPath);
-            if (Directory.Exists(dirPath))
-                return Task.FromResult(false);
-
-            Directory.CreateDirectory(dirPath);
-            return Task.FromResult(true);
+            return _fileAppender.EnsureDirAsync(fileInfo);
         }
 
-        public virtual async Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding)
+        public virtual Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding)
         {
-            if (!(fileInfo is PhysicalFileInfo))
-                throw new NotSupportedException("File system is not supported.");
-
-            using (var fileStream = new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read))
-            {
-                if (fileStream.Length == 0)
-                {
-                    var preamble = encoding.GetPreamble();
-                    await fileStream.WriteAsync(preamble, 0, preamble.Length).ConfigureAwait(false);
-                }
-
-                var data = encoding.GetBytes(text);
-                await fileStream.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
-            }
+            return _fileAppender.AppendAllTextAsync(fileInfo, text, encoding);
         }
     }
 }
