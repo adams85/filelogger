@@ -6,7 +6,7 @@
     <Company>Karambolo</Company>
     <Product>Karambolo.Extensions.Logging.File</Product>
     <Description>A full-featured file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
-    <Copyright>© 2017 Adam Simon</Copyright>
+    <Copyright>© 2018 Adam Simon</Copyright>
     <AssemblyVersion>1.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <PackageLicenseUrl>https://github.com/adams85/filelogger/blob/master/LICENSE</PackageLicenseUrl>
