@@ -1,10 +1,10 @@
 # Karambolo.Extensions.Logging.File
 
-This class library contains an implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Supports .NET Core 1.1 (.NET Standard 1.3) and .NET Core 2.0 (.NET Standard 2.0).
+This class library contains an implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Supports .NET Core 1.1 (.NET Standard 1.3), .NET Core 2.0 and .NET Core 2.1 (.NET Standard 2.0).
 
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 
-The code is based on ConsoleLogger and its **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.fileproviders.ifileprovider) abstraction, so backing storage can be replaced.
+The code is based on ConsoleLogger and its **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to replace the backing storage.
 
 ### Additional features:
  - Routing log messages based on category name to different files.
@@ -12,69 +12,224 @@ The code is based on ConsoleLogger and its **full feature set is implemented** (
  - Seperate log files based on log entry date.
  - Customizable log text formatting.
  - Extensibility through inheritance.
+ - Multiple providers with different settings (as of version 2.1)
 
-### Usage
+### Important
 
-#### .NET Core 1.x
+#### Upgrading to version 2.1
+
+This version comes with several breaking changes. These changes mostly affects the internal interfaces. After upgrading, usually you just need to rebuild your project.
+
+However, if you implemented a custom *IFileLogEntryTextBuilder*, you will need a small change to your code. The signature of *BuildEntryText* method was changed slightly because *FileLogScope* was eliminated as MS introduced the *IExternalScopeProvider* type for unified log scope handling in .NET Core 2.1.
+
+Furthermore, it's worth noting that you don't need *FileLoggerContext* any more when configuring your logger provider. Root path and fallback file name should be configured through *FileLoggerOptions*. To avoid a complete breaking change, this interface remained unchanged for the moment but using the related *FileLoggerContext* constructors is obsolete.
+
+### Configuration samples
+
+#### .NET Core 2.1
+
+* ASP.NET Core application
+
 ```
-// build configuration...
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        CreateWebHostBuilder(args).Build().Run();
+    }
 
-var settings = new ConfigurationFileLoggerSettings(config);
-var context = new FileLoggerContext(AppContext.BaseDirectory, "fallback.log");
-
-// create logger factory...
-
-loggerFactory.AddFile(context, settings);
+    public static IWebHostBuilder CreateWebHostBuilder(string[] args) =>
+        WebHost.CreateDefaultBuilder(args)
+            .ConfigureLogging((ctx, builder) =>
+            {
+                builder.AddConfiguration(ctx.Configuration.GetSection("Logging"));
+                builder.AddFile(o => o.RootPath = AppContext.BaseDirectory);
+            })
+            .UseStartup<Startup>();
+}
 ```
-#### .NET Core 2.x
-```
-// build configuration...
 
+* Console application
+
+```
+// build configuration
+// var configuration = ...;
+
+// configure DI
 var services = new ServiceCollection();
 
-services.AddOptions();
+services.AddLogging(builder =>
+{
+    builder.AddConfiguration(config.GetSection("Logging"));
+    builder.AddFile(o => o.RootPath = AppContext.BaseDirectory);
+});
 
-var context = new FileLoggerContext(AppContext.BaseDirectory, "fallback.log");
-services.AddLogging(b => b.AddFile(context));
-
-services.Configure<FileLoggerOptions>(config);
-
-// inject or resolve ILogger<T> or ILoggerFactory from the service provider
+// create logger factory
+using (var sp = services.BuildServiceProvider())
+{
+    var loggerFactory = sp.GetService<ILoggerFactory>();
+    // ...
+}
 ```
+
+#### .NET Core 2.0
+
+* ASP.NET Core application
+
+```
+public class Program
+{
+    public static void Main(string[] args)
+    {
+        BuildWebHost(args).Run();
+    }
+
+    public static IWebHost BuildWebHost(string[] args) =>
+        WebHost.CreateDefaultBuilder(args)
+            .UseStartup<Startup>()
+            .ConfigureLogging((ctx, builder) =>
+            {
+                builder.AddConfiguration(ctx.Configuration.GetSection("Logging"));
+                builder.AddFile(new FileLoggerContext(AppContext.BaseDirectory, "default.log"));
+                builder.Services.Configure<FileLoggerOptions>(ctx.Configuration.GetSection("Logging:File"));
+            })
+            .Build();
+}
+```
+
+* Console application
+
+```
+// build configuration
+// var configuration = ...;
+
+// configure DI
+var services = new ServiceCollection();
+
+services.AddLogging(builder =>
+{
+    builder.AddConfiguration(config.GetSection("Logging"));
+    builder.AddFile(new FileLoggerContext(AppContext.BaseDirectory, "default.log"));
+    builder.Services.Configure<FileLoggerOptions>(config.GetSection("Logging:File"));
+});
+
+// create logger factory
+using (var sp = services.BuildServiceProvider())
+{
+    var loggerFactory = sp.GetService<ILoggerFactory>();
+    // ...
+}
+```
+
+#### .NET Core 1.1
+
+* ASP.NET Core application
+
+```
+    public class Startup
+    {
+        // class members omitted for brevity...
+
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        {
+            loggerFactory.AddFile(new FileLoggerContext(AppContext.BaseDirectory, "default.log"), Configuration.GetSection("Logging:File"));
+
+            // ...
+        }
+    }
+```
+
+* Console application
+
+```
+// build configuration
+// var configuration = ...;
+
+// create logger factory
+using (var loggerFactory = new LoggerFactory())
+{
+    loggerFactory.AddFile(new FileLoggerContext(AppContext.BaseDirectory, "default.log"), configuration.GetSection("Logging:File"));
+
+    // ...
+}
+```
+
+#### Advanced use cases
+
+##### Using multiple providers with different settings
+
+This feature is available as of version 2.1.
+
+First of all, you need a little bit of boilerplate code:
+
+```
+[ProviderAlias("File2")]
+class AltFileProvider : FileLoggerProvider
+{
+    public AltFileProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName) : base(context, options, optionsName) { }
+}
+```
+
+And a setup like this:
+
+```
+services.AddLogging(builder =>
+{
+    builder.AddConfiguration(config.GetSection("Logging"));
+    builder.AddFile(o => o.RootPath = AppContext.BaseDirectory);
+    builder.AddFile<AltFileProvider>(configure: o => o.RootPath = AppContext.BaseDirectory);
+});
+```
+
+Now, you have two file providers. One of them picks up its configuration from the standard configuration section "File" while the other one from section "File2" as specified by the *ProviderAlias* attribute.
 
 ### Settings
 
- - **BasePath**: path to the base directory of log files. Path is relative to (but cannot access outside of) the file provider root path.
- - **EnsureBasePath**: tries to create base directory if it does not exist.
- - **FileEncoding**: character encoding to use. Default value: UTF-8.
- - **FileNameMappings**: defines log category name to file name mapping by (prefix, file name) pairs (similarly to log level switches).
- - **DateFormat**: if set, separate files will be created based on date. 
- - **CounterFormat**: specifies the format of the counter if any.
- - **MaxFileSize**: if greater than 0, new files will be created when file size limit is reached.
- - **TextBuilder**: specifies a custom log text formatter type.
- - **LogLevel**: defines log level switches (exactly as in the case of ConsoleLogger).
- - **IncludeScopes**: enables including log scopes in the output (exactly as in the case of ConsoleLogger).
- - **MaxQueueSize**: defines the maximum capacity of the (per file) log processor queue. If queue is full, log entries will be discarded. Default value: 64.
+#### Reference
+
+|  | **Description** | **Default value** | **Notes** |
+|---|---|---|---|
+| **FileAppender** | Specifies the object responsible for appending log messages. | *PhysicalFileAppender* instance with root path set to *Environment.CurrentDirectory* | Available as of version 2.1. *FileLoggerOptions* provides the *RootPath* shortcut property for setting a *PhysicalFileAppender* with a custom root path. |
+| **BasePath** | Path to the base directory of log files. | "" (none) | Path is relative to (but cannot access outside of) the root path of the underlying *IFileProvider*. |
+| **EnsureBasePath** | Tries to create base directory if it does not exist. | false | |
+| **FileEncoding** | Character encoding to use. | UTF-8 | *FileLoggerOptions* provides the *FileEncodingName* shortcut property for setting this option using encoding name. |
+| **FallbackFileName** | Name of the file in which log entries with unmapped category names are sent. | "default.log" | Available as of version 2.1. |
+| **FileNameMappings** | Defines log category name to file name mapping by (prefix, file name) pairs (similarly to log level switches). | | |
+| **DateFormat** | If set, separate files will be created based on date using the specified format. | unset (no date appended) | |
+| **CounterFormat** | Specifies the format of the counter if any. | unset | |
+| **MaxFileSize** | If greater than 0, new files will be created using a counter when file size limit is reached. | 0 (no counter appended) | |
+| **TextBuilder** | Specifies a custom log text formatter type. | | *FileLoggerOptions* provides the *TextBuilderType* shortcut property for setting this option using type name. |
+| **LogLevel** | Defines log level switches. | | Exactly as in the case of ConsoleLogger. |
+| **IncludeScopes** | Enables including log scopes in the output. | false | Exactly as in the case of ConsoleLogger. |
+| **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | -1 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full. |
 
 #### Sample JSON configuration
 ```
 {
-  "BasePath": "Logs",
-  "EnsureBasePath": true,
-  "FileEncoding": "utf-8",
-  "FileNameMappings": {
-    "MyApp.SomeClass": "someclass.log",
-    "Default": "default.log"
+  "Logging": {
+    "File": {
+      "BasePath": "Logs",
+      "EnsureBasePath": true,
+      "FileEncoding": "utf-8",
+      "FileNameMappings": {
+        "MyApp.SomeClass": "someclass.log",
+        "Default": "default.log"
+      },
+      "DateFormat": "yyyyMMdd",
+      "CounterFormat": "000",
+      "MaxFileSize": 10485760,
+      "TextBuilder": "MyApp.CustomLogEntryTextBuilder, MyApp",
+      "LogLevel": {
+        "MyApp": "Information",
+        "Default": "Warning"
+      },
+      "IncludeScopes": true,
+      "MaxQueueSize": 100
+    }
   },
-  "DateFormat": "yyyyMMdd",
-  "CounterFormat": "000",
-  "MaxFileSize": 10485760,
-  "TextBuilder": "MyApp.CustomLogEntryTextBuilder, MyApp",
+  // global filter settings
   "LogLevel": {
-    "MyApp": "Information",
-    "Default": "Warning"
-  },
-  "IncludeScopes": true,
-  "MaxQueueSize": 100
+    "Default": "Information"
+  }
 }
 ```
