@@ -74,7 +74,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                         var delayTask = Task.Delay(5000);
                         Assert.Equal(completionTasks[1], Task.WhenAny(completionTasks[1], delayTask).GetAwaiter().GetResult());
-                        Assert.True(completionTasks[1].IsCompletedSuccessfully);
+                        Assert.Equal(TaskStatus.RanToCompletion, completionTasks[1].Status);
                     }
                 }
 
