@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using Karambolo.Extensions.Logging.File;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace Karambolo.Extensions.Logging.File
+namespace Microsoft.Extensions.Logging
 {
     class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
         where TProvider : FileLoggerProvider
@@ -25,7 +26,7 @@ namespace Karambolo.Extensions.Logging.File
             : base(optionsName, providerConfiguration.Configuration) { }
     }
 
-    public static partial class FileLoggerExtensions
+    public static partial class FileLoggerFactoryExtensions
     {
         public static ILoggerFactory AddFile(this ILoggerFactory factory, IFileLoggerContext context, IFileLoggerSettings settings)
         {
@@ -57,7 +58,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public static ILoggingBuilder AddFile(this ILoggingBuilder builder)
         {
-            return builder.AddFile(Options.DefaultName, sp => new FileLoggerProvider(sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
+            return builder.AddFile(Options.Options.DefaultName, sp => new FileLoggerProvider(sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
         }
 
         public static ILoggingBuilder AddFile(this ILoggingBuilder builder, IFileLoggerContext context)
@@ -65,7 +66,7 @@ namespace Karambolo.Extensions.Logging.File
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
-            return builder.AddFile(Options.DefaultName, sp => new FileLoggerProvider(context, sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
+            return builder.AddFile(Options.Options.DefaultName, sp => new FileLoggerProvider(context, sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
         }
 
         public static ILoggingBuilder AddFile(this ILoggingBuilder builder, Action<FileLoggerOptions> configure)
