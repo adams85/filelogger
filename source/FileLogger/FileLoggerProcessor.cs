@@ -120,7 +120,7 @@ namespace Karambolo.Extensions.Logging.File
                     Settings = newSettings.ToImmutable();
             }
 
-            await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout));
+            await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout)).ConfigureAwait(false);
 
             shutdownTokenSource.Cancel();
             shutdownTokenSource.Dispose();
