@@ -1,10 +1,10 @@
 # Karambolo.Extensions.Logging.File
 
-This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Supports .NET Core 1.1 (.NET Standard 1.3), .NET Core 2.0 and .NET Core 2.1 (.NET Standard 2.0).
+This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Supports .NET Core 1.1 (.NET Standard 1.3), .NET Core 2.0 and .NET Core 2.1 (.NET Standard 2.0).
 
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 
-The code is based on [ConsoleLogger](https://github.com/aspnet/Logging/tree/master/src/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/aspnet/core/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage.
+The code is based on [ConsoleLogger](https://github.com/aspnet/Logging/tree/master/src/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage.
 
 ### Additional features:
  - Routing log messages based on category name to different files.
