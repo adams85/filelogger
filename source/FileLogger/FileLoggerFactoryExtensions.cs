@@ -30,12 +30,18 @@ namespace Microsoft.Extensions.Logging
     {
         public static ILoggerFactory AddFile(this ILoggerFactory factory, IFileLoggerContext context, IFileLoggerSettings settings)
         {
+            if (factory == null)
+                throw new ArgumentNullException(nameof(factory));
+
             factory.AddProvider(new FileLoggerProvider(context, settings));
             return factory;
         }
 
         public static ILoggerFactory AddFile(this ILoggerFactory factory, IFileLoggerContext context, IConfiguration configuration)
         {
+            if (factory == null)
+                throw new ArgumentNullException(nameof(factory));
+
             var settings = new ConfigurationFileLoggerSettings(configuration);
             return factory.AddFile(context, settings);
         }
@@ -43,6 +49,9 @@ namespace Microsoft.Extensions.Logging
         static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory)
             where TProvider : FileLoggerProvider
         {
+            if (builder == null)
+                throw new ArgumentNullException(nameof(builder));
+
             builder.AddConfiguration();
 
             builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, TProvider>(providerFactory));
@@ -117,6 +126,9 @@ namespace Microsoft.Extensions.Logging
         public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, IFileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
             where TProvider : FileLoggerProvider
         {
+            if (builder == null)
+                throw new ArgumentNullException(nameof(builder));
+
             if (optionsName == null)
                 optionsName = typeof(TProvider).FullName;
 
