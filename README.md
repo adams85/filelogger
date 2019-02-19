@@ -69,7 +69,7 @@ services.Configure<FileLoggerOptions>(config);
   "DateFormat": "yyyyMMdd",
   "CounterFormat": "000",
   "MaxFileSize": 10485760,
-  "TextBuilder": "MyApp.CustomLogEntryTextBuilder, MyApp",
+      "TextBuilderType": "MyApp.CustomLogEntryTextBuilder, MyApp",
   "LogLevel": {
     "MyApp": "Information",
     "Default": "Warning"
