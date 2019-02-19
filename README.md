@@ -220,7 +220,7 @@ Now, you have two independent file logger providers. One of them picks up its co
       "DateFormat": "yyyyMMdd",
       "CounterFormat": "000",
       "MaxFileSize": 10485760,
-      "TextBuilder": "MyApp.CustomLogEntryTextBuilder, MyApp",
+      "TextBuilderType": "MyApp.CustomLogEntryTextBuilder, MyApp",
       "LogLevel": {
         "MyApp": "Information",
         "Default": "Warning"
