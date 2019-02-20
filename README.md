@@ -61,7 +61,7 @@ services.Configure<FileLoggerOptions>(config);
 {
   "BasePath": "Logs",
   "EnsureBasePath": true,
-  "FileEncoding": "utf-8",
+  "FileEncodingName": "utf-8",
   "FileNameMappings": {
     "MyApp.SomeClass": "someclass.log",
     "Default": "default.log"
@@ -69,7 +69,7 @@ services.Configure<FileLoggerOptions>(config);
   "DateFormat": "yyyyMMdd",
   "CounterFormat": "000",
   "MaxFileSize": 10485760,
-      "TextBuilderType": "MyApp.CustomLogEntryTextBuilder, MyApp",
+  "TextBuilderType": "MyApp.CustomLogEntryTextBuilder, MyApp",
   "LogLevel": {
     "MyApp": "Information",
     "Default": "Warning"
