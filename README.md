@@ -212,7 +212,7 @@ Now, you have two independent file logger providers. One of them picks up its co
     "File": {
       "BasePath": "Logs",
       "EnsureBasePath": true,
-      "FileEncoding": "utf-8",
+      "FileEncodingName": "utf-8",
       "FileNameMappings": {
         "MyApp.SomeClass": "someclass.log",
         "Default": "default.log"
