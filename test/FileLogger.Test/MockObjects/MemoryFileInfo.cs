@@ -12,7 +12,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
         public MemoryFileInfo(MemoryFileProvider owner, string path)
         {
             _owner = owner;
-            Name = Path.GetDirectoryName(path);
+            Name = Path.GetFileName(path);
             PhysicalPath = path;
         }
 
