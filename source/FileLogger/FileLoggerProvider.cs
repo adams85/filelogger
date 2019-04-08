@@ -163,7 +163,7 @@ namespace Karambolo.Extensions.Logging.File
             return logger;
         }
 
-        IExternalScopeProvider GetScopeProvider()
+        protected IExternalScopeProvider GetScopeProvider()
         {
             if (_scopeProvider == null && Settings.IncludeScopes)
                 _scopeProvider = new LoggerExternalScopeProvider();
