@@ -185,6 +185,8 @@ services.AddLogging(builder =>
 
 Now, you have two independent file logger providers. One of them picks up its configuration from the standard configuration section "File" while the other one from section "File2" as specified by the *ProviderAlias* attribute.
 
+You may check out [this demo application](https://github.com/adams85/filelogger/tree/master/samples/SplitByLogLevel) which shows a complete example of this advanced setup.
+
 ### Settings
 
 #### Reference
