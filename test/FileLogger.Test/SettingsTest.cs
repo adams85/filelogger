@@ -41,7 +41,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var cb = new ConfigurationBuilder();
             cb.AddInMemoryCollection(configData);
-            var config = cb.Build();
+            IConfigurationRoot config = cb.Build();
 
             var settings = new ConfigurationFileLoggerSettings(config);
 
@@ -95,14 +95,14 @@ $@"{{
 
             var cb = new ConfigurationBuilder();
             cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: false);
-            var config = cb.Build();
+            IConfigurationRoot config = cb.Build();
 
             var services = new ServiceCollection();
             services.AddOptions();
             services.Configure<FileLoggerOptions>(config);
-            var serviceProvider = services.BuildServiceProvider();
+            ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-            var options = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
+            FileLoggerOptions options = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
 
             Assert.True(options.FileAppender is PhysicalFileAppender);
             Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)options.FileAppender).FileProvider.Root);
@@ -149,7 +149,7 @@ $@"{{
             using (var loggerFactory = new LoggerFactory())
             {
                 loggerFactory.AddFile(context, settings);
-                var logger1 = loggerFactory.CreateLogger<LoggingTest>();
+                ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
 
                 logger1.LogInformation("This is a nice logger.");
 
@@ -258,7 +258,7 @@ $@"{{
 
             var cb = new ConfigurationBuilder();
             cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true);
-            var config = cb.Build();
+            IConfigurationRoot config = cb.Build();
 
             var fileAppender = new MemoryFileAppender(fileProvider);
             var settings = new ConfigurationFileLoggerSettings(config, o => o.FileAppender = o.FileAppender ?? fileAppender);
@@ -274,7 +274,7 @@ $@"{{
             using (var loggerFactory = new LoggerFactory())
             {
                 loggerFactory.AddFile(context, settings);
-                var logger1 = loggerFactory.CreateLogger<LoggingTest>();
+                ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
 
                 logger1.LogInformation("This is a nice logger.");
 
@@ -345,7 +345,7 @@ $@"{{
 
             var cb = new ConfigurationBuilder();
             cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true);
-            var config = cb.Build();
+            IConfigurationRoot config = cb.Build();
 
             var cts = new CancellationTokenSource();
             var context = new TestFileLoggerContext(cts.Token);
@@ -366,10 +366,10 @@ $@"{{
             var fileAppender = new MemoryFileAppender(fileProvider);
             services.Configure<FileLoggerOptions>(o => o.FileAppender = o.FileAppender ?? fileAppender);
 
-            using (var serviceProvider = services.BuildServiceProvider())
+            using (ServiceProvider serviceProvider = services.BuildServiceProvider())
             {
-                var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-                var logger1 = loggerFactory.CreateLogger<LoggingTest>();
+                ILoggerFactory loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+                ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
 
                 using (logger1.BeginScope("SCOPE"))
                 {
@@ -428,7 +428,7 @@ $@"{{
         }
 
         [ProviderAlias(Alias)]
-        class OtherFileLoggerProvider : FileLoggerProvider
+        private class OtherFileLoggerProvider : FileLoggerProvider
         {
             public new const string Alias = "OtherFile";
 
@@ -443,22 +443,22 @@ $@"{{
             var fileAppender = new MemoryFileAppender(fileProvider);
 
             dynamic settings = new JObject();
-            var globalFilters = settings[ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
+            dynamic globalFilters = settings[ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
             globalFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.None.ToString();
 
             settings[FileLoggerProvider.Alias] = new JObject();
-            var fileFilters = settings[FileLoggerProvider.Alias][ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
+            dynamic fileFilters = settings[FileLoggerProvider.Alias][ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
             fileFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.Warning.ToString();
 
             settings[OtherFileLoggerProvider.Alias] = new JObject();
             settings[OtherFileLoggerProvider.Alias][nameof(FileLoggerOptions.FallbackFileName)] = "fallback.log";
-            var otherFileFilters = settings[OtherFileLoggerProvider.Alias][ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
+            dynamic otherFileFilters = settings[OtherFileLoggerProvider.Alias][ConfigurationFileLoggerSettings.LogLevelSectionName] = new JObject();
             otherFileFilters[FileLoggerSettingsBase.DefaultCategoryName] = LogLevel.Information.ToString();
             var settingsJson = ((JObject)settings).ToString();
 
             fileProvider.CreateFile("config.json", settingsJson);
 
-            var config = new ConfigurationBuilder()
+            IConfigurationRoot config = new ConfigurationBuilder()
                 .AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true)
                 .Build();
 
@@ -476,11 +476,11 @@ $@"{{
                 lb.AddFile<OtherFileLoggerProvider>(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
             });
 
-            using (var sp = services.BuildServiceProvider())
+            using (ServiceProvider sp = services.BuildServiceProvider())
             {
-                var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
-                var logger = loggerFactory.CreateLogger("X");
+                ILogger logger = loggerFactory.CreateLogger("X");
 
                 logger.LogInformation("This is an info.");
                 logger.LogWarning("This is a warning.");

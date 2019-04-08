@@ -7,7 +7,7 @@ using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 {
-    class MemoryFileAppender : IFileAppender
+    internal class MemoryFileAppender : IFileAppender
     {
         public MemoryFileAppender()
             : this(new MemoryFileProvider()) { }
@@ -28,7 +28,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
         {
             var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
-            var dirPath = FileProvider.GetFileInfo(Path.GetDirectoryName(fileInfo.PhysicalPath));
+            IFileInfo dirPath = FileProvider.GetFileInfo(Path.GetDirectoryName(fileInfo.PhysicalPath));
             if (dirPath.Exists)
                 return Task.FromResult(false);
 

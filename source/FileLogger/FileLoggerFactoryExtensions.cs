@@ -12,14 +12,14 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.Extensions.Logging
 {
-    class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
+    internal class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
         where TProvider : FileLoggerProvider
     {
         public FileLoggerOptionsChangeTokenSource(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
             : base(optionsName, providerConfiguration.Configuration) { }
     }
 
-    class FileLoggerOptionsSetup<TProvider> : NamedConfigureFromConfigurationOptions<FileLoggerOptions>
+    internal class FileLoggerOptionsSetup<TProvider> : NamedConfigureFromConfigurationOptions<FileLoggerOptions>
         where TProvider : FileLoggerProvider
     {
         public FileLoggerOptionsSetup(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
@@ -46,7 +46,7 @@ namespace Microsoft.Extensions.Logging
             return factory.AddFile(context, settings);
         }
 
-        static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory)
+        private static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory)
             where TProvider : FileLoggerProvider
         {
             if (builder == null)
@@ -98,28 +98,28 @@ namespace Microsoft.Extensions.Logging
             return builder;
         }
 
-        static Lazy<MethodInfo> getRequiredServiceMethod = new Lazy<MethodInfo>(() =>
+        private static Lazy<MethodInfo> s_getRequiredServiceMethod = new Lazy<MethodInfo>(() =>
         {
             Expression<Action> callExpr = () => ServiceProviderServiceExtensions.GetRequiredService<object>(null);
             return ((MethodCallExpression)callExpr.Body).Method.GetGenericMethodDefinition();
         });
 
-        static Func<IServiceProvider, TProvider> CreateProviderFactory<TProvider>(IFileLoggerContext context, string optionsName)
+        private static Func<IServiceProvider, TProvider> CreateProviderFactory<TProvider>(IFileLoggerContext context, string optionsName)
             where TProvider : FileLoggerProvider
         {
-            var constructorArgTypes = new[] { typeof(IFileLoggerContext), typeof(IOptionsMonitor<FileLoggerOptions>), typeof(string) };
+            Type[] constructorArgTypes = new[] { typeof(IFileLoggerContext), typeof(IOptionsMonitor<FileLoggerOptions>), typeof(string) };
 
-            var constructor = typeof(TProvider).GetConstructor(constructorArgTypes);
+            ConstructorInfo constructor = typeof(TProvider).GetConstructor(constructorArgTypes);
             if (constructor == null)
                 throw new ArgumentException($"The provider type must have a public constructor accepting {string.Join(",", constructorArgTypes.Select(t => t.Name))} (in this order).", nameof(TProvider));
 
-            var param = Expression.Parameter(typeof(IServiceProvider));
-            var newExpr = Expression.New(constructor,
+            ParameterExpression param = Expression.Parameter(typeof(IServiceProvider));
+            NewExpression newExpr = Expression.New(constructor,
                 Expression.Constant(context, typeof(IFileLoggerContext)),
-                Expression.Call(getRequiredServiceMethod.Value.MakeGenericMethod(typeof(IOptionsMonitor<FileLoggerOptions>)), param),
+                Expression.Call(s_getRequiredServiceMethod.Value.MakeGenericMethod(typeof(IOptionsMonitor<FileLoggerOptions>)), param),
                 Expression.Constant(optionsName, typeof(string)));
 
-            var factory = Expression.Lambda<Func<IServiceProvider, TProvider>>(newExpr, param).Compile();
+            Func<IServiceProvider, TProvider> factory = Expression.Lambda<Func<IServiceProvider, TProvider>>(newExpr, param).Compile();
             return factory;
         }
 

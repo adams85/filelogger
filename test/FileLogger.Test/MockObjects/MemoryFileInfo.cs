@@ -5,9 +5,9 @@ using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 {
-    class MemoryFileInfo : IFileInfo
+    internal class MemoryFileInfo : IFileInfo
     {
-        readonly MemoryFileProvider _owner;
+        private readonly MemoryFileProvider _owner;
 
         public MemoryFileInfo(MemoryFileProvider owner, string path)
         {

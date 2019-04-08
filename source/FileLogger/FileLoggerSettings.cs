@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -38,7 +37,7 @@ namespace Karambolo.Extensions.Logging.File
 
     public abstract class FileLoggerSettingsBase : IFileLoggerSettingsBase
     {
-        internal protected delegate bool TryGetLogLevel(string categoryName, out LogLevel level);
+        protected internal delegate bool TryGetLogLevel(string categoryName, out LogLevel level);
 
         public const string DefaultCategoryName = "Default";
 
@@ -59,7 +58,7 @@ namespace Karambolo.Extensions.Logging.File
             }
         }
 
-        internal protected static Func<string, LogLevel, bool> BuildFilter(string categoryName, TryGetLogLevel tryGetLogLevel)
+        protected internal static Func<string, LogLevel, bool> BuildFilter(string categoryName, TryGetLogLevel tryGetLogLevel)
         {
             foreach (var prefix in GetPrefixes(categoryName))
                 if (tryGetLogLevel(prefix, out LogLevel level))
@@ -68,7 +67,7 @@ namespace Karambolo.Extensions.Logging.File
             return (c, l) => false;
         }
 
-        bool _isFrozen;
+        private bool _isFrozen;
 
         protected FileLoggerSettingsBase() { }
 
@@ -123,7 +122,7 @@ namespace Karambolo.Extensions.Logging.File
             if (_isFrozen)
                 return this;
 
-            var clone = CreateClone();
+            FileLoggerSettingsBase clone = CreateClone();
             clone._isFrozen = true;
             return clone;
         }
@@ -220,10 +219,9 @@ namespace Karambolo.Extensions.Logging.File
     public class ConfigurationFileLoggerSettings : IFileLoggerSettings
     {
         public const string LogLevelSectionName = "LogLevel";
-
-        readonly Action<FileLoggerSettingsBase> _postConfigure;
-        readonly FileLoggerOptions _options;
-        Dictionary<string, LogLevel> _switches;
+        private readonly Action<FileLoggerSettingsBase> _postConfigure;
+        private readonly FileLoggerOptions _options;
+        private Dictionary<string, LogLevel> _switches;
 
         public ConfigurationFileLoggerSettings(IConfiguration configuration)
             : this(configuration, null) { }

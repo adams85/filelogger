@@ -17,17 +17,17 @@ namespace Karambolo.Extensions.Logging.File
         }
 
         [ThreadStatic]
-        static StringBuilder stringBuilder;
+        private static StringBuilder s_stringBuilder;
+        private UpdatableState _state;
 
-        UpdatableState _state;
-        UpdatableState State
+        private UpdatableState State
         {
-            get { return Interlocked.CompareExchange(ref _state, null, null); }
-            set { Interlocked.Exchange(ref _state, value); }
+            get => Interlocked.CompareExchange(ref _state, null, null);
+            set => Interlocked.Exchange(ref _state, value);
         }
 
-        readonly IFileLoggerProcessor _processor;
-        readonly Func<DateTimeOffset> _timestampGetter;
+        private readonly IFileLoggerProcessor _processor;
+        private readonly Func<DateTimeOffset> _timestampGetter;
 
         public FileLogger(string categoryName, string fallbackFileName, IFileLoggerProcessor processor, IFileLoggerSettingsBase settings,
             Func<DateTimeOffset> timestampGetter = null)
@@ -43,9 +43,10 @@ namespace Karambolo.Extensions.Logging.File
                 settings.BuildFilter(categoryName),
                 scopeProvider,
                 settings.TextBuilder,
-                timestampGetter: timestampGetter) { }
+                timestampGetter: timestampGetter)
+        { }
 
-        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null, 
+        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null,
             bool includeScopes = false, IFileLogEntryTextBuilder textBuilder = null, Func<DateTimeOffset> timestampGetter = null)
             : this(categoryName, fileName, processor, filter, includeScopes ? new LoggerExternalScopeProvider() : null, textBuilder, timestampGetter) { }
 
@@ -97,7 +98,7 @@ namespace Karambolo.Extensions.Logging.File
             // full thread synchronization is omitted for performance reasons
             // as it is considered non-critical (ConsoleLogger is implemented in a similar way)
 
-            var state = CreateState(settings);
+            UpdatableState state = CreateState(settings);
 
             state.FileName = settings.MapToFileName(CategoryName, fallbackFileName);
             state.Filter = settings.BuildFilter(CategoryName);
@@ -129,7 +130,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            var objState = State;
+            UpdatableState objState = State;
 
             if (!IsEnabled(objState, logLevel))
                 return;
@@ -137,12 +138,12 @@ namespace Karambolo.Extensions.Logging.File
             if (formatter == null)
                 throw new ArgumentNullException(nameof(formatter));
 
-            var timestamp = _timestampGetter();
+            DateTimeOffset timestamp = _timestampGetter();
             var message = FormatState(state, exception, formatter);
-            var logScope = objState.ScopeProvider;
+            IExternalScopeProvider logScope = objState.ScopeProvider;
 
-            var sb = stringBuilder;
-            stringBuilder = null;
+            StringBuilder sb = s_stringBuilder;
+            s_stringBuilder = null;
             if (sb == null)
                 sb = new StringBuilder();
 
@@ -150,7 +151,7 @@ namespace Karambolo.Extensions.Logging.File
 
             if (sb.Length > 0)
             {
-                var entry = CreateLogEntry();
+                FileLogEntry entry = CreateLogEntry();
 
                 entry.Text = sb.ToString();
                 entry.Timestamp = timestamp;
@@ -162,7 +163,7 @@ namespace Karambolo.Extensions.Logging.File
             if (sb.Capacity > 1024)
                 sb.Capacity = 1024;
 
-            stringBuilder = sb;
+            s_stringBuilder = sb;
         }
 
         public virtual IDisposable BeginScope<TState>(TState state)

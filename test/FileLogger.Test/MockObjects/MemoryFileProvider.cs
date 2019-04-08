@@ -8,9 +8,9 @@ using Microsoft.Extensions.Primitives;
 
 namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 {
-    class MemoryFileProvider : IFileProvider
+    internal class MemoryFileProvider : IFileProvider
     {
-        class File
+        private class File
         {
             public bool IsDirectory { get; set; }
             public StringBuilder Content { get; set; }
@@ -18,7 +18,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
             public CancellationTokenSource ChangeTokenSource { get; set; }
         }
 
-        readonly Dictionary<string, File> _catalog = new Dictionary<string, File>
+        private readonly Dictionary<string, File> _catalog = new Dictionary<string, File>
         {
             { string.Empty, new File { IsDirectory = true } }
         };
@@ -47,7 +47,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
                 return ReadContent(path)?.Length ?? -1;
         }
 
-        void CheckPath(string path)
+        private void CheckPath(string path)
         {
             if (Exists(path))
                 throw new InvalidOperationException($"A {(IsDirectory(path) ? "directory" : "name")} with the same name already exists.");

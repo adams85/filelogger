@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -13,14 +9,12 @@ namespace Karambolo.Extensions.Logging.File
     public class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
     {
         public const string Alias = "File";
-
-        readonly Dictionary<string, FileLogger> _loggers;
-
-        string _optionsName;
-        IFileLoggerSettings _settingsRef;
-        IDisposable _settingsChangeToken;
-        IExternalScopeProvider _scopeProvider;
-        bool _isDisposed;
+        private readonly Dictionary<string, FileLogger> _loggers;
+        private readonly string _optionsName;
+        private IFileLoggerSettings _settingsRef;
+        private IDisposable _settingsChangeToken;
+        private IExternalScopeProvider _scopeProvider;
+        private bool _isDisposed;
 
         protected FileLoggerProvider(IFileLoggerContext context, IFileLoggerSettingsBase settings)
         {
@@ -90,7 +84,7 @@ namespace Karambolo.Extensions.Logging.File
             return new FileLoggerProcessor(Context, settings);
         }
 
-        void ResetProcessor(IFileLoggerSettingsBase newSettings)
+        private void ResetProcessor(IFileLoggerSettingsBase newSettings)
         {
             Processor.CompleteAsync(Settings).ConfigureAwait(false).GetAwaiter().GetResult();
         }
@@ -102,7 +96,7 @@ namespace Karambolo.Extensions.Logging.File
 #pragma warning restore CS0618 // Type or member is obsolete
         }
 
-        bool HandleSettingsChangedCore(IFileLoggerSettingsBase settings)
+        private bool HandleSettingsChangedCore(IFileLoggerSettingsBase settings)
         {
             lock (_loggers)
             {
@@ -111,8 +105,8 @@ namespace Karambolo.Extensions.Logging.File
 
                 Settings = settings.Freeze();
 
-                var scopeProvider = GetScopeProvider();
-                foreach (var logger in _loggers.Values)
+                IExternalScopeProvider scopeProvider = GetScopeProvider();
+                foreach (FileLogger logger in _loggers.Values)
                     logger.Update(GetFallbackFileName(logger.CategoryName), Settings, scopeProvider);
 
                 // we must try to wait for the current queues to complete to avoid concurrent file I/O
@@ -122,13 +116,13 @@ namespace Karambolo.Extensions.Logging.File
             return true;
         }
 
-        void HandleOptionsChanged(IFileLoggerSettingsBase options, string optionsName)
+        private void HandleOptionsChanged(IFileLoggerSettingsBase options, string optionsName)
         {
             if (optionsName == _optionsName)
                 HandleSettingsChangedCore(options);
         }
 
-        void HandleSettingsChanged(object state)
+        private void HandleSettingsChanged(object state)
         {
             _settingsChangeToken.Dispose();
 

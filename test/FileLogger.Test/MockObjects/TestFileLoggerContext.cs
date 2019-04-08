@@ -7,7 +7,7 @@ using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 {
-    class TestFileLoggerContext : FileLoggerContext
+    internal class TestFileLoggerContext : FileLoggerContext
     {
         public TestFileLoggerContext(CancellationToken completeToken = default)
             : base(completeToken)
@@ -25,15 +25,15 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
             _completionTimeout = base.CompletionTimeout;
         }
 
-        DateTimeOffset _timestamp;
+        private DateTimeOffset _timestamp;
         public override DateTimeOffset GetTimestamp() => _timestamp;
         public void SetTimestamp(DateTimeOffset value) => _timestamp = value;
 
-        TimeSpan _writeRetryDelay;
+        private TimeSpan _writeRetryDelay;
         public override TimeSpan WriteRetryDelay => _writeRetryDelay;
         public void SetWriteRetryDelay(TimeSpan value) => _writeRetryDelay = value;
 
-        TimeSpan _completionTimeout;
+        private TimeSpan _completionTimeout;
         public override TimeSpan CompletionTimeout => _completionTimeout;
         public void SetCompletionTimeout(TimeSpan value) => _completionTimeout = value;
     }

@@ -17,7 +17,7 @@ namespace Karambolo.Extensions.Logging.File
 
     public class PhysicalFileAppender : IFileAppender, IDisposable
     {
-        readonly bool _isOwner;
+        private readonly bool _isOwner;
 
         public PhysicalFileAppender(string root)
             : this(new PhysicalFileProvider(root), isOwner: true) { }

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -15,9 +14,8 @@ namespace Karambolo.Extensions.Logging.File
     public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
     {
         public static readonly FileLogEntryTextBuilder Instance = new FileLogEntryTextBuilder();
-
-        readonly string _messagePadding;
-        readonly string _newLineWithMessagePadding;
+        private readonly string _messagePadding;
+        private readonly string _newLineWithMessagePadding;
 
         protected FileLogEntryTextBuilder()
         {
@@ -79,7 +77,7 @@ namespace Karambolo.Extensions.Logging.File
 
             scopeProvider.ForEachScope((scope, state) =>
             {
-                var (builder, length) = state;
+                (StringBuilder builder, int length) = state;
 
                 var first = length == builder.Length;
                 if (!first)

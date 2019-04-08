@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,7 +17,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 {
     public class LoggingTest
     {
-        const string logsDirName = "Logs";
+        private const string LogsDirName = "Logs";
         public const string FallbackFileName = "default.log";
 
         [Fact]
@@ -28,7 +28,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             var settings = new FileLoggerSettings
             {
                 FileAppender = new MemoryFileAppender(fileProvider),
-                BasePath = logsDirName,
+                BasePath = LogsDirName,
                 EnsureBasePath = true,
                 FileEncoding = Encoding.UTF8,
                 MaxQueueSize = 100,
@@ -60,7 +60,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             using (var loggerFactory = new LoggerFactory())
             {
                 loggerFactory.AddFile(context, settings);
-                var logger1 = loggerFactory.CreateLogger<LoggingTest>();
+                ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
 
                 logger1.LogInformation("This is a nice logger.");
                 using (logger1.BeginScope("SCOPE"))
@@ -70,7 +70,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                     using (logger1.BeginScope("NESTED SCOPE"))
                     {
-                        var logger2 = loggerFactory.CreateLogger("X");
+                        ILogger logger2 = loggerFactory.CreateLogger("X");
                         logger2.LogError(0, ex, "Some failure!");
                     }
                 }
@@ -81,7 +81,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
             }
 
-            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000.log");
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{LogsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -93,7 +93,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 ""
             }, lines);
 
-            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-001.log");
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{LogsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-001.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -107,7 +107,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             }, lines);
 
             logFile = (MemoryFileInfo)fileProvider.GetFileInfo(
-                $@"{logsDirName}\{Path.ChangeExtension(FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000{Path.GetExtension(FallbackFileName)}");
+                $@"{LogsDirName}\{Path.ChangeExtension(FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000{Path.GetExtension(FallbackFileName)}");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -127,7 +127,7 @@ namespace Karambolo.Extensions.Logging.File.Test
         {
             var configData = new Dictionary<string, string>
             {
-                [$"{nameof(FileLoggerOptions.BasePath)}"] = logsDirName,
+                [$"{nameof(FileLoggerOptions.BasePath)}"] = LogsDirName,
                 [$"{nameof(FileLoggerOptions.EnsureBasePath)}"] = "true",
                 [$"{nameof(FileLoggerOptions.FileEncodingName)}"] = "UTF-16",
                 [$"{nameof(FileLoggerOptions.MaxQueueSize)}"] = "100",
@@ -139,12 +139,12 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var cb = new ConfigurationBuilder();
             cb.AddInMemoryCollection(configData);
-            var config = cb.Build();
+            IConfigurationRoot config = cb.Build();
 
             var cts = new CancellationTokenSource();
 
             var tempPath = Path.GetTempPath();
-            var logPath = Path.Combine(tempPath, logsDirName);
+            var logPath = Path.Combine(tempPath, LogsDirName);
 
             var context = new TestFileLoggerContext(new PhysicalFileProvider(tempPath), "fallback.log", cts.Token);
 
@@ -164,9 +164,9 @@ namespace Karambolo.Extensions.Logging.File.Test
             try
             {
                 var ex = new Exception();
-                var serviceProvider = services.BuildServiceProvider();
+                ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-                var logger1 = serviceProvider.GetService<ILogger<LoggingTest>>();
+                ILogger<LoggingTest> logger1 = serviceProvider.GetService<ILogger<LoggingTest>>();
 
                 logger1.LogInformation("This is a nice logger.");
                 using (logger1.BeginScope("SCOPE"))
@@ -176,8 +176,8 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                     using (logger1.BeginScope("NESTED SCOPE"))
                     {
-                        var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-                        var logger2 = loggerFactory.CreateLogger("X");
+                        ILoggerFactory loggerFactory = serviceProvider.GetService<ILoggerFactory>();
+                        ILogger logger2 = loggerFactory.CreateLogger("X");
                         logger2.LogError(0, ex, "Some failure!");
                     }
                 }
@@ -188,7 +188,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
 #pragma warning disable CS0618 // Type or member is obsolete
-                var logFile = context.FileProvider.GetFileInfo($@"{logsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}.log");
+                IFileInfo logFile = context.FileProvider.GetFileInfo($@"{LogsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}.log");
 #pragma warning restore CS0618 // Type or member is obsolete
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
@@ -205,7 +205,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
 #pragma warning disable CS0618 // Type or member is obsolete
                 logFile = context.FileProvider.GetFileInfo(
-                    $@"{logsDirName}\{Path.ChangeExtension(context.FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}{Path.GetExtension(context.FallbackFileName)}");
+                    $@"{LogsDirName}\{Path.ChangeExtension(context.FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}{Path.GetExtension(context.FallbackFileName)}");
 #pragma warning restore CS0618 // Type or member is obsolete
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
@@ -226,7 +226,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             string ReadContent(IFileInfo fileInfo, out Encoding encoding)
             {
-                using (var stream = fileInfo.CreateReadStream())
+                using (Stream stream = fileInfo.CreateReadStream())
                 using (var reader = new StreamReader(stream))
                 {
                     var result = reader.ReadToEnd();

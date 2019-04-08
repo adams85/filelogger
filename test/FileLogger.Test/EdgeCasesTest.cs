@@ -15,13 +15,13 @@ namespace Karambolo.Extensions.Logging.File.Test
 {
     public class EdgeCasesTest
     {
-        const string logsDirName = "Logs_EC";
+        private const string LogsDirName = "Logs_EC";
 
         [Fact]
         public void FailingEntryDontGetStuck()
         {
             var tempPath = Path.GetTempPath();
-            var logPath = Path.Combine(tempPath, logsDirName);
+            var logPath = Path.Combine(tempPath, LogsDirName);
 
             if (Directory.Exists(logPath))
                 Directory.Delete(logPath, recursive: true);
@@ -39,7 +39,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 var cts = new CancellationTokenSource();
                 var settings = new FileLoggerSettings
                 {
-                    BasePath = logsDirName,
+                    BasePath = LogsDirName,
                     FileNameMappings = new Dictionary<string, string>
                     {
                         { "Default", "default.log" }
@@ -54,7 +54,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 var filePath = Path.Combine(logPath, "default.log");
                 using (var loggerProvider = new FileLoggerProvider(context, settings))
                 {
-                    var logger = loggerProvider.CreateLogger("X");
+                    ILogger logger = loggerProvider.CreateLogger("X");
 
                     logger.LogInformation("This should get through.");
 
@@ -74,7 +74,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                         var delayTask = Task.Delay(5000);
                         Assert.Equal(completionTasks[1], Task.WhenAny(completionTasks[1], delayTask).GetAwaiter().GetResult());
-                        Assert.True(completionTasks[1].IsCompletedSuccessfully);
+                        Assert.Equal(TaskStatus.RanToCompletion, completionTasks[1].Status);
                     }
                 }
 
