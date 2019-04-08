@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.489
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SplitByLogLevel", "SplitByLogLevel\SplitByLogLevel.csproj", "{58CE98A8-082B-487E-8196-B824E6BBF627}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", "{150CCFE3-0BC4-4B3A-A29F-1E0F068ED0A7}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger", "..\source\FileLogger\FileLogger.csproj", "{DD6221DA-E27F-4F69-A029-4BEDF2CB4DAC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{58CE98A8-082B-487E-8196-B824E6BBF627}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58CE98A8-082B-487E-8196-B824E6BBF627}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58CE98A8-082B-487E-8196-B824E6BBF627}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58CE98A8-082B-487E-8196-B824E6BBF627}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD6221DA-E27F-4F69-A029-4BEDF2CB4DAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD6221DA-E27F-4F69-A029-4BEDF2CB4DAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD6221DA-E27F-4F69-A029-4BEDF2CB4DAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD6221DA-E27F-4F69-A029-4BEDF2CB4DAC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DD6221DA-E27F-4F69-A029-4BEDF2CB4DAC} = {150CCFE3-0BC4-4B3A-A29F-1E0F068ED0A7}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {2D074EAB-EA6B-40A7-87C9-F01EF84F239C}
+	EndGlobalSection
+EndGlobal
