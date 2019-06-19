@@ -32,7 +32,7 @@ Also keep in mind that in .NET Core 2.1 *ILoggingBuilder.AddConfiguration(IConfi
 
 * ASP.NET Core application
 
-```
+``` csharp
 public class Program
 {
     public static void Main(string[] args)
@@ -53,7 +53,7 @@ public class Program
 
 * Console application
 
-```
+``` csharp
 // build configuration
 // var configuration = ...;
 
@@ -78,7 +78,7 @@ using (var sp = services.BuildServiceProvider())
 
 * ASP.NET Core application
 
-```
+``` csharp
 public class Program
 {
     public static void Main(string[] args)
@@ -101,7 +101,7 @@ public class Program
 
 * Console application
 
-```
+``` csharp
 // build configuration
 // var configuration = ...;
 
@@ -127,7 +127,7 @@ using (var sp = services.BuildServiceProvider())
 
 * ASP.NET Core application
 
-```
+``` csharp
 public class Startup
 {
     // class members omitted for brevity...
@@ -143,7 +143,7 @@ public class Startup
 
 * Console application
 
-```
+``` csharp
 // build configuration
 // var configuration = ...;
 
@@ -164,7 +164,7 @@ This feature is available as of version 2.1.
 
 First of all, you need a little bit of boilerplate code:
 
-```
+``` csharp
 [ProviderAlias("File2")]
 class AltFileLoggerProvider : FileLoggerProvider
 {
@@ -174,7 +174,7 @@ class AltFileLoggerProvider : FileLoggerProvider
 
 And a setup like this:
 
-```
+``` csharp
 services.AddLogging(builder =>
 {
     builder.AddConfiguration(config.GetSection("Logging"));
@@ -208,7 +208,7 @@ You may check out [this demo application](https://github.com/adams85/filelogger/
 | **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | -1 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is the specified limit is exceeded. |
 
 #### Sample JSON configuration
-```
+``` json5
 {
   "Logging": {
     "File": {
