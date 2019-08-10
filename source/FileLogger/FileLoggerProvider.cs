@@ -91,9 +91,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual string GetFallbackFileName(string categoryName)
         {
-#pragma warning disable CS0618 // Type or member is obsolete
-            return Settings.FallbackFileName ?? Context.FallbackFileName ?? "default.log";
-#pragma warning restore CS0618 // Type or member is obsolete
+            return Settings.FallbackFileName ?? "default.log";
         }
 
         private bool HandleSettingsChangedCore(IFileLoggerSettingsBase settings)

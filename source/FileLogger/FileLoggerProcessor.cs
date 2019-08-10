@@ -51,15 +51,7 @@ namespace Karambolo.Extensions.Logging.File
             if (settings == null)
                 throw new ArgumentNullException(nameof(settings));
 
-#pragma warning disable CS0618 // Type or member is obsolete
-            PhysicalFileProvider physicalFileProvider = context.FileProvider == null ? null : context.FileProvider as PhysicalFileProvider ??
-#pragma warning restore CS0618 // Type or member is obsolete
-                throw new ArgumentException($"File provider must be {nameof(PhysicalFileProvider)}", nameof(context));
-
-            _fallbackFileAppender =
-                physicalFileProvider != null ?
-                new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(physicalFileProvider)) :
-                new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(Environment.CurrentDirectory));
+            _fallbackFileAppender = new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(Environment.CurrentDirectory));
 
             Context = context;
             Settings = settings.Freeze();
