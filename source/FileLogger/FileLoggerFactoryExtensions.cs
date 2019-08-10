@@ -28,24 +28,6 @@ namespace Microsoft.Extensions.Logging
 
     public static partial class FileLoggerFactoryExtensions
     {
-        public static ILoggerFactory AddFile(this ILoggerFactory factory, IFileLoggerContext context, IFileLoggerSettings settings)
-        {
-            if (factory == null)
-                throw new ArgumentNullException(nameof(factory));
-
-            factory.AddProvider(new FileLoggerProvider(context, settings));
-            return factory;
-        }
-
-        public static ILoggerFactory AddFile(this ILoggerFactory factory, IFileLoggerContext context, IConfiguration configuration)
-        {
-            if (factory == null)
-                throw new ArgumentNullException(nameof(factory));
-
-            var settings = new ConfigurationFileLoggerSettings(configuration);
-            return factory.AddFile(context, settings);
-        }
-
         private static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory)
             where TProvider : FileLoggerProvider
         {
@@ -98,7 +80,7 @@ namespace Microsoft.Extensions.Logging
             return builder;
         }
 
-        private static Lazy<MethodInfo> s_getRequiredServiceMethod = new Lazy<MethodInfo>(() =>
+        private static readonly Lazy<MethodInfo> s_getRequiredServiceMethod = new Lazy<MethodInfo>(() =>
         {
             Expression<Action> callExpr = () => ServiceProviderServiceExtensions.GetRequiredService<object>(null);
             return ((MethodCallExpression)callExpr.Body).Method.GetGenericMethodDefinition();

@@ -11,48 +11,31 @@ namespace Karambolo.Extensions.Logging.File
         public const string Alias = "File";
         private readonly Dictionary<string, FileLogger> _loggers;
         private readonly string _optionsName;
-        private IFileLoggerSettings _settingsRef;
-        private IDisposable _settingsChangeToken;
+        private readonly IDisposable _settingsChangeToken;
         private IExternalScopeProvider _scopeProvider;
         private bool _isDisposed;
-
-        protected FileLoggerProvider(IFileLoggerContext context, IFileLoggerSettingsBase settings)
-        {
-            if (settings == null)
-                throw new ArgumentNullException(nameof(settings));
-
-            Context = context ?? FileLoggerContext.Default;
-            Settings = settings.Freeze();
-
-            Processor = CreateProcessor(Settings);
-
-            _loggers = new Dictionary<string, FileLogger>();
-        }
-
-        public FileLoggerProvider(IFileLoggerSettings settings)
-            : this(null, settings) { }
-
-        public FileLoggerProvider(IFileLoggerContext context, IFileLoggerSettings settings)
-            : this(context, (IFileLoggerSettingsBase)settings)
-        {
-            _settingsRef = settings;
-
-            _settingsChangeToken =
-                settings.ChangeToken != null && !settings.ChangeToken.HasChanged ?
-                settings.ChangeToken.RegisterChangeCallback(HandleSettingsChanged, null) :
-                null;
-        }
 
         public FileLoggerProvider(IOptionsMonitor<FileLoggerOptions> options)
             : this(null, options) { }
 
         public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options)
-            : this(context, options, Options.DefaultName) { }
+            : this(context, options, null) { }
 
         public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
-            : this(context, options != null ? options.Get(optionsName) : throw new ArgumentNullException(nameof(options)))
         {
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
+
+            Context = context ?? FileLoggerContext.Default;
+
             _optionsName = optionsName ?? Options.DefaultName;
+            // TODO
+            Settings = ((IFileLoggerSettingsBase)options.Get(_optionsName)).Freeze();
+
+            Processor = CreateProcessor(Settings);
+
+            _loggers = new Dictionary<string, FileLogger>();
+
             _settingsChangeToken = options.OnChange(HandleOptionsChanged);
         }
 
@@ -94,14 +77,17 @@ namespace Karambolo.Extensions.Logging.File
             return Settings.FallbackFileName ?? "default.log";
         }
 
-        private bool HandleSettingsChangedCore(IFileLoggerSettingsBase settings)
+        private void HandleOptionsChanged(IFileLoggerSettingsBase options, string optionsName)
         {
+            if (optionsName != _optionsName)
+                return;
+
             lock (_loggers)
             {
                 if (_isDisposed)
-                    return false;
+                    return;
 
-                Settings = settings.Freeze();
+                Settings = options.Freeze();
 
                 IExternalScopeProvider scopeProvider = GetScopeProvider();
                 foreach (FileLogger logger in _loggers.Values)
@@ -110,28 +96,6 @@ namespace Karambolo.Extensions.Logging.File
                 // we must try to wait for the current queues to complete to avoid concurrent file I/O
                 ResetProcessor(Settings);
             }
-
-            return true;
-        }
-
-        private void HandleOptionsChanged(IFileLoggerSettingsBase options, string optionsName)
-        {
-            if (optionsName == _optionsName)
-                HandleSettingsChangedCore(options);
-        }
-
-        private void HandleSettingsChanged(object state)
-        {
-            _settingsChangeToken.Dispose();
-
-            _settingsRef = _settingsRef.Reload();
-
-            var isNotDisposed = HandleSettingsChangedCore(_settingsRef);
-
-            _settingsChangeToken =
-                isNotDisposed && _settingsRef.ChangeToken != null && !_settingsRef.ChangeToken.HasChanged ?
-                _settingsRef.ChangeToken.RegisterChangeCallback(HandleSettingsChanged, null) :
-                null;
         }
 
         protected virtual FileLogger CreateLoggerCore(string categoryName)

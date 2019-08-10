@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Primitives;
 
 namespace Karambolo.Extensions.Logging.File
 {
@@ -27,12 +25,6 @@ namespace Karambolo.Extensions.Logging.File
         Func<string, LogLevel, bool> BuildFilter(string categoryName);
 
         IFileLoggerSettingsBase Freeze();
-    }
-
-    public interface IFileLoggerSettings : IFileLoggerSettingsBase
-    {
-        IFileLoggerSettings Reload();
-        IChangeToken ChangeToken { get; }
     }
 
     public abstract class FileLoggerSettingsBase : IFileLoggerSettingsBase
@@ -174,127 +166,6 @@ namespace Karambolo.Extensions.Logging.File
         protected override FileLoggerSettingsBase CreateClone()
         {
             return new FileLoggerOptions(this);
-        }
-    }
-
-    public class FileLoggerSettings : FileLoggerSettingsBase, IFileLoggerSettings
-    {
-        public FileLoggerSettings()
-        {
-            FileNameMappings = new Dictionary<string, string>();
-            Switches = new Dictionary<string, LogLevel>();
-        }
-
-        protected FileLoggerSettings(FileLoggerSettings other) : base(other)
-        {
-            if (other.Switches != null)
-                Switches = new Dictionary<string, LogLevel>(other.Switches);
-        }
-
-        public IDictionary<string, LogLevel> Switches { get; set; }
-
-        public IChangeToken ChangeToken { get; set; }
-
-        public IFileLoggerSettings Reload()
-        {
-            return this;
-        }
-
-        public virtual bool TryGetSwitch(string categoryName, out LogLevel level)
-        {
-            return Switches.TryGetValue(categoryName, out level);
-        }
-
-        public sealed override Func<string, LogLevel, bool> BuildFilter(string categoryName)
-        {
-            return BuildFilter(categoryName, TryGetSwitch);
-        }
-
-        protected override FileLoggerSettingsBase CreateClone()
-        {
-            return new FileLoggerSettings(this);
-        }
-    }
-
-    public class ConfigurationFileLoggerSettings : IFileLoggerSettings
-    {
-        public const string LogLevelSectionName = "LogLevel";
-        private readonly Action<FileLoggerSettingsBase> _postConfigure;
-        private readonly FileLoggerOptions _options;
-        private Dictionary<string, LogLevel> _switches;
-
-        public ConfigurationFileLoggerSettings(IConfiguration configuration)
-            : this(configuration, null) { }
-
-        public ConfigurationFileLoggerSettings(IConfiguration configuration, Action<FileLoggerSettingsBase> postConfigure)
-        {
-            if (configuration == null)
-                throw new ArgumentNullException(nameof(configuration));
-
-            Configuration = configuration;
-            _postConfigure = postConfigure;
-
-            _options = CreateLoggerOptions();
-            configuration.Bind(_options);
-
-            _switches = new Dictionary<string, LogLevel>();
-            configuration.Bind(LogLevelSectionName, _switches);
-
-            _postConfigure?.Invoke(_options);
-
-            ChangeToken = Configuration.GetReloadToken();
-        }
-
-        protected IConfiguration Configuration { get; }
-
-        public IFileAppender FileAppender => _options.FileAppender;
-        public string BasePath => _options.BasePath;
-        public bool EnsureBasePath => _options.EnsureBasePath;
-        public Encoding FileEncoding => _options.FileEncoding;
-        public string FallbackFileName => _options.FallbackFileName;
-        public string DateFormat => _options.DateFormat;
-        public string CounterFormat => _options.CounterFormat;
-        public int MaxFileSize => _options.MaxFileSize;
-        public IFileLogEntryTextBuilder TextBuilder => _options.TextBuilder;
-        public bool IncludeScopes => _options.IncludeScopes;
-        public int MaxQueueSize => _options.MaxQueueSize;
-
-        public IChangeToken ChangeToken { get; private set; }
-
-        protected virtual FileLoggerOptions CreateLoggerOptions()
-        {
-            return new FileLoggerOptions();
-        }
-
-        protected virtual ConfigurationFileLoggerSettings CreateLoggerSettings()
-        {
-            return new ConfigurationFileLoggerSettings(Configuration, _postConfigure);
-        }
-
-        public string MapToFileName(string categoryName, string fallbackFileName)
-        {
-            return _options.MapToFileName(categoryName, fallbackFileName);
-        }
-
-        public virtual bool TryGetSwitch(string categoryName, out LogLevel level)
-        {
-            return _switches.TryGetValue(categoryName, out level);
-        }
-
-        public Func<string, LogLevel, bool> BuildFilter(string categoryName)
-        {
-            return FileLoggerSettingsBase.BuildFilter(categoryName, TryGetSwitch);
-        }
-
-        public IFileLoggerSettings Reload()
-        {
-            ChangeToken = null;
-            return CreateLoggerSettings();
-        }
-
-        IFileLoggerSettingsBase IFileLoggerSettingsBase.Freeze()
-        {
-            return this;
         }
     }
 }
