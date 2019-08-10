@@ -2,7 +2,6 @@
 using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions.Internal;
 
 namespace Karambolo.Extensions.Logging.File
 {
