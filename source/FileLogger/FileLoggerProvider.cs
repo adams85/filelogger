@@ -29,8 +29,7 @@ namespace Karambolo.Extensions.Logging.File
             Context = context ?? FileLoggerContext.Default;
 
             _optionsName = optionsName ?? Options.DefaultName;
-            // TODO
-            Settings = ((IFileLoggerSettingsBase)options.Get(_optionsName)).Freeze();
+            Settings = ((IFileLoggerSettings)options.Get(_optionsName)).Freeze();
 
             Processor = CreateProcessor(Settings);
 
@@ -54,30 +53,25 @@ namespace Karambolo.Extensions.Logging.File
             _settingsChangeToken?.Dispose();
 
             // blocking in Dispose() seems to be a design flaw, however ConsoleLoggerProcess.Dispose() implemented this way as well
-            ResetProcessor(null);
+            ResetProcessor();
             Processor.Dispose();
         }
 
         protected IFileLoggerContext Context { get; }
-        protected IFileLoggerSettingsBase Settings { get; private set; }
+        protected IFileLoggerSettings Settings { get; private set; }
         protected FileLoggerProcessor Processor { get; }
 
-        protected virtual FileLoggerProcessor CreateProcessor(IFileLoggerSettingsBase settings)
+        protected virtual FileLoggerProcessor CreateProcessor(IFileLoggerSettings settings)
         {
-            return new FileLoggerProcessor(Context, settings);
+            return new FileLoggerProcessor(Context);
         }
 
-        private void ResetProcessor(IFileLoggerSettingsBase newSettings)
+        private void ResetProcessor()
         {
-            Processor.CompleteAsync(Settings).ConfigureAwait(false).GetAwaiter().GetResult();
+            Processor.CompleteAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        protected virtual string GetFallbackFileName(string categoryName)
-        {
-            return Settings.FallbackFileName ?? "default.log";
-        }
-
-        private void HandleOptionsChanged(IFileLoggerSettingsBase options, string optionsName)
+        private void HandleOptionsChanged(IFileLoggerSettings options, string optionsName)
         {
             if (optionsName != _optionsName)
                 return;
@@ -89,18 +83,17 @@ namespace Karambolo.Extensions.Logging.File
 
                 Settings = options.Freeze();
 
-                IExternalScopeProvider scopeProvider = GetScopeProvider();
                 foreach (FileLogger logger in _loggers.Values)
-                    logger.Update(GetFallbackFileName(logger.CategoryName), Settings, scopeProvider);
+                    logger.Update(Settings);
 
                 // we must try to wait for the current queues to complete to avoid concurrent file I/O
-                ResetProcessor(Settings);
+                ResetProcessor();
             }
         }
 
         protected virtual FileLogger CreateLoggerCore(string categoryName)
         {
-            return new FileLogger(categoryName, GetFallbackFileName(categoryName), Processor, Settings, GetScopeProvider(), Context.GetTimestamp);
+            return new FileLogger(categoryName, Processor, Settings, GetScopeProvider(), Context.GetTimestamp);
         }
 
         public ILogger CreateLogger(string categoryName)
@@ -121,15 +114,21 @@ namespace Karambolo.Extensions.Logging.File
 
         protected IExternalScopeProvider GetScopeProvider()
         {
-            if (_scopeProvider == null && Settings.IncludeScopes)
-                _scopeProvider = new LoggerExternalScopeProvider();
-
-            return Settings.IncludeScopes ? _scopeProvider : null;
+            return _scopeProvider;
         }
 
         public void SetScopeProvider(IExternalScopeProvider scopeProvider)
         {
-            _scopeProvider = scopeProvider;
+            lock (_loggers)
+            {
+                if (_isDisposed)
+                    return;
+
+                _scopeProvider = scopeProvider;
+
+                foreach (FileLogger logger in _loggers.Values)
+                    logger.Update(scopeProvider);
+            }
         }
     }
 }

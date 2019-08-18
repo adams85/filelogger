@@ -1,120 +1,121 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File
 {
+    using FileGroupsDictionary = Dictionary<(Type TextBuilderType, bool IncludeScopes), (ILogFileSettings Settings, LogLevel MinLevel, IFileLogEntryTextBuilder TextBuilder)[]>;
+
     public class FileLogger : ILogger
     {
         protected class UpdatableState
         {
-            public string FileName;
-            public Func<string, LogLevel, bool> Filter;
-            public IExternalScopeProvider ScopeProvider;
-            public IFileLogEntryTextBuilder TextBuilder;
+            public IFileLoggerSettings Settings { get; set; }
+            public FileGroupsDictionary FileGroups { get; set; }
+            public IExternalScopeProvider ScopeProvider { get; set; }
         }
 
         [ThreadStatic]
         private static StringBuilder s_stringBuilder;
-        private UpdatableState _state;
-
-        private UpdatableState State
-        {
-            get => Interlocked.CompareExchange(ref _state, null, null);
-            set => Interlocked.Exchange(ref _state, value);
-        }
 
         private readonly IFileLoggerProcessor _processor;
         private readonly Func<DateTimeOffset> _timestampGetter;
 
-        public FileLogger(string categoryName, string fallbackFileName, IFileLoggerProcessor processor, IFileLoggerSettingsBase settings,
+        public FileLogger(string categoryName, IFileLoggerProcessor processor, IFileLoggerSettings settings, IExternalScopeProvider scopeProvider = null,
             Func<DateTimeOffset> timestampGetter = null)
-            : this(categoryName, fallbackFileName, processor, settings, settings.IncludeScopes ? new LoggerExternalScopeProvider() : null, timestampGetter) { }
-
-        public FileLogger(string categoryName, string fallbackFileName, IFileLoggerProcessor processor, IFileLoggerSettingsBase settings,
-            IExternalScopeProvider scopeProvider = null, Func<DateTimeOffset> timestampGetter = null)
-            : this(
-                categoryName ?? throw new ArgumentNullException(nameof(categoryName)),
-                settings?.MapToFileName(categoryName, fallbackFileName ?? throw new ArgumentNullException(nameof(fallbackFileName))) ??
-                    throw new ArgumentNullException(nameof(settings)),
-                processor,
-                settings.BuildFilter(categoryName),
-                scopeProvider,
-                settings.TextBuilder,
-                timestampGetter: timestampGetter)
-        { }
-
-        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null,
-            bool includeScopes = false, IFileLogEntryTextBuilder textBuilder = null, Func<DateTimeOffset> timestampGetter = null)
-            : this(categoryName, fileName, processor, filter, includeScopes ? new LoggerExternalScopeProvider() : null, textBuilder, timestampGetter) { }
-
-        public FileLogger(string categoryName, string fileName, IFileLoggerProcessor processor, Func<string, LogLevel, bool> filter = null,
-            IExternalScopeProvider scopeProvider = null, IFileLogEntryTextBuilder textBuilder = null, Func<DateTimeOffset> timestampGetter = null)
         {
             if (categoryName == null)
                 throw new ArgumentNullException(nameof(categoryName));
-            if (fileName == null)
-                throw new ArgumentNullException(nameof(fileName));
             if (processor == null)
                 throw new ArgumentNullException(nameof(processor));
+            if (settings == null)
+                throw new ArgumentNullException(nameof(settings));
 
             CategoryName = categoryName;
 
             _processor = processor;
 
-            _state = new UpdatableState
-            {
-                FileName = fileName,
-                Filter = filter ?? ((c, l) => true),
-                ScopeProvider = scopeProvider,
-                TextBuilder = textBuilder ?? FileLogEntryTextBuilder.Instance,
-            };
+            UpdatableState state = CreateState(null, settings);
+            state.Settings = settings;
+            state.FileGroups = GetFileGroups(settings);
+            state.ScopeProvider = scopeProvider;
+            _state = state;
 
             _timestampGetter = timestampGetter ?? (() => DateTimeOffset.UtcNow);
         }
 
+        private volatile UpdatableState _state;
+
         public string CategoryName { get; }
 
-        public string FileName => State.FileName;
+        public IEnumerable<string> FilePaths => _state.FileGroups.Values.SelectMany(fileGroup => fileGroup.Select(file => file.Settings.Path));
 
-        public Func<string, LogLevel, bool> Filter => State.Filter;
+        private FileGroupsDictionary GetFileGroups(IFileLoggerSettings settings)
+        {
+            return settings.Files
+                .Where(file => file != null && !string.IsNullOrEmpty(file.Path))
+                .Select(file => 
+                    (Settings: file, 
+                     MinLevel: file.GetMinLevel(CategoryName),
+                     TextBuilder: file.TextBuilder ?? settings.TextBuilder ?? FileLogEntryTextBuilder.Instance))
+                .Where(file => file.MinLevel != LogLevel.None)
+                .GroupBy(
+                    file => 
+                        (file.TextBuilder.GetType(), 
+                         file.Settings.IncludeScopes ?? settings.IncludeScopes ?? false),
+                    file => file)
+                .ToDictionary(group => group.Key, group => group.ToArray());
+        }
 
-        public bool IncludeScopes => State.ScopeProvider != null;
-
-        protected virtual UpdatableState CreateState(IFileLoggerSettingsBase settings)
+        protected virtual UpdatableState CreateState(UpdatableState currentState, IFileLoggerSettings settings)
         {
             return new UpdatableState();
         }
 
-        public void Update(string fallbackFileName, IFileLoggerSettingsBase settings)
+        public void Update(IFileLoggerSettings settings)
         {
-            Update(fallbackFileName, settings, settings.IncludeScopes ? new LoggerExternalScopeProvider() : null);
+            FileGroupsDictionary fileGroups = GetFileGroups(settings);
+
+            UpdatableState currentState = _state;
+            for (; ; )
+            {
+                UpdatableState newState = CreateState(currentState, settings);
+                newState.Settings = settings;
+                newState.FileGroups = fileGroups;
+                newState.ScopeProvider = currentState.ScopeProvider;
+
+                UpdatableState originalState = Interlocked.CompareExchange(ref _state, newState, currentState);
+                if (currentState == originalState)
+                    return;
+
+                currentState = originalState;
+            }
         }
 
-        public void Update(string fallbackFileName, IFileLoggerSettingsBase settings, IExternalScopeProvider scopeProvider)
+        public void Update(IExternalScopeProvider scopeProvider)
         {
-            // full thread synchronization is omitted for performance reasons
-            // as it is considered non-critical (ConsoleLogger is implemented in a similar way)
+            UpdatableState currentState = _state;
+            for (; ; )
+            {
+                UpdatableState newState = CreateState(currentState, null);
+                newState.Settings = currentState.Settings;
+                newState.FileGroups = currentState.FileGroups;
+                newState.ScopeProvider = scopeProvider;
 
-            UpdatableState state = CreateState(settings);
+                UpdatableState originalState = Interlocked.CompareExchange(ref _state, newState, currentState);
+                if (currentState == originalState)
+                    return;
 
-            state.FileName = settings.MapToFileName(CategoryName, fallbackFileName);
-            state.Filter = settings.BuildFilter(CategoryName);
-            state.ScopeProvider = scopeProvider;
-            state.TextBuilder = settings.TextBuilder ?? FileLogEntryTextBuilder.Instance;
-
-            State = state;
+                currentState = originalState;
+            }
         }
 
-        protected virtual bool IsEnabled(UpdatableState state, LogLevel logLevel)
+        public bool IsEnabled(LogLevel logLevel)
         {
-            return state.Filter(CategoryName, logLevel);
-        }
-
-        public virtual bool IsEnabled(LogLevel logLevel)
-        {
-            return IsEnabled(State, logLevel);
+            return logLevel != LogLevel.None;
         }
 
         protected virtual FileLogEntry CreateLogEntry()
@@ -129,36 +130,54 @@ namespace Karambolo.Extensions.Logging.File
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
         {
-            UpdatableState objState = State;
-
-            if (!IsEnabled(objState, logLevel))
+            if (!IsEnabled(logLevel))
                 return;
 
             if (formatter == null)
                 throw new ArgumentNullException(nameof(formatter));
 
+            UpdatableState currentState = _state;
+
             DateTimeOffset timestamp = _timestampGetter();
+
             var message = FormatState(state, exception, formatter);
-            IExternalScopeProvider logScope = objState.ScopeProvider;
 
             StringBuilder sb = s_stringBuilder;
             s_stringBuilder = null;
             if (sb == null)
                 sb = new StringBuilder();
 
-            objState.TextBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
-
-            if (sb.Length > 0)
+            foreach (KeyValuePair<(Type, bool), (ILogFileSettings, LogLevel, IFileLogEntryTextBuilder)[]> fileGroup in currentState.FileGroups)
             {
-                FileLogEntry entry = CreateLogEntry();
+                FileLogEntry entry = null;
 
-                entry.Text = sb.ToString();
-                entry.Timestamp = timestamp;
+                foreach ((ILogFileSettings fileSettings, LogLevel minLevel, IFileLogEntryTextBuilder textBuilder) in fileGroup.Value)
+                {
+                    if (logLevel < minLevel)
+                        continue;
 
-                _processor.Enqueue(objState.FileName, entry);
+                    if (entry == null)
+                    {
+                        (_, bool includeScopes) = fileGroup.Key;
+                        IExternalScopeProvider logScope = includeScopes ? currentState.ScopeProvider : null;
+
+                        textBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
+
+                        if (sb.Length > 0)
+                        {
+                            entry = CreateLogEntry();
+                            entry.Text = sb.ToString();
+                            entry.Timestamp = timestamp;
+                            sb.Clear();
+                        }
+                        else
+                            break;
+                    }
+
+                    _processor.Enqueue(entry, fileSettings, currentState.Settings);
+                }
             }
 
-            sb.Clear();
             if (sb.Capacity > 1024)
                 sb.Capacity = 1024;
 
@@ -167,7 +186,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public virtual IDisposable BeginScope<TState>(TState state)
         {
-            return State.ScopeProvider?.Push(state) ?? NullScope.Instance;
+            return _state.ScopeProvider?.Push(state) ?? NullScope.Instance;
         }
     }
 }
