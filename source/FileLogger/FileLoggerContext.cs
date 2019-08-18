@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,23 +13,27 @@ namespace Karambolo.Extensions.Logging.File
         TimeSpan CompletionTimeout { get; }
 
         CancellationToken CompleteToken { get; }
-        event Action<IFileLoggerProcessor, Task> Complete;
+        Task Completion { get; }
 
-        void OnComplete(IFileLoggerProcessor sender, Task completionTask);
+        IDisposable RegisterCompleteTask(Task completeTask);
     }
 
     public class FileLoggerContext : IFileLoggerContext
     {
         public static readonly FileLoggerContext Default = new FileLoggerContext(default);
 
+        private readonly HashSet<Task> _completeTasks;
+
         public FileLoggerContext(CancellationToken completeToken)
             : this(completeToken, TimeSpan.FromMilliseconds(1500), TimeSpan.FromMilliseconds(500)) { }
 
         public FileLoggerContext(CancellationToken completeToken, TimeSpan completionTimeout, TimeSpan writeRetryDelay)
         {
-            CompleteToken = completeToken;
             CompletionTimeout = completionTimeout;
             WriteRetryDelay = writeRetryDelay;
+            CompleteToken = completeToken;
+
+            _completeTasks = new HashSet<Task>();
         }
 
         public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
@@ -39,11 +44,52 @@ namespace Karambolo.Extensions.Logging.File
 
         public CancellationToken CompleteToken { get; }
 
-        public event Action<IFileLoggerProcessor, Task> Complete;
-
-        void IFileLoggerContext.OnComplete(IFileLoggerProcessor sender, Task completionTask)
+        public Task Completion
         {
-            Complete?.Invoke(sender, completionTask);
+            get
+            {
+                lock (_completeTasks)
+                    return Task.WhenAll(_completeTasks);
+            }
+        }
+
+        IDisposable IFileLoggerContext.RegisterCompleteTask(Task completeTask)
+        {
+            if (completeTask == null)
+                throw new ArgumentNullException(nameof(completeTask));
+
+            lock (_completeTasks)
+                _completeTasks.Add(completeTask);
+
+            return new CompleteTaskRegistration(this, completeTask);
+        }
+
+        private void UnregisterCompleteTask(Task completeTask)
+        {
+            lock (_completeTasks)
+                _completeTasks.Remove(completeTask);
+        }
+
+        private class CompleteTaskRegistration : IDisposable
+        {
+            private FileLoggerContext _context;
+            private Task _completeTask;
+
+            public CompleteTaskRegistration(FileLoggerContext context, Task completeTask)
+            {
+                _context = context;
+                _completeTask = completeTask;
+            }
+
+            public void Dispose()
+            {
+                if (_completeTask != null)
+                {
+                    _context.UnregisterCompleteTask(_completeTask);
+                    _completeTask = null;
+                    _context = null;
+                }
+            }
         }
     }
 }

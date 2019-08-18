@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>Karambolo.Extensions.Logging.File</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File</RootNamespace>
     <SignAssembly>true</SignAssembly>

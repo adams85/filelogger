@@ -19,6 +19,13 @@ namespace Karambolo.Extensions.Logging.File
 
     public class FileLoggerProcessor : IFileLoggerProcessor
     {
+        private enum Status
+        {
+            Running,
+            Completing,
+            Completed,
+        }
+
         protected class LogFileInfo
         {
             public string BasePath { get; set; }
@@ -51,9 +58,11 @@ namespace Karambolo.Extensions.Logging.File
 
         private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
         private readonly Dictionary<string, LogFileInfo> _logFiles;
+        private readonly TaskCompletionSource<object> _completeTaskCompletionSource;
+        private readonly IDisposable _completeTaskRegistration;
         private readonly CancellationTokenRegistration _completeTokenRegistration;
-        private CancellationTokenSource _shutdownTokenSource;
-        private bool _isDisposed;
+        private CancellationTokenSource _forcedCompleteTokenSource;
+        private Status _status;
 
         public FileLoggerProcessor(IFileLoggerContext context)
         {
@@ -66,57 +75,57 @@ namespace Karambolo.Extensions.Logging.File
 
             _logFiles = new Dictionary<string, LogFileInfo>();
 
-            _shutdownTokenSource = new CancellationTokenSource();
+            _forcedCompleteTokenSource = new CancellationTokenSource();
+
+            _completeTaskCompletionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _completeTaskRegistration = Context.RegisterCompleteTask(_completeTaskCompletionSource.Task);
+
             _completeTokenRegistration = context.CompleteToken.Register(Complete, useSynchronizationContext: false);
-        }
-
-        protected virtual void DisposeCore()
-        {
-            _completeTokenRegistration.Dispose();
-
-            _shutdownTokenSource.Cancel();
-            _shutdownTokenSource.Dispose();
-
-            if (_fallbackFileAppender.IsValueCreated)
-                _fallbackFileAppender.Value.Dispose();
         }
 
         public void Dispose()
         {
             lock (_logFiles)
-                if (!_isDisposed)
+                if (_status != Status.Completed)
                 {
+                    _completeTokenRegistration.Dispose();
+
+                    _forcedCompleteTokenSource.Cancel();
+                    _forcedCompleteTokenSource.Dispose();
+
+                    _completeTaskCompletionSource.TrySetResult(null);
+                    _completeTaskRegistration.Dispose();
+
+                    if (_fallbackFileAppender.IsValueCreated)
+                        _fallbackFileAppender.Value.Dispose();
+
                     DisposeCore();
-                    _isDisposed = true;
+
+                    _status = Status.Completed;
                 }
         }
 
+        protected virtual void DisposeCore() { }
+
         protected IFileLoggerContext Context { get; }
 
-        private void Complete()
+        private async void Complete()
         {
-            CompleteAsync();
+            await ResetAsync(complete: true).ConfigureAwait(false);
         }
 
-        public Task CompleteAsync()
+        public async Task ResetAsync(Action onQueuesCompleted = null, bool complete = false)
         {
-            Task result = CompleteCoreAsync();
-            Context.OnComplete(this, result);
-            return result;
-        }
-
-        private async Task CompleteCoreAsync()
-        {
-            CancellationTokenSource shutdownTokenSource;
+            CancellationTokenSource forcedCompleteTokenSource;
             Task[] completionTasks;
 
             lock (_logFiles)
             {
-                if (_isDisposed)
-                    throw new ObjectDisposedException(nameof(FileLoggerProcessor));
+                if (_status != Status.Running)
+                    return;
 
-                shutdownTokenSource = _shutdownTokenSource;
-                _shutdownTokenSource = new CancellationTokenSource();
+                forcedCompleteTokenSource = _forcedCompleteTokenSource;
+                _forcedCompleteTokenSource = new CancellationTokenSource();
 
                 completionTasks = _logFiles.Values.Select(lf =>
                 {
@@ -125,12 +134,25 @@ namespace Karambolo.Extensions.Logging.File
                 }).ToArray();
 
                 _logFiles.Clear();
+
+                onQueuesCompleted?.Invoke();
+
+                if (complete)
+                    _status = Status.Completing;
             }
 
-            await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout)).ConfigureAwait(false);
+            try
+            {
+                await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout)).ConfigureAwait(false);
 
-            shutdownTokenSource.Cancel();
-            shutdownTokenSource.Dispose();
+                forcedCompleteTokenSource.Cancel();
+                forcedCompleteTokenSource.Dispose();
+            }
+            finally
+            {
+                if (complete)
+                    Dispose();
+            }
         }
 
         protected virtual LogFileInfo CreateLogFile()
@@ -150,9 +172,9 @@ namespace Karambolo.Extensions.Logging.File
             logFile.MaxFileSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
 
             // important: closure must pick up the current token!
-            CancellationToken shutdownToken = _shutdownTokenSource.Token;
+            CancellationToken forcedCompleteToken = _forcedCompleteTokenSource.Token;
             logFile.Queue = new ActionBlock<FileLogEntry>(
-                e => WriteEntryAsync(logFile, e, shutdownToken),
+                e => WriteEntryAsync(logFile, e, forcedCompleteToken),
                 new ExecutionDataflowBlockOptions
                 {
                     MaxDegreeOfParallelism = 1,
@@ -168,10 +190,10 @@ namespace Karambolo.Extensions.Logging.File
 
             lock (_logFiles)
             {
-                if (_isDisposed)
+                if (_status == Status.Completed)
                     throw new ObjectDisposedException(nameof(FileLoggerProcessor));
 
-                if (Context.CompleteToken.IsCancellationRequested)
+                if (_status != Status.Running)
                     return;
 
                 if (!_logFiles.TryGetValue(fileSettings.Path, out logFile))
@@ -214,10 +236,10 @@ namespace Karambolo.Extensions.Logging.File
             return filePath;
         }
 
-        private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken shutdownToken)
+        private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken forcedCompleteToken)
         {
-            // discarding remaining entries on shutdown
-            shutdownToken.ThrowIfCancellationRequested();
+            // discarding remaining entries on forced complete
+            forcedCompleteToken.ThrowIfCancellationRequested();
 
             var filePath = GetFilePath(logFile, entry);
             IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(filePath);
@@ -226,16 +248,16 @@ namespace Karambolo.Extensions.Logging.File
             {
                 try
                 {
-                    await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, shutdownToken).ConfigureAwait(false);
+                    await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, forcedCompleteToken).ConfigureAwait(false);
                     return;
                 }
                 catch
                 {
                     try
                     {
-                        if (await logFile.FileAppender.EnsureDirAsync(fileInfo, shutdownToken).ConfigureAwait(false))
+                        if (await logFile.FileAppender.EnsureDirAsync(fileInfo, forcedCompleteToken).ConfigureAwait(false))
                         {
-                            await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, shutdownToken).ConfigureAwait(false);
+                            await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, forcedCompleteToken).ConfigureAwait(false);
                             return;
                         }
                     }
@@ -247,11 +269,11 @@ namespace Karambolo.Extensions.Logging.File
                     }
                 }
 
-                // discarding failed entry on shutdown
+                // discarding failed entry on forced complete
                 if (Context.WriteRetryDelay > TimeSpan.Zero)
-                    await Task.Delay(Context.WriteRetryDelay, shutdownToken).ConfigureAwait(false);
+                    await Task.Delay(Context.WriteRetryDelay, forcedCompleteToken).ConfigureAwait(false);
                 else
-                    shutdownToken.ThrowIfCancellationRequested();
+                    forcedCompleteToken.ThrowIfCancellationRequested();
             }
         }
     }

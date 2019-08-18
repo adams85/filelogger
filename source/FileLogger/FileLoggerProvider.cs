@@ -1,18 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Karambolo.Extensions.Logging.File
 {
     [ProviderAlias(Alias)]
-    public class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
+    public class FileLoggerProvider : ILoggerProvider, ISupportExternalScope, IAsyncDisposable
     {
         public const string Alias = "File";
         private readonly Dictionary<string, FileLogger> _loggers;
         private readonly string _optionsName;
         private readonly IDisposable _settingsChangeToken;
         private IExternalScopeProvider _scopeProvider;
+        private Task _resetTask;
         private bool _isDisposed;
 
         public FileLoggerProvider(IOptionsMonitor<FileLoggerOptions> options)
@@ -31,31 +34,56 @@ namespace Karambolo.Extensions.Logging.File
             _optionsName = optionsName ?? Options.DefaultName;
             Settings = ((IFileLoggerSettings)options.Get(_optionsName)).Freeze();
 
-            Processor = CreateProcessor(Settings);
-
             _loggers = new Dictionary<string, FileLogger>();
+
+            _resetTask = Task.CompletedTask;
+
+            Processor = CreateProcessor(Settings);
 
             _settingsChangeToken = options.OnChange(HandleOptionsChanged);
         }
 
         public void Dispose()
         {
+            if (TryDisposeAsync(completeProcessorOnThreadPool: true, out Task completeProcessorTask))
+            {
+                completeProcessorTask.ConfigureAwait(false).GetAwaiter().GetResult();
+                Processor.Dispose();
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (TryDisposeAsync(completeProcessorOnThreadPool: false, out Task completeProcessorTask))
+            {
+                await completeProcessorTask.ConfigureAwait(false);
+                Processor.Dispose();
+            }
+        }
+
+        private bool TryDisposeAsync(bool completeProcessorOnThreadPool, out Task completeProcessorTask)
+        {
             lock (_loggers)
                 if (!_isDisposed)
                 {
+                    _settingsChangeToken.Dispose();
+
+                    completeProcessorTask = 
+                        completeProcessorOnThreadPool ?
+                        Task.Run(() => Processor.ResetAsync(complete: true)) :
+                        Processor.ResetAsync(complete: true);
+
                     DisposeCore();
+
                     _isDisposed = true;
+                    return true;
                 }
+
+            completeProcessorTask = null;
+            return false;
         }
 
-        protected virtual void DisposeCore()
-        {
-            _settingsChangeToken?.Dispose();
-
-            // blocking in Dispose() seems to be a design flaw, however ConsoleLoggerProcess.Dispose() implemented this way as well
-            ResetProcessor();
-            Processor.Dispose();
-        }
+        protected virtual void DisposeCore() { }
 
         protected IFileLoggerContext Context { get; }
         protected IFileLoggerSettings Settings { get; private set; }
@@ -66,9 +94,11 @@ namespace Karambolo.Extensions.Logging.File
             return new FileLoggerProcessor(Context);
         }
 
-        private void ResetProcessor()
+        private async Task ResetProcessorAsync(Action updateSettings)
         {
-            Processor.CompleteAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+            await _resetTask.ConfigureAwait(false);
+
+            await Processor.ResetAsync(updateSettings).ConfigureAwait(false);
         }
 
         private void HandleOptionsChanged(IFileLoggerSettings options, string optionsName)
@@ -81,13 +111,19 @@ namespace Karambolo.Extensions.Logging.File
                 if (_isDisposed)
                     return;
 
-                Settings = options.Freeze();
+                _resetTask = ResetProcessorAsync(() =>
+                {
+                    lock (_loggers)
+                    {
+                        if (_isDisposed)
+                            return;
 
-                foreach (FileLogger logger in _loggers.Values)
-                    logger.Update(Settings);
+                        Settings = options.Freeze();
 
-                // we must try to wait for the current queues to complete to avoid concurrent file I/O
-                ResetProcessor();
+                        foreach (FileLogger logger in _loggers.Values)
+                            logger.Update(Settings);
+                    }
+                });
             }
         }
 
