@@ -80,31 +80,6 @@ namespace Microsoft.Extensions.Logging
             return builder;
         }
 
-        private static readonly Lazy<MethodInfo> s_getRequiredServiceMethod = new Lazy<MethodInfo>(() =>
-        {
-            Expression<Action> callExpr = () => ServiceProviderServiceExtensions.GetRequiredService<object>(null);
-            return ((MethodCallExpression)callExpr.Body).Method.GetGenericMethodDefinition();
-        });
-
-        private static Func<IServiceProvider, TProvider> CreateProviderFactory<TProvider>(IFileLoggerContext context, string optionsName)
-            where TProvider : FileLoggerProvider
-        {
-            Type[] constructorArgTypes = new[] { typeof(IFileLoggerContext), typeof(IOptionsMonitor<FileLoggerOptions>), typeof(string) };
-
-            ConstructorInfo constructor = typeof(TProvider).GetConstructor(constructorArgTypes);
-            if (constructor == null)
-                throw new ArgumentException($"The provider type must have a public constructor accepting {string.Join(",", constructorArgTypes.Select(t => t.Name))} (in this order).", nameof(TProvider));
-
-            ParameterExpression param = Expression.Parameter(typeof(IServiceProvider));
-            NewExpression newExpr = Expression.New(constructor,
-                Expression.Constant(context, typeof(IFileLoggerContext)),
-                Expression.Call(s_getRequiredServiceMethod.Value.MakeGenericMethod(typeof(IOptionsMonitor<FileLoggerOptions>)), param),
-                Expression.Constant(optionsName, typeof(string)));
-
-            Func<IServiceProvider, TProvider> factory = Expression.Lambda<Func<IServiceProvider, TProvider>>(newExpr, param).Compile();
-            return factory;
-        }
-
         public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, IFileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
             where TProvider : FileLoggerProvider
         {
@@ -114,8 +89,11 @@ namespace Microsoft.Extensions.Logging
             if (optionsName == null)
                 optionsName = typeof(TProvider).FullName;
 
-            builder.AddFile(optionsName, CreateProviderFactory<TProvider>(context, optionsName));
-            builder.Services.Configure(optionsName, configure);
+            builder.AddFile(optionsName, sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context, optionsName));
+
+            if (configure != null)
+                builder.Services.Configure(optionsName, configure);
+
             return builder;
         }
     }
