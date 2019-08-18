@@ -216,22 +216,30 @@ namespace Karambolo.Extensions.Logging.File
         protected virtual bool CheckFileSize(string filePath, LogFileInfo logFile, FileLogEntry entry)
         {
             IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(filePath);
-            if (fileInfo.Exists &&
-                (fileInfo.IsDirectory || fileInfo.Length + logFile.FileEncoding.GetByteCount(entry.Text) > logFile.MaxFileSize))
-            {
-                logFile.Counter++;
-                return false;
-            }
 
-            return true;
+            if (!fileInfo.Exists)
+                return true;
+
+            if (fileInfo.IsDirectory)
+                return false;
+
+            long expectedFileSize = fileInfo.Length + logFile.FileEncoding.GetByteCount(entry.Text);
+            if (fileInfo.Length == 0)
+                expectedFileSize += logFile.FileEncoding.GetPreamble().Length;
+
+            return expectedFileSize <= logFile.MaxFileSize;
         }
 
         protected virtual string GetFilePath(LogFileInfo logFile, FileLogEntry entry)
         {
             string filePath = logFile.GetFilePath(entry, GetDate, GetCounter);
 
-            if (logFile.MaxFileSize > 0 && !CheckFileSize(filePath, logFile, entry))
-                filePath = logFile.GetFilePath(entry, GetDate, GetCounter);
+            if (logFile.MaxFileSize > 0)
+                while (!CheckFileSize(filePath, logFile, entry))
+                {
+                    logFile.Counter++;
+                    filePath = logFile.GetFilePath(entry, GetDate, GetCounter);
+                }
 
             return filePath;
         }
