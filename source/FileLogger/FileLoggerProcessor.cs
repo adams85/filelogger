@@ -44,21 +44,6 @@ namespace Karambolo.Extensions.Logging.File
             public ActionBlock<FileLogEntry> Queue { get; set; }
 
             public int Counter { get; set; }
-
-            public string GetFilePath(FileLogEntry entry, Func<LogFileInfo, FileLogEntry, string> getDate, Func<LogFileInfo, FileLogEntry, string> getCounter)
-            {
-                var formattedPath = Regex.Replace(Path, @"<(date|counter)>", match =>
-                {
-                    switch (match.Groups[1].Value)
-                    {
-                        case "date": return getDate(this, entry);
-                        case "counter": return getCounter(this, entry);
-                        default: throw new InvalidOperationException();
-                    }
-                });
-
-                return System.IO.Path.Combine(BasePath, formattedPath);
-            }
         }
 
         private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
@@ -217,14 +202,14 @@ namespace Karambolo.Extensions.Logging.File
             logFile.Queue.Post(entry);
         }
 
-        protected virtual string GetDate(LogFileInfo logFile, FileLogEntry entry)
+        protected virtual string GetDate(string inlineFormat, LogFileInfo logFile, FileLogEntry entry)
         {
-            return entry.Timestamp.ToLocalTime().ToString(logFile.DateFormat, CultureInfo.InvariantCulture);
+            return entry.Timestamp.ToLocalTime().ToString(inlineFormat ?? logFile.DateFormat, CultureInfo.InvariantCulture);
         }
 
-        protected virtual string GetCounter(LogFileInfo logFile, FileLogEntry entry)
+        protected virtual string GetCounter(string inlineFormat, LogFileInfo logFile, FileLogEntry entry)
         {
-            return logFile.Counter.ToString(logFile.CounterFormat, CultureInfo.InvariantCulture);
+            return logFile.Counter.ToString(inlineFormat ?? logFile.CounterFormat, CultureInfo.InvariantCulture);
         }
 
         protected virtual bool CheckFileSize(string filePath, LogFileInfo logFile, FileLogEntry entry)
@@ -244,15 +229,32 @@ namespace Karambolo.Extensions.Logging.File
             return expectedFileSize <= logFile.MaxFileSize;
         }
 
+        protected virtual string BuildFilePath(LogFileInfo logFile, FileLogEntry entry)
+        {
+            var formattedPath = Regex.Replace(logFile.Path, @"<(date|counter)(?::([^<>]+))?>", match =>
+            {
+                var inlineFormat = match.Groups[2].Value;
+
+                switch (match.Groups[1].Value)
+                {
+                    case "date": return GetDate(inlineFormat.Length > 0 ? inlineFormat : null, logFile, entry);
+                    case "counter": return GetCounter(inlineFormat.Length > 0 ? inlineFormat : null, logFile, entry);
+                    default: throw new InvalidOperationException();
+                }
+            });
+
+            return Path.Combine(logFile.BasePath, formattedPath);
+        }
+
         protected virtual string GetFilePath(LogFileInfo logFile, FileLogEntry entry)
         {
-            string filePath = logFile.GetFilePath(entry, GetDate, GetCounter);
+            string filePath = BuildFilePath(logFile, entry);
 
             if (logFile.MaxFileSize > 0)
                 while (!CheckFileSize(filePath, logFile, entry))
                 {
                     logFile.Counter++;
-                    filePath = logFile.GetFilePath(entry, GetDate, GetCounter);
+                    filePath = BuildFilePath(logFile, entry);
                 }
 
             return filePath;
