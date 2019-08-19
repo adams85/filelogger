@@ -46,6 +46,11 @@ namespace Karambolo.Extensions.Logging.File
             public int Counter { get; set; }
         }
 
+        private static readonly Lazy<char[]> s_invalidPathChars = new Lazy<char[]>(() => Path.GetInvalidPathChars()
+            .Concat(Path.GetInvalidFileNameChars())
+            .Except(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar })
+            .ToArray());
+
         private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
         private readonly Dictionary<string, LogFileInfo> _logFiles;
         private readonly TaskCompletionSource<object> _completeTaskCompletionSource;
@@ -246,58 +251,65 @@ namespace Karambolo.Extensions.Logging.File
             return Path.Combine(logFile.BasePath, formattedPath);
         }
 
-        protected virtual string GetFilePath(LogFileInfo logFile, FileLogEntry entry)
+        protected virtual string GetFilePath(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
         {
             string filePath = BuildFilePath(logFile, entry);
 
             if (logFile.MaxFileSize > 0)
                 while (!CheckFileSize(filePath, logFile, entry))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+
                     logFile.Counter++;
-                    filePath = BuildFilePath(logFile, entry);
+                    var newFilePath = BuildFilePath(logFile, entry);
+
+                    if (filePath == newFilePath)
+                        return filePath;
+
+                    filePath = newFilePath;
                 }
 
             return filePath;
         }
 
-        private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken forcedCompleteToken)
+        private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
         {
             // discarding remaining entries on forced complete
-            forcedCompleteToken.ThrowIfCancellationRequested();
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var filePath = GetFilePath(logFile, entry);
+            var filePath = GetFilePath(logFile, entry, cancellationToken);
             IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(filePath);
 
             for (; ; )
             {
                 try
                 {
-                    await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, forcedCompleteToken).ConfigureAwait(false);
+                    await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, cancellationToken).ConfigureAwait(false);
                     return;
                 }
                 catch
                 {
                     try
                     {
-                        if (await logFile.FileAppender.EnsureDirAsync(fileInfo, forcedCompleteToken).ConfigureAwait(false))
+                        if (await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false))
                         {
-                            await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, forcedCompleteToken).ConfigureAwait(false);
+                            await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, cancellationToken).ConfigureAwait(false);
                             return;
                         }
                     }
                     catch
                     {
                         // discarding entry when file path is invalid
-                        if (filePath.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || filePath.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                        if (filePath.IndexOfAny(s_invalidPathChars.Value) >= 0)
                             return;
                     }
                 }
 
                 // discarding failed entry on forced complete
                 if (Context.WriteRetryDelay > TimeSpan.Zero)
-                    await Task.Delay(Context.WriteRetryDelay, forcedCompleteToken).ConfigureAwait(false);
+                    await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
                 else
-                    forcedCompleteToken.ThrowIfCancellationRequested();
+                    cancellationToken.ThrowIfCancellationRequested();
             }
         }
     }
