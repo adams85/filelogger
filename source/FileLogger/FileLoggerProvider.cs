@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,10 +23,10 @@ namespace Karambolo.Extensions.Logging.File
         public FileLoggerProvider(IOptionsMonitor<FileLoggerOptions> options)
             : this(null, options) { }
 
-        public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options)
+        public FileLoggerProvider(FileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options)
             : this(context, options, null) { }
 
-        public FileLoggerProvider(IFileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
+        public FileLoggerProvider(FileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
         {
             if (options == null)
                 throw new ArgumentNullException(nameof(options));
@@ -90,9 +89,11 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual void DisposeCore() { }
 
-        public IFileLoggerContext Context { get; }
+        public FileLoggerContext Context { get; }
         protected IFileLoggerSettings Settings { get; private set; }
         protected IFileLoggerProcessor Processor { get; }
+
+        internal event Action<FileLoggerProvider, Task> Reset;
 
         public Task Completion => Processor.Completion;
 
@@ -113,12 +114,14 @@ namespace Karambolo.Extensions.Logging.File
             if (optionsName != _optionsName)
                 return;
 
+            Task resetTask;
+
             lock (_loggers)
             {
                 if (_isDisposed)
                     return;
 
-                _resetTask = ResetProcessorAsync(() =>
+                _resetTask = resetTask = ResetProcessorAsync(() =>
                 {
                     lock (_loggers)
                     {
@@ -132,6 +135,8 @@ namespace Karambolo.Extensions.Logging.File
                     }
                 });
             }
+
+            Reset?.Invoke(this, resetTask);
         }
 
         protected virtual FileLogger CreateLoggerCore(string categoryName)

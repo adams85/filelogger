@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
 using Karambolo.Extensions.Logging.File;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -52,7 +49,7 @@ namespace Microsoft.Extensions.Logging
             return builder.AddFile(Options.Options.DefaultName, sp => new FileLoggerProvider(sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
         }
 
-        public static ILoggingBuilder AddFile(this ILoggingBuilder builder, IFileLoggerContext context)
+        public static ILoggingBuilder AddFile(this ILoggingBuilder builder, FileLoggerContext context)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
@@ -70,7 +67,7 @@ namespace Microsoft.Extensions.Logging
             return builder;
         }
 
-        public static ILoggingBuilder AddFile(this ILoggingBuilder builder, IFileLoggerContext context, Action<FileLoggerOptions> configure)
+        public static ILoggingBuilder AddFile(this ILoggingBuilder builder, FileLoggerContext context, Action<FileLoggerOptions> configure)
         {
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
@@ -80,7 +77,7 @@ namespace Microsoft.Extensions.Logging
             return builder;
         }
 
-        public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, IFileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
+        public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, FileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
             where TProvider : FileLoggerProvider
         {
             if (builder == null)

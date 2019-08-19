@@ -8,45 +8,35 @@ using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File
 {
-    public interface IFileLoggerContext
-    {
-        CancellationToken CompleteToken { get; }
-        TimeSpan CompletionTimeout { get; }
-        TimeSpan WriteRetryDelay { get; }
-
-        DateTimeOffset GetTimestamp();
-        Task GetCompletion(IServiceProvider serviceProvider);
-    }
-
-    public class FileLoggerContext : IFileLoggerContext
+    public class FileLoggerContext
     {
         public static readonly FileLoggerContext Default = new FileLoggerContext(default);
 
-        public FileLoggerContext(CancellationToken completeToken)
-            : this(completeToken, TimeSpan.FromMilliseconds(1500), TimeSpan.FromMilliseconds(500)) { }
-
-        public FileLoggerContext(CancellationToken completeToken, TimeSpan completionTimeout, TimeSpan writeRetryDelay)
+        public FileLoggerContext(CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
         {
-            CompletionTimeout = completionTimeout;
-            WriteRetryDelay = writeRetryDelay;
             CompleteToken = completeToken;
+            CompletionTimeout = completionTimeout ?? TimeSpan.FromMilliseconds(1500);
+            WriteRetryDelay = writeRetryDelay ?? TimeSpan.FromMilliseconds(500);
         }
-
-        public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
-
-        public virtual TimeSpan WriteRetryDelay { get; }
-
-        public virtual TimeSpan CompletionTimeout { get; }
 
         public CancellationToken CompleteToken { get; }
 
-        public Task GetCompletion(IServiceProvider serviceProvider)
+        public TimeSpan CompletionTimeout { get; }
+
+        public TimeSpan WriteRetryDelay { get; }
+
+        public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
+
+        internal IEnumerable<FileLoggerProvider> GetProviders(IServiceProvider serviceProvider)
         {
-            IEnumerable<FileLoggerProvider> providers = serviceProvider.GetRequiredService<IEnumerable<ILoggerProvider>>()
+            return serviceProvider.GetRequiredService<IEnumerable<ILoggerProvider>>()
                 .OfType<FileLoggerProvider>()
                 .Where(provider => provider.Context == this);
+        }
 
-            return Task.WhenAll(providers.Select(provider => provider.Completion));
+        public Task GetCompletion(IServiceProvider serviceProvider)
+        {
+            return Task.WhenAll(GetProviders(serviceProvider).Select(provider => provider.Completion));
         }
     }
 }

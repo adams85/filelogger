@@ -68,7 +68,7 @@ namespace Karambolo.Extensions.Logging.File
         private CancellationTokenSource _forcedCompleteTokenSource;
         private Status _status;
 
-        public FileLoggerProcessor(IFileLoggerContext context)
+        public FileLoggerProcessor(FileLoggerContext context)
         {
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
@@ -109,7 +109,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual void DisposeCore() { }
 
-        public IFileLoggerContext Context { get; }
+        public FileLoggerContext Context { get; }
 
         public Task Completion => _completeTaskCompletionSource.Task;
 
