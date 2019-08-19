@@ -20,6 +20,22 @@ namespace Karambolo.Extensions.Logging.File
         private Task _resetTask;
         private bool _isDisposed;
 
+        protected FileLoggerProvider(FileLoggerContext context, IFileLoggerSettings settings)
+        {
+            _loggers = new Dictionary<string, FileLogger>();
+            _resetTask = Task.CompletedTask;
+
+            Context = context ?? FileLoggerContext.Default;
+            Settings = settings.Freeze();
+            Processor = CreateProcessor(Settings);
+        }
+
+        public FileLoggerProvider(IOptions<FileLoggerOptions> options)
+            : this(null, options) { }
+
+        public FileLoggerProvider(FileLoggerContext context, IOptions<FileLoggerOptions> options)
+            : this(context, options != null ? options.Value : throw new ArgumentNullException(nameof(options))) { }
+
         public FileLoggerProvider(IOptionsMonitor<FileLoggerOptions> options)
             : this(null, options) { }
 
@@ -27,21 +43,9 @@ namespace Karambolo.Extensions.Logging.File
             : this(context, options, null) { }
 
         public FileLoggerProvider(FileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
+            : this(context, options != null ? options.Get(optionsName ?? Options.DefaultName) : throw new ArgumentNullException(nameof(options)))
         {
-            if (options == null)
-                throw new ArgumentNullException(nameof(options));
-
-            Context = context ?? FileLoggerContext.Default;
-
             _optionsName = optionsName ?? Options.DefaultName;
-            Settings = ((IFileLoggerSettings)options.Get(_optionsName)).Freeze();
-
-            _loggers = new Dictionary<string, FileLogger>();
-
-            _resetTask = Task.CompletedTask;
-
-            Processor = CreateProcessor(Settings);
-
             _settingsChangeToken = options.OnChange(HandleOptionsChanged);
         }
 
@@ -70,7 +74,7 @@ namespace Karambolo.Extensions.Logging.File
             lock (_loggers)
                 if (!_isDisposed)
                 {
-                    _settingsChangeToken.Dispose();
+                    _settingsChangeToken?.Dispose();
 
                     completeProcessorTask =
                         completeProcessorOnThreadPool ?
