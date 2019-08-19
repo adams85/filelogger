@@ -14,7 +14,12 @@ namespace Karambolo.Extensions.Logging.File
 {
     public interface IFileLoggerProcessor : IDisposable
     {
+        Task Completion { get; }
+
         void Enqueue(FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
+
+        Task ResetAsync(Action onQueuesCompleted = null);
+        Task CompleteAsync();
     }
 
     public class FileLoggerProcessor : IFileLoggerProcessor
@@ -59,7 +64,6 @@ namespace Karambolo.Extensions.Logging.File
         private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
         private readonly Dictionary<string, LogFileInfo> _logFiles;
         private readonly TaskCompletionSource<object> _completeTaskCompletionSource;
-        private readonly IDisposable _completeTaskRegistration;
         private readonly CancellationTokenRegistration _completeTokenRegistration;
         private CancellationTokenSource _forcedCompleteTokenSource;
         private Status _status;
@@ -75,10 +79,9 @@ namespace Karambolo.Extensions.Logging.File
 
             _logFiles = new Dictionary<string, LogFileInfo>();
 
-            _forcedCompleteTokenSource = new CancellationTokenSource();
-
             _completeTaskCompletionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _completeTaskRegistration = Context.RegisterCompleteTask(_completeTaskCompletionSource.Task);
+
+            _forcedCompleteTokenSource = new CancellationTokenSource();
 
             _completeTokenRegistration = context.CompleteToken.Register(Complete, useSynchronizationContext: false);
         }
@@ -94,7 +97,6 @@ namespace Karambolo.Extensions.Logging.File
                     _forcedCompleteTokenSource.Dispose();
 
                     _completeTaskCompletionSource.TrySetResult(null);
-                    _completeTaskRegistration.Dispose();
 
                     if (_fallbackFileAppender.IsValueCreated)
                         _fallbackFileAppender.Value.Dispose();
@@ -107,14 +109,11 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual void DisposeCore() { }
 
-        protected IFileLoggerContext Context { get; }
+        public IFileLoggerContext Context { get; }
 
-        private async void Complete()
-        {
-            await ResetAsync(complete: true).ConfigureAwait(false);
-        }
+        public Task Completion => _completeTaskCompletionSource.Task;
 
-        public async Task ResetAsync(Action onQueuesCompleted = null, bool complete = false)
+        private async Task ResetCoreAsync(Action onQueuesCompleted, bool complete)
         {
             CancellationTokenSource forcedCompleteTokenSource;
             Task[] completionTasks;
@@ -153,6 +152,21 @@ namespace Karambolo.Extensions.Logging.File
                 if (complete)
                     Dispose();
             }
+        }
+
+        public Task ResetAsync(Action onQueuesCompleted = null)
+        {
+            return ResetCoreAsync(onQueuesCompleted, complete: false);
+        }
+
+        public Task CompleteAsync()
+        {
+            return ResetCoreAsync(null, complete: true);
+        }
+
+        private async void Complete()
+        {
+            await CompleteAsync();
         }
 
         protected virtual LogFileInfo CreateLogFile()

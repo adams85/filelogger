@@ -75,8 +75,8 @@ namespace Karambolo.Extensions.Logging.File
 
                     completeProcessorTask =
                         completeProcessorOnThreadPool ?
-                        Task.Run(() => Processor.ResetAsync(complete: true)) :
-                        Processor.ResetAsync(complete: true);
+                        Task.Run(() => Processor.CompleteAsync()) :
+                        Processor.CompleteAsync();
 
                     DisposeCore();
 
@@ -90,11 +90,13 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual void DisposeCore() { }
 
-        protected IFileLoggerContext Context { get; }
+        public IFileLoggerContext Context { get; }
         protected IFileLoggerSettings Settings { get; private set; }
-        protected FileLoggerProcessor Processor { get; }
+        protected IFileLoggerProcessor Processor { get; }
 
-        protected virtual FileLoggerProcessor CreateProcessor(IFileLoggerSettings settings)
+        public Task Completion => Processor.Completion;
+
+        protected virtual IFileLoggerProcessor CreateProcessor(IFileLoggerSettings settings)
         {
             return new FileLoggerProcessor(Context);
         }
