@@ -5,11 +5,12 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Karambolo.Extensions.Logging.File.Test.MockObjects;
+using Karambolo.Extensions.Logging.File.Test.Mocks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Xunit;
 
@@ -17,71 +18,92 @@ namespace Karambolo.Extensions.Logging.File.Test
 {
     public class LoggingTest
     {
-        private const string LogsDirName = "Logs";
-        public const string FallbackFileName = "default.log";
-
         [Fact]
-        public void LoggingToMemoryUsingFactory()
+        public async Task LoggingToMemoryWithoutDI()
         {
+            const string logsDirName = "Logs";
+
             var fileProvider = new MemoryFileProvider();
 
-            var settings = new FileLoggerSettings
+            var filterOptions = new LoggerFilterOptions { MinLevel = LogLevel.Trace };
+
+            var options = new FileLoggerOptions
             {
                 FileAppender = new MemoryFileAppender(fileProvider),
-                BasePath = LogsDirName,
-                EnsureBasePath = true,
+                BasePath = logsDirName,
                 FileEncoding = Encoding.UTF8,
                 MaxQueueSize = 100,
-                DateFormat = "yyyyMMdd",
+                DateFormat = "yyMMdd",
                 CounterFormat = "000",
                 MaxFileSize = 10,
-                Switches = new Dictionary<string, LogLevel>
+                Files = new[]
                 {
-                    { FileLoggerSettingsBase.DefaultCategoryName, LogLevel.Information }
-                },
-                FileNameMappings = new Dictionary<string, string>
-                {
-                    { "Karambolo.Extensions.Logging.File.Test", "test.log" },
-                    { "Karambolo.Extensions.Logging.File", "logger.log" },
+                    new LogFileOptions
+                    {
+                        Path = "<date>/<date:MM>/logger.log",
+                        DateFormat = "yyyy",
+                        MinLevel = new Dictionary<string, LogLevel>
+                        {
+                            ["Karambolo.Extensions.Logging.File"] = LogLevel.None,
+                            [LogFileOptions.DefaultCategoryName] = LogLevel.Information,
+                        }
+                    },
+                    new LogFileOptions
+                    {
+                        Path = "test-<date>-<counter>.log",
+                        MinLevel = new Dictionary<string, LogLevel>
+                        {
+                            ["Karambolo.Extensions.Logging.File"] = LogLevel.Information,
+                            [LogFileOptions.DefaultCategoryName] = LogLevel.None,
+                        }
+
+                    },
                 },
                 TextBuilder = new CustomLogEntryTextBuilder(),
                 IncludeScopes = true,
             };
 
-            var cts = new CancellationTokenSource();
-            var context = new TestFileLoggerContext(cts.Token);
-
-            var completionTasks = new List<Task>();
-            context.Complete += (s, e) => completionTasks.Add(e);
-
+            var completeCts = new CancellationTokenSource();
+            var context = new TestFileLoggerContext(completeCts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
             context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
             var ex = new Exception();
-            using (var loggerFactory = new LoggerFactory())
+
+            var provider = new FileLoggerProvider(context, Options.Create(options));
+            try
             {
-                loggerFactory.AddFile(context, settings);
-                ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
-
-                logger1.LogInformation("This is a nice logger.");
-                using (logger1.BeginScope("SCOPE"))
+                using (var loggerFactory = new LoggerFactory(new[] { provider }, filterOptions))
                 {
-                    logger1.LogWarning(1, "This is a smart logger.");
-                    logger1.LogTrace("This won't make it.");
+                    ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
 
-                    using (logger1.BeginScope("NESTED SCOPE"))
+                    logger1.LogInformation("This is a nice logger.");
+                    using (logger1.BeginScope("SCOPE"))
                     {
-                        ILogger logger2 = loggerFactory.CreateLogger("X");
-                        logger2.LogError(0, ex, "Some failure!");
+                        logger1.LogWarning(1, "This is a smart logger.");
+                        logger1.LogTrace("This won't make it.");
+
+                        using (logger1.BeginScope("NESTED SCOPE"))
+                        {
+                            ILogger logger2 = loggerFactory.CreateLogger("X");
+                            logger2.LogWarning("Some warning.");
+                            logger2.LogError(0, ex, "Some failure!");
+                        }
                     }
                 }
-
-                // ensuring that all entries are processed
-                cts.Cancel();
-                Assert.Single(completionTasks);
-                Task.WhenAll(completionTasks).GetAwaiter().GetResult();
+            }
+            finally
+            {
+#if NETCOREAPP3_0
+                await provider.DisposeAsync();
+#else
+                await Task.CompletedTask;
+                provider.Dispose();
+#endif
             }
 
-            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{LogsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000.log");
+            Assert.True(provider.Completion.IsCompleted);
+
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}-000.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -93,7 +115,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 ""
             }, lines);
 
-            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($@"{LogsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-001.log");
+            logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}-001.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -107,13 +129,16 @@ namespace Karambolo.Extensions.Logging.File.Test
             }, lines);
 
             logFile = (MemoryFileInfo)fileProvider.GetFileInfo(
-                $@"{LogsDirName}\{Path.ChangeExtension(FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}-000{Path.GetExtension(FallbackFileName)}");
+                $"{logsDirName}/{context.GetTimestamp().ToLocalTime():yyyy}/{context.GetTimestamp().ToLocalTime():MM}/logger.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
             lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
             Assert.Equal(Encoding.UTF8, logFile.Encoding);
             Assert.Equal(new[]
             {
+                $"[warn]: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"        => SCOPE => NESTED SCOPE",
+                $"        Some warning.",
                 $"[fail]: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        => SCOPE => NESTED SCOPE",
                 $"        Some failure!",
@@ -123,39 +148,39 @@ namespace Karambolo.Extensions.Logging.File.Test
         }
 
         [Fact]
-        public void LoggingToPhysicalUsingProvider()
+        public async Task LoggingToPhysicalUsingDI()
         {
+            var logsDirName = Guid.NewGuid().ToString("D");
+
             var configData = new Dictionary<string, string>
             {
-                [$"{nameof(FileLoggerOptions.BasePath)}"] = LogsDirName,
-                [$"{nameof(FileLoggerOptions.EnsureBasePath)}"] = "true",
+                [$"{nameof(FileLoggerOptions.BasePath)}"] = logsDirName,
                 [$"{nameof(FileLoggerOptions.FileEncodingName)}"] = "UTF-16",
-                [$"{nameof(FileLoggerOptions.MaxQueueSize)}"] = "100",
-                [$"{nameof(FileLoggerOptions.DateFormat)}"] = "yyyyMMdd",
-                [$"{ConfigurationFileLoggerSettings.LogLevelSectionName}:{FileLoggerSettingsBase.DefaultCategoryName}"] = "Information",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File.Test"] = "test.log",
-                [$"{nameof(FileLoggerOptions.FileNameMappings)}:Karambolo.Extensions.Logging.File"] = "logger.log",
+                [$"{nameof(FileLoggerOptions.DateFormat)}"] = "yyMMdd",
+                [$"{nameof(FileLoggerOptions.Files)}:0:{nameof(LogFileOptions.Path)}"] = "logger-<date>.log",
+                [$"{nameof(FileLoggerOptions.Files)}:0:{nameof(LogFileOptions.MinLevel)}:Karambolo.Extensions.Logging.File"] = LogLevel.None.ToString(),
+                [$"{nameof(FileLoggerOptions.Files)}:0:{nameof(LogFileOptions.MinLevel)}:{LogFileOptions.DefaultCategoryName}"] = LogLevel.Information.ToString(),
+                [$"{nameof(FileLoggerOptions.Files)}:1:{nameof(LogFileOptions.Path)}"] = "test-<date>.log",
+                [$"{nameof(FileLoggerOptions.Files)}:1:{nameof(LogFileOptions.MinLevel)}:Karambolo.Extensions.Logging.File.Test"] = LogLevel.Information.ToString(),
+                [$"{nameof(FileLoggerOptions.Files)}:1:{nameof(LogFileOptions.MinLevel)}:{LogFileOptions.DefaultCategoryName}"] = LogLevel.None.ToString(),
             };
 
             var cb = new ConfigurationBuilder();
             cb.AddInMemoryCollection(configData);
             IConfigurationRoot config = cb.Build();
 
+            var tempPath = Path.Combine(Path.GetTempPath());
+            var logPath = Path.Combine(tempPath, logsDirName);
+
+            var fileProvider = new PhysicalFileProvider(tempPath);
+
             var cts = new CancellationTokenSource();
-
-            var tempPath = Path.GetTempPath();
-            var logPath = Path.Combine(tempPath, LogsDirName);
-
-            var context = new TestFileLoggerContext(new PhysicalFileProvider(tempPath), "fallback.log", cts.Token);
-
-            var completionTasks = new List<Task>();
-            context.Complete += (s, e) => completionTasks.Add(e);
-
+            var context = new TestFileLoggerContext(cts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
             context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
             var services = new ServiceCollection();
             services.AddOptions();
-            services.AddLogging(b => b.AddFile(context));
+            services.AddLogging(b => b.AddFile(context, o => o.FileAppender = new PhysicalFileAppender(fileProvider)));
             services.Configure<FileLoggerOptions>(config);
 
             if (Directory.Exists(logPath))
@@ -164,32 +189,39 @@ namespace Karambolo.Extensions.Logging.File.Test
             try
             {
                 var ex = new Exception();
-                ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-                ILogger<LoggingTest> logger1 = serviceProvider.GetService<ILogger<LoggingTest>>();
+                FileLoggerProvider[] providers;
 
-                logger1.LogInformation("This is a nice logger.");
-                using (logger1.BeginScope("SCOPE"))
+                using (ServiceProvider sp = services.BuildServiceProvider())
                 {
-                    logger1.LogWarning(1, "This is a smart logger.");
-                    logger1.LogTrace("This won't make it.");
+                    providers = context.GetProviders(sp).ToArray();
+                    Assert.Equal(1, providers.Length);
 
-                    using (logger1.BeginScope("NESTED SCOPE"))
+                    ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
+
+                    logger1.LogInformation("This is a nice logger.");
+                    using (logger1.BeginScope("SCOPE"))
                     {
-                        ILoggerFactory loggerFactory = serviceProvider.GetService<ILoggerFactory>();
-                        ILogger logger2 = loggerFactory.CreateLogger("X");
-                        logger2.LogError(0, ex, "Some failure!");
+                        logger1.LogWarning(1, "This is a smart logger.");
+                        logger1.LogTrace("This won't make it.");
+
+                        using (logger1.BeginScope("NESTED SCOPE"))
+                        {
+                            ILoggerFactory loggerFactory = sp.GetService<ILoggerFactory>();
+                            ILogger logger2 = loggerFactory.CreateLogger("X");
+                            logger2.LogError(0, ex, "Some failure!");
+                        }
                     }
+
+                    cts.Cancel();
+
+                    // ensuring that all entries are processed
+                    await context.GetCompletion(sp);
+                    Assert.True(providers.All(provider => provider.Completion.IsCompleted));
                 }
 
-                // ensuring that all entries are processed
-                cts.Cancel();
-                Assert.Single(completionTasks);
-                Task.WhenAll(completionTasks).GetAwaiter().GetResult();
 
-#pragma warning disable CS0618 // Type or member is obsolete
-                IFileInfo logFile = context.FileProvider.GetFileInfo($@"{LogsDirName}\test-{context.GetTimestamp().ToLocalTime():yyyyMMdd}.log");
-#pragma warning restore CS0618 // Type or member is obsolete
+                IFileInfo logFile = fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}.log");
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
                 var lines = ReadContent(logFile, out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -203,10 +235,8 @@ namespace Karambolo.Extensions.Logging.File.Test
                     ""
                 }, lines);
 
-#pragma warning disable CS0618 // Type or member is obsolete
-                logFile = context.FileProvider.GetFileInfo(
-                    $@"{LogsDirName}\{Path.ChangeExtension(context.FallbackFileName, null)}-{context.GetTimestamp().ToLocalTime():yyyyMMdd}{Path.GetExtension(context.FallbackFileName)}");
-#pragma warning restore CS0618 // Type or member is obsolete
+                logFile = fileProvider.GetFileInfo(
+                    $"{logsDirName}/logger-{context.GetTimestamp().ToLocalTime():yyMMdd}.log");
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
                 lines = ReadContent(logFile, out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
@@ -231,7 +261,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 {
                     var result = reader.ReadToEnd();
                     encoding = reader.CurrentEncoding;
-                    return result; 
+                    return result;
                 }
             }
         }

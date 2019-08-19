@@ -2,14 +2,23 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Primitives;
 
-namespace Karambolo.Extensions.Logging.File.Test.MockObjects
+namespace Karambolo.Extensions.Logging.File.Test.Mocks
 {
     internal class MemoryFileProvider : IFileProvider
     {
+        internal static string NormalizePath(string path)
+        {
+            path = Regex.Replace(path, @"/|\\", Path.DirectorySeparatorChar.ToString());
+            if (path.Length > 0 && path[0] == Path.DirectorySeparatorChar)
+                path.Substring(1);
+            return path;
+        }
+
         private class File
         {
             public bool IsDirectory { get; set; }
@@ -25,34 +34,38 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 
         public bool Exists(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
                 return _catalog.ContainsKey(path);
         }
 
         public bool IsDirectory(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
                 return _catalog.TryGetValue(path, out File file) ? file.IsDirectory : false;
         }
 
         public Encoding GetEncoding(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
                 return _catalog.TryGetValue(path, out File file) && !file.IsDirectory ? file.Encoding : null;
         }
 
         public int GetLength(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
                 return ReadContent(path)?.Length ?? -1;
         }
 
-        private void CheckPath(string path)
+        private void CheckPath(string normalizedPath)
         {
-            if (Exists(path))
-                throw new InvalidOperationException($"A {(IsDirectory(path) ? "directory" : "name")} with the same name already exists.");
+            if (Exists(normalizedPath))
+                throw new InvalidOperationException($"A {(IsDirectory(normalizedPath) ? "directory" : "name")} with the same name already exists.");
 
-            var dir = Path.GetDirectoryName(path);
+            var dir = Path.GetDirectoryName(normalizedPath);
             if (!Exists(dir))
                 throw new InvalidOperationException("Parent directory does not exist.");
 
@@ -62,6 +75,7 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 
         public void OpenFile(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
             {
                 if (!Exists(path))
@@ -72,18 +86,34 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
             }
         }
 
+        private void CreateDirCore(string normalizedPath)
+        {
+            if (Exists(normalizedPath))
+            {
+                if (!IsDirectory(normalizedPath))
+                    throw new InvalidOperationException("Path (or part of a path) is a file.");
+
+                return;
+            }
+
+            var parentDir = Path.GetDirectoryName(normalizedPath);
+
+            if (!Exists(parentDir))
+                CreateDirCore(parentDir);
+
+            _catalog.Add(normalizedPath, new File { IsDirectory = true });
+        }
+
         public void CreateDir(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
-            {
-                CheckPath(path);
-
-                _catalog.Add(path, new File { IsDirectory = true });
-            }
+                CreateDirCore(path);
         }
 
         public void CreateFile(string path, string content = null, Encoding encoding = null)
         {
+            path = NormalizePath(path);
             lock (_catalog)
             {
                 CheckPath(path);
@@ -94,12 +124,15 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
 
         public string ReadContent(string path)
         {
+            path = NormalizePath(path);
             lock (_catalog)
                 return _catalog.TryGetValue(path, out File file) && !file.IsDirectory ? file.Content.ToString() : null;
         }
 
         public void WriteContent(string path, string content, bool append = false)
         {
+            path = NormalizePath(path);
+
             CancellationTokenSource changeTokenSource = null;
             lock (_catalog)
             {

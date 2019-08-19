@@ -12,6 +12,9 @@ namespace Karambolo.Extensions.Logging.File
     {
         public static readonly FileLoggerContext Default = new FileLoggerContext(default);
 
+        public FileLoggerContext(CancellationToken completeToken)
+            : this(completeToken, null, null) { }
+
         public FileLoggerContext(CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
         {
             CompleteToken = completeToken;

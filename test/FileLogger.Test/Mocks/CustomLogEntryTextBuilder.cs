@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using Microsoft.Extensions.Logging;
 
-namespace Karambolo.Extensions.Logging.File.Test
+namespace Karambolo.Extensions.Logging.File.Test.Mocks
 {
     public class CustomLogEntryTextBuilder : FileLogEntryTextBuilder
     {

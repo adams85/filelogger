@@ -3,7 +3,7 @@ using System.IO;
 using System.Text;
 using Microsoft.Extensions.FileProviders;
 
-namespace Karambolo.Extensions.Logging.File.Test.MockObjects
+namespace Karambolo.Extensions.Logging.File.Test.Mocks
 {
     internal class MemoryFileInfo : IFileInfo
     {
@@ -12,8 +12,8 @@ namespace Karambolo.Extensions.Logging.File.Test.MockObjects
         public MemoryFileInfo(MemoryFileProvider owner, string path)
         {
             _owner = owner;
-            Name = Path.GetFileName(path);
-            PhysicalPath = path;
+            PhysicalPath = MemoryFileProvider.NormalizePath(path);
+            Name = Path.GetFileName(PhysicalPath);
         }
 
         public bool Exists => _owner.Exists(PhysicalPath);
