@@ -38,6 +38,12 @@ namespace Karambolo.Extensions.Logging.File
 
         [ThreadStatic]
         private static StringBuilder s_stringBuilder;
+
+        private static readonly Lazy<char[]> s_invalidPathChars = new Lazy<char[]>(() => Path.GetInvalidPathChars()
+            .Concat(Path.GetInvalidFileNameChars())
+            .Except(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar })
+            .ToArray());
+
         private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
         private readonly Dictionary<string, LogFileInfo> _logFiles;
         private readonly CancellationTokenRegistration _completeTokenRegistration;
@@ -289,7 +295,7 @@ namespace Karambolo.Extensions.Logging.File
                     await fileAppender.AppendAllTextAsync(fileInfo, entry.Text, fileEncoding, shutdownToken).ConfigureAwait(false);
                     return;
                 }
-                catch
+                catch (Exception ex) when (!(ex is OperationCanceledException))
                 {
                     if (ensureBasePath)
                         try
@@ -300,7 +306,12 @@ namespace Karambolo.Extensions.Logging.File
                                 return;
                             }
                         }
-                        catch { }
+                        catch (Exception ex2) when (!(ex2 is OperationCanceledException))
+                        {
+                            // discarding entry when file path is invalid
+                            if (filePath.IndexOfAny(s_invalidPathChars.Value) >= 0)
+                                return;
+                        }
                 }
 
                 // discarding failed entry on shutdown
