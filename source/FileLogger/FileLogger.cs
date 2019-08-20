@@ -55,7 +55,7 @@ namespace Karambolo.Extensions.Logging.File
 
         private FileGroupsDictionary GetFileGroups(IFileLoggerSettings settings)
         {
-            return settings.Files
+            return (settings.Files ?? Enumerable.Empty<ILogFileSettings>())
                 .Where(file => file != null && !string.IsNullOrEmpty(file.Path))
                 .Select(file => 
                     (Settings: file, 
