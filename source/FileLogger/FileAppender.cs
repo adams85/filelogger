@@ -52,7 +52,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public Stream CreateAppendStream(IFileInfo fileInfo)
         {
-            return new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read);
+            return new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read, 4096, useAsync: true);
         }
     }
 }

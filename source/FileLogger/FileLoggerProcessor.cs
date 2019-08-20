@@ -57,12 +57,11 @@ namespace Karambolo.Extensions.Logging.File
             public string CurrentPath { get; set; }
             public Stream AppendStream { get; set; }
 
-            public async Task CloseAppendStreamAsync(CancellationToken cancellationToken)
+            public void CloseAppendStream()
             {
                 Stream writeStream = AppendStream;
                 AppendStream = null;
-                try { await writeStream.FlushAsync(cancellationToken).ConfigureAwait(false); }
-                finally { writeStream.Dispose(); }
+                writeStream.Dispose();
             }
         }
 
@@ -143,7 +142,7 @@ namespace Karambolo.Extensions.Logging.File
                     await logFile.Queue.Completion.ConfigureAwait(false);
 
                     if (logFile.AppendStream != null)
-                        await logFile.CloseAppendStreamAsync(forcedCompleteTokenSource.Token).ConfigureAwait(false);
+                        logFile.CloseAppendStream();
                 }).ToArray();
 
                 _logFiles.Clear();
@@ -333,7 +332,7 @@ namespace Karambolo.Extensions.Logging.File
                         try
                         {
                             if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.AppendStream != null)
-                                await logFile.CloseAppendStreamAsync(cancellationToken).ConfigureAwait(false);
+                                logFile.CloseAppendStream();
 
                             state = logFile.AppendStream == null ? WriteEntryState.TryCreateStream : WriteEntryState.Write;
                         }
@@ -383,12 +382,14 @@ namespace Karambolo.Extensions.Logging.File
                                 await WriteEntryCoreAsync(logFile, entry, cancellationToken).ConfigureAwait(false);
 
                                 if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
-                                    await logFile.AppendStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                                    // FlushAsync is extremely slow currently
+                                    // https://github.com/dotnet/corefx/issues/32837
+                                    logFile.AppendStream.Flush();
                             }
                             finally
                             {
                                 if (logFile.AccessMode == LogFileAccessMode.OpenTemporarily)
-                                    await logFile.CloseAppendStreamAsync(cancellationToken).ConfigureAwait(false);
+                                    logFile.CloseAppendStream();
                             }
 
                             return;
