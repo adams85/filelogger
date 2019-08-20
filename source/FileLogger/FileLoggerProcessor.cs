@@ -31,19 +31,39 @@ namespace Karambolo.Extensions.Logging.File
             Completed,
         }
 
+        private enum WriteEntryState
+        {
+            CheckFile,
+            TryCreateStream,
+            RetryCreateStream,
+            Write,
+            Idle
+        }
+
         protected class LogFileInfo
         {
             public string BasePath { get; set; }
-            public string Path { get; set; }
+            public string PathFormat { get; set; }
             public IFileAppender FileAppender { get; set; }
-            public Encoding FileEncoding { get; set; }
+            public LogFileAccessMode AccessMode { get; set; }
+            public Encoding Encoding { get; set; }
             public string DateFormat { get; set; }
             public string CounterFormat { get; set; }
-            public int MaxFileSize { get; set; }
+            public int MaxSize { get; set; }
 
             public ActionBlock<FileLogEntry> Queue { get; set; }
 
             public int Counter { get; set; }
+            public string CurrentPath { get; set; }
+            public Stream AppendStream { get; set; }
+
+            public async Task CloseAppendStreamAsync(CancellationToken cancellationToken)
+            {
+                Stream writeStream = AppendStream;
+                AppendStream = null;
+                try { await writeStream.FlushAsync(cancellationToken).ConfigureAwait(false); }
+                finally { writeStream.Dispose(); }
+            }
         }
 
         private static readonly Lazy<char[]> s_invalidPathChars = new Lazy<char[]>(() => Path.GetInvalidPathChars()
@@ -116,10 +136,14 @@ namespace Karambolo.Extensions.Logging.File
                 forcedCompleteTokenSource = _forcedCompleteTokenSource;
                 _forcedCompleteTokenSource = new CancellationTokenSource();
 
-                completionTasks = _logFiles.Values.Select(lf =>
+                completionTasks = _logFiles.Values.Select(async logFile =>
                 {
-                    lf.Queue.Complete();
-                    return lf.Queue.Completion;
+                    logFile.Queue.Complete();
+
+                    await logFile.Queue.Completion.ConfigureAwait(false);
+
+                    if (logFile.AppendStream != null)
+                        await logFile.CloseAppendStreamAsync(forcedCompleteTokenSource.Token).ConfigureAwait(false);
                 }).ToArray();
 
                 _logFiles.Clear();
@@ -156,7 +180,7 @@ namespace Karambolo.Extensions.Logging.File
 
         private async void Complete()
         {
-            await CompleteAsync();
+            await CompleteAsync().ConfigureAwait(false);
         }
 
         protected virtual LogFileInfo CreateLogFile()
@@ -168,12 +192,13 @@ namespace Karambolo.Extensions.Logging.File
         {
             LogFileInfo logFile = CreateLogFile();
             logFile.BasePath = settings.BasePath ?? string.Empty;
-            logFile.Path = fileSettings.Path;
+            logFile.PathFormat = fileSettings.Path;
             logFile.FileAppender = settings.FileAppender ?? _fallbackFileAppender.Value;
-            logFile.FileEncoding = fileSettings.FileEncoding ?? settings.FileEncoding ?? Encoding.UTF8;
+            logFile.AccessMode = fileSettings.FileAccessMode ?? settings.FileAccessMode ?? LogFileAccessMode.Default;
+            logFile.Encoding = fileSettings.FileEncoding ?? settings.FileEncoding ?? Encoding.UTF8;
             logFile.DateFormat = fileSettings.DateFormat ?? settings.DateFormat ?? "yyyyMMdd";
             logFile.CounterFormat = fileSettings.CounterFormat ?? settings.CounterFormat;
-            logFile.MaxFileSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
+            logFile.MaxSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
 
             // important: closure must pick up the current token!
             CancellationToken forcedCompleteToken = _forcedCompleteTokenSource.Token;
@@ -219,24 +244,31 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual bool CheckFileSize(string filePath, LogFileInfo logFile, FileLogEntry entry)
         {
-            IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(filePath);
+            long currentFileSize;
+            if (logFile.CurrentPath != filePath || logFile.AppendStream == null)
+            {
+                IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, filePath));
 
-            if (!fileInfo.Exists)
-                return true;
+                if (!fileInfo.Exists)
+                    return true;
 
-            if (fileInfo.IsDirectory)
-                return false;
+                if (fileInfo.IsDirectory)
+                    return false;
 
-            long expectedFileSize = fileInfo.Length + logFile.FileEncoding.GetByteCount(entry.Text);
-            if (fileInfo.Length == 0)
-                expectedFileSize += logFile.FileEncoding.GetPreamble().Length;
+                currentFileSize = fileInfo.Length;
+            }
+            else
+                currentFileSize = logFile.AppendStream.Length;
 
-            return expectedFileSize <= logFile.MaxFileSize;
+            long expectedFileSize = currentFileSize > 0 ? currentFileSize : logFile.Encoding.GetPreamble().Length;
+            expectedFileSize += logFile.Encoding.GetByteCount(entry.Text);
+
+            return expectedFileSize <= logFile.MaxSize;
         }
 
-        protected virtual string BuildFilePath(LogFileInfo logFile, FileLogEntry entry)
+        protected virtual string FormatFilePath(LogFileInfo logFile, FileLogEntry entry)
         {
-            var formattedPath = Regex.Replace(logFile.Path, @"<(date|counter)(?::([^<>]+))?>", match =>
+            return Regex.Replace(logFile.PathFormat, @"<(date|counter)(?::([^<>]+))?>", match =>
             {
                 var inlineFormat = match.Groups[2].Value;
 
@@ -247,29 +279,44 @@ namespace Karambolo.Extensions.Logging.File
                     default: throw new InvalidOperationException();
                 }
             });
-
-            return Path.Combine(logFile.BasePath, formattedPath);
         }
 
-        protected virtual string GetFilePath(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        protected virtual bool UpdateFilePath(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
         {
-            string filePath = BuildFilePath(logFile, entry);
+            string filePath = FormatFilePath(logFile, entry);
 
-            if (logFile.MaxFileSize > 0)
+            if (logFile.MaxSize > 0)
                 while (!CheckFileSize(filePath, logFile, entry))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     logFile.Counter++;
-                    var newFilePath = BuildFilePath(logFile, entry);
+                    var newFilePath = FormatFilePath(logFile, entry);
 
                     if (filePath == newFilePath)
-                        return filePath;
+                        break;
 
                     filePath = newFilePath;
                 }
 
-            return filePath;
+
+            if (logFile.CurrentPath == filePath)
+                return false;
+
+            logFile.CurrentPath = filePath;
+            return true;
+        }
+
+        protected virtual async Task WriteEntryCoreAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        {
+            if (logFile.AppendStream.Length == 0)
+            {
+                var preamble = logFile.Encoding.GetPreamble();
+                await logFile.AppendStream.WriteAsync(preamble, 0, preamble.Length, cancellationToken).ConfigureAwait(false);
+            }
+
+            var data = logFile.Encoding.GetBytes(entry.Text);
+            await logFile.AppendStream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
@@ -277,40 +324,90 @@ namespace Karambolo.Extensions.Logging.File
             // discarding remaining entries on forced complete
             cancellationToken.ThrowIfCancellationRequested();
 
-            var filePath = GetFilePath(logFile, entry, cancellationToken);
-            IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(filePath);
-
+            WriteEntryState state = WriteEntryState.CheckFile;
+            IFileInfo fileInfo = null;
             for (; ; )
-            {
-                try
+                switch (state)
                 {
-                    await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                catch
-                {
-                    try
-                    {
-                        if (await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false))
+                    case WriteEntryState.CheckFile:
+                        try
                         {
-                            await logFile.FileAppender.AppendAllTextAsync(fileInfo, entry.Text, logFile.FileEncoding, cancellationToken).ConfigureAwait(false);
+                            if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.AppendStream != null)
+                                await logFile.CloseAppendStreamAsync(cancellationToken).ConfigureAwait(false);
+
+                            state = logFile.AppendStream == null ? WriteEntryState.TryCreateStream : WriteEntryState.Write;
+                        }
+                        catch (Exception ex) when (!(ex is OperationCanceledException))
+                        {
+                            state = WriteEntryState.Idle;
+                        }
+                        break;
+                    case WriteEntryState.TryCreateStream:
+                        try
+                        {
+                            fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
+                            logFile.AppendStream = logFile.FileAppender.CreateAppendStream(fileInfo);
+
+                            state = WriteEntryState.Write;
+                        }
+                        catch (Exception ex) when (!(ex is OperationCanceledException))
+                        {
+                            state = WriteEntryState.RetryCreateStream;
+                        }
+                        break;
+                    case WriteEntryState.RetryCreateStream:
+                        try
+                        {
+                            if (await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false))
+                            {
+                                logFile.AppendStream = logFile.FileAppender.CreateAppendStream(fileInfo);
+                                state = WriteEntryState.Write;
+                            }
+                            else
+                                state = WriteEntryState.Idle;
+                        }
+                        catch (Exception ex) when (!(ex is OperationCanceledException))
+                        {
+                            // discarding entry when file path is invalid
+                            if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
+                                return;
+
+                            state = WriteEntryState.Idle;
+                        }
+                        break;
+                    case WriteEntryState.Write:
+                        try
+                        {
+                            try
+                            {
+                                await WriteEntryCoreAsync(logFile, entry, cancellationToken).ConfigureAwait(false);
+
+                                if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
+                                    await logFile.AppendStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                if (logFile.AccessMode == LogFileAccessMode.OpenTemporarily)
+                                    await logFile.CloseAppendStreamAsync(cancellationToken).ConfigureAwait(false);
+                            }
+
                             return;
                         }
-                    }
-                    catch
-                    {
-                        // discarding entry when file path is invalid
-                        if (filePath.IndexOfAny(s_invalidPathChars.Value) >= 0)
-                            return;
-                    }
-                }
+                        catch (Exception ex) when (!(ex is OperationCanceledException))
+                        {
+                            state = WriteEntryState.Idle;
+                        }
+                        break;
+                    case WriteEntryState.Idle:
+                        // discarding failed entry on forced complete
+                        if (Context.WriteRetryDelay > TimeSpan.Zero)
+                            await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
+                        else
+                            cancellationToken.ThrowIfCancellationRequested();
 
-                // discarding failed entry on forced complete
-                if (Context.WriteRetryDelay > TimeSpan.Zero)
-                    await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
-                else
-                    cancellationToken.ThrowIfCancellationRequested();
-            }
+                        state = WriteEntryState.CheckFile;
+                        break;
+                }
         }
     }
 }

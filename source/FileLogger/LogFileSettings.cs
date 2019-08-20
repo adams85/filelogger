@@ -7,8 +7,18 @@ using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File
 {
+    public enum LogFileAccessMode
+    {
+        KeepOpenAndAutoFlush,
+        KeepOpen,
+        OpenTemporarily,
+
+        Default = KeepOpenAndAutoFlush
+    }
+
     public interface ILogFileSettingsBase
     {
+        LogFileAccessMode? FileAccessMode { get; }
         Encoding FileEncoding { get; }
         string DateFormat { get; }
         string CounterFormat { get; }
@@ -31,6 +41,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected LogFileSettingsBase(LogFileSettingsBase other)
         {
+            FileAccessMode = other.FileAccessMode;
             FileEncoding = other.FileEncoding;
             DateFormat = other.DateFormat;
             CounterFormat = other.CounterFormat;
@@ -39,6 +50,8 @@ namespace Karambolo.Extensions.Logging.File
             IncludeScopes = other.IncludeScopes;
             MaxQueueSize = other.MaxQueueSize;
         }
+
+        public LogFileAccessMode? FileAccessMode { get; set; }
 
         public Encoding FileEncoding { get; set; }
 

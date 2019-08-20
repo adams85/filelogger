@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Karambolo.Extensions.Logging.File.Test.Helpers;
 using Karambolo.Extensions.Logging.File.Test.Mocks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,6 +25,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 $@"{{ 
     ""{nameof(FileLoggerOptions.RootPath)}"": ""{Path.DirectorySeparatorChar.ToString().Replace(@"\", @"\\")}"",
     ""{nameof(FileLoggerOptions.BasePath)}"": ""Logs"",
+    ""{nameof(FileLoggerOptions.FileAccessMode)}"": ""{LogFileAccessMode.OpenTemporarily}"",
     ""{nameof(FileLoggerOptions.FileEncodingName)}"": ""utf-8"",
     ""{nameof(FileLoggerOptions.Files)}"": [
     {{
@@ -49,7 +51,7 @@ $@"{{
 }}";
 
             var fileProvider = new MemoryFileProvider();
-            fileProvider.CreateFile("config.json", configJson, Encoding.UTF8);
+            fileProvider.CreateFile("config.json", configJson);
 
             var cb = new ConfigurationBuilder();
             cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: false);
@@ -65,6 +67,7 @@ $@"{{
             Assert.True(settings.FileAppender is PhysicalFileAppender);
             Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)settings.FileAppender).FileProvider.Root);
             Assert.Equal("Logs", settings.BasePath);
+            Assert.Equal(LogFileAccessMode.OpenTemporarily, settings.FileAccessMode);
             Assert.Equal(Encoding.UTF8, settings.FileEncoding);
 
             Assert.Equal(2, settings.Files.Length);
@@ -190,8 +193,8 @@ $@"{{
             var logFile = (MemoryFileInfo)fileProvider.GetFileInfo("test.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-            var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            var lines = logFile.ReadAllText(out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
                 $"trce: {typeof(SettingsTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
@@ -298,8 +301,8 @@ $@"{{
             var logFile = (MemoryFileInfo)fileProvider.GetFileInfo((string)oneFile.Path);
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-            var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            var lines = logFile.ReadAllText(out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
                 $"warn: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
@@ -314,8 +317,8 @@ $@"{{
             logFile = (MemoryFileInfo)fileProvider.GetFileInfo((string)otherFile.Path);
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-            lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            lines = logFile.ReadAllText(out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
                 $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",

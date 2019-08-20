@@ -11,20 +11,37 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
 {
     internal class MemoryFileProvider : IFileProvider
     {
+        private class File
+        {
+            public class Stream : MemoryStream
+            {
+                private readonly MemoryFileProvider _fileProvider;
+                private readonly File _file;
+
+                public Stream(MemoryFileProvider fileProvider, File file)
+                {
+                    _fileProvider = fileProvider;
+                    _file = file;
+                }
+
+                protected override void Dispose(bool disposing)
+                {
+                    _fileProvider.ReleaseFile(_file);
+                }
+            }
+
+            public bool IsDirectory { get; set; }
+            public Stream Content { get; set; }
+            public CancellationTokenSource ChangeTokenSource { get; set; }
+            public bool IsOpen { get; set; }
+        }
+
         internal static string NormalizePath(string path)
         {
             path = Regex.Replace(path, @"/|\\", Path.DirectorySeparatorChar.ToString());
             if (path.Length > 0 && path[0] == Path.DirectorySeparatorChar)
                 path.Substring(1);
             return path;
-        }
-
-        private class File
-        {
-            public bool IsDirectory { get; set; }
-            public StringBuilder Content { get; set; }
-            public Encoding Encoding { get; set; }
-            public CancellationTokenSource ChangeTokenSource { get; set; }
         }
 
         private readonly Dictionary<string, File> _catalog = new Dictionary<string, File>
@@ -46,18 +63,16 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
                 return _catalog.TryGetValue(path, out File file) ? file.IsDirectory : false;
         }
 
-        public Encoding GetEncoding(string path)
+        public long GetLength(string path)
         {
             path = NormalizePath(path);
             lock (_catalog)
-                return _catalog.TryGetValue(path, out File file) && !file.IsDirectory ? file.Encoding : null;
-        }
+            {
+                if (!_catalog.TryGetValue(path, out File file) || file.IsDirectory)
+                    return -1;
 
-        public int GetLength(string path)
-        {
-            path = NormalizePath(path);
-            lock (_catalog)
-                return ReadContent(path)?.Length ?? -1;
+                return file.Content.Length;
+            }
         }
 
         private void CheckPath(string normalizedPath)
@@ -71,19 +86,6 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
 
             if (!IsDirectory(dir))
                 throw new InvalidOperationException("Parent directory is a file.");
-        }
-
-        public void OpenFile(string path)
-        {
-            path = NormalizePath(path);
-            lock (_catalog)
-            {
-                if (!Exists(path))
-                    throw new InvalidOperationException("File does not exist.");
-
-                if (IsDirectory(path))
-                    throw new InvalidOperationException("Path is a directory.");
-            }
         }
 
         private void CreateDirCore(string normalizedPath)
@@ -118,38 +120,79 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
             {
                 CheckPath(path);
 
-                _catalog.Add(path, new File { Content = new StringBuilder(content ?? string.Empty), Encoding = encoding });
+                var file = new File();
+                file.Content = new File.Stream(this, file);
+
+                if (content != null)
+                {
+                    var writer = new StreamWriter(file.Content, encoding ?? Encoding.UTF8);
+                    writer.Write(content);
+                    writer.Flush();
+                }
+
+                _catalog.Add(path, file);
             }
+        }
+
+        private MemoryStream GetStreamCore(string path, out File file)
+        {
+            if (!_catalog.TryGetValue(path, out file) || file.IsDirectory)
+                throw new InvalidOperationException("File does not exist.");
+
+            if (file.IsOpen)
+                throw new InvalidOperationException("File is in use currently.");
+
+            file.IsOpen = true;
+
+            file.Content.Seek(0, SeekOrigin.Begin);
+            return file.Content;
+        }
+
+        public MemoryStream GetStream(string path)
+        {
+            path = NormalizePath(path);
+            lock (_catalog)
+                return GetStreamCore(path, out File _);
+        }
+
+        private void ReleaseFile(File file)
+        {
+            lock (_catalog)
+                file.IsOpen = false;
         }
 
         public string ReadContent(string path)
         {
-            path = NormalizePath(path);
-            lock (_catalog)
-                return _catalog.TryGetValue(path, out File file) && !file.IsDirectory ? file.Content.ToString() : null;
+            using (MemoryStream stream = GetStream(path))
+                return new StreamReader(stream).ReadToEnd();
         }
 
-        public void WriteContent(string path, string content, bool append = false)
+        public void WriteContent(string path, string content, Encoding encoding = null, bool append = false)
         {
             path = NormalizePath(path);
 
             CancellationTokenSource changeTokenSource = null;
             lock (_catalog)
-            {
-                if (!_catalog.TryGetValue(path, out File file))
-                    throw new InvalidOperationException("File does not exist.");
-
-                if (!append)
-                    file.Content.Clear();
-
-                file.Content.Append(content);
-
-                if (file.ChangeTokenSource != null)
+                using (MemoryStream stream = GetStreamCore(path, out File file))
                 {
-                    changeTokenSource = file.ChangeTokenSource;
-                    file.ChangeTokenSource = new CancellationTokenSource();
+                    if (content.Length == 0)
+                        return;
+
+                    if (!append)
+                        stream.SetLength(0);
+                    else
+                        stream.Seek(0, SeekOrigin.End);
+
+                    var writer = new StreamWriter(stream, encoding ?? Encoding.UTF8);
+                    writer.Write(content);
+                    writer.Flush();
+
+                    if (file.ChangeTokenSource != null)
+                    {
+                        changeTokenSource = file.ChangeTokenSource;
+                        file.ChangeTokenSource = new CancellationTokenSource();
+                    }
                 }
-            }
 
             changeTokenSource?.Cancel();
         }

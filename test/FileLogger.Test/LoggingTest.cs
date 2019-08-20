@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Karambolo.Extensions.Logging.File.Test.Helpers;
 using Karambolo.Extensions.Logging.File.Test.Mocks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,8 +19,7 @@ namespace Karambolo.Extensions.Logging.File.Test
 {
     public class LoggingTest
     {
-        [Fact]
-        public async Task LoggingToMemoryWithoutDI()
+        private async Task LoggingToMemoryWithoutDICore(LogFileAccessMode accessMode)
         {
             const string logsDirName = "Logs";
 
@@ -31,6 +31,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             {
                 FileAppender = new MemoryFileAppender(fileProvider),
                 BasePath = logsDirName,
+                FileAccessMode = accessMode,
                 FileEncoding = Encoding.UTF8,
                 MaxQueueSize = 100,
                 DateFormat = "yyMMdd",
@@ -106,8 +107,8 @@ namespace Karambolo.Extensions.Logging.File.Test
             var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}-000.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-            var lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            var lines = logFile.ReadAllText(out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
                 $"[info]: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
@@ -118,8 +119,8 @@ namespace Karambolo.Extensions.Logging.File.Test
             logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}-001.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-            lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            lines = logFile.ReadAllText(out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
                 $"[warn]: {typeof(LoggingTest).FullName}[1] @ {context.GetTimestamp().ToLocalTime():o}",
@@ -132,8 +133,8 @@ namespace Karambolo.Extensions.Logging.File.Test
                 $"{logsDirName}/{context.GetTimestamp().ToLocalTime():yyyy}/{context.GetTimestamp().ToLocalTime():MM}/logger.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-            lines = logFile.Content.Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-            Assert.Equal(Encoding.UTF8, logFile.Encoding);
+            lines = logFile.ReadAllText(out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
                 $"[warn]: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
@@ -148,7 +149,13 @@ namespace Karambolo.Extensions.Logging.File.Test
         }
 
         [Fact]
-        public async Task LoggingToPhysicalUsingDI()
+        public async Task LoggingToMemoryWithoutDI()
+        {
+            foreach (LogFileAccessMode accessMode in Enum.GetValues(typeof(LogFileAccessMode)))
+                await LoggingToMemoryWithoutDICore(accessMode);
+        }
+
+        private async Task LoggingToPhysicalUsingDICore(LogFileAccessMode accessMode)
         {
             var logsDirName = Guid.NewGuid().ToString("D");
 
@@ -157,6 +164,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 [$"{nameof(FileLoggerOptions.BasePath)}"] = logsDirName,
                 [$"{nameof(FileLoggerOptions.FileEncodingName)}"] = "UTF-16",
                 [$"{nameof(FileLoggerOptions.DateFormat)}"] = "yyMMdd",
+                [$"{nameof(FileLoggerOptions.FileAccessMode)}"] = accessMode.ToString(),
                 [$"{nameof(FileLoggerOptions.Files)}:0:{nameof(LogFileOptions.Path)}"] = "logger-<date>.log",
                 [$"{nameof(FileLoggerOptions.Files)}:0:{nameof(LogFileOptions.MinLevel)}:Karambolo.Extensions.Logging.File"] = LogLevel.None.ToString(),
                 [$"{nameof(FileLoggerOptions.Files)}:0:{nameof(LogFileOptions.MinLevel)}:{LogFileOptions.DefaultCategoryName}"] = LogLevel.Information.ToString(),
@@ -220,11 +228,10 @@ namespace Karambolo.Extensions.Logging.File.Test
                     Assert.True(providers.All(provider => provider.Completion.IsCompleted));
                 }
 
-
                 IFileInfo logFile = fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}.log");
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-                var lines = ReadContent(logFile, out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                var lines = logFile.ReadAllText(out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
                 Assert.Equal(Encoding.Unicode, encoding);
                 Assert.Equal(new[]
                 {
@@ -239,7 +246,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                     $"{logsDirName}/logger-{context.GetTimestamp().ToLocalTime():yyMMdd}.log");
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
-                lines = ReadContent(logFile, out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
+                lines = logFile.ReadAllText(out encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
                 Assert.Equal(Encoding.Unicode, encoding);
                 Assert.Equal(new[]
                 {
@@ -253,17 +260,13 @@ namespace Karambolo.Extensions.Logging.File.Test
             {
                 Directory.Delete(logPath, recursive: true);
             }
+        }
 
-            string ReadContent(IFileInfo fileInfo, out Encoding encoding)
-            {
-                using (Stream stream = fileInfo.CreateReadStream())
-                using (var reader = new StreamReader(stream))
-                {
-                    var result = reader.ReadToEnd();
-                    encoding = reader.CurrentEncoding;
-                    return result;
-                }
-            }
+        [Fact]
+        public async Task LoggingToPhysicalUsingDI()
+        {
+            foreach (LogFileAccessMode accessMode in Enum.GetValues(typeof(LogFileAccessMode)))
+                await LoggingToPhysicalUsingDICore(accessMode);
         }
     }
 }

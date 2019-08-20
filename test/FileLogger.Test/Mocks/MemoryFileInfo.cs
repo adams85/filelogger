@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Text;
 using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File.Test.Mocks
@@ -28,31 +27,6 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
 
         public bool IsDirectory => _owner.IsDirectory(PhysicalPath);
 
-        public Stream CreateReadStream()
-        {
-            var stream = new MemoryStream();
-
-            Encoding encoding;
-            if (Encoding != null)
-            {
-                encoding = Encoding;
-                var preamble = encoding.GetPreamble();
-
-                stream.Write(preamble, 0, preamble.Length);
-            }
-            else
-                encoding = Encoding.UTF8;
-
-            var content = encoding.GetBytes(Content.ToString());
-            stream.Write(content, 0, content.Length);
-
-            stream.Position = 0;
-
-            return stream;
-        }
-
-        public string Content => _owner.ReadContent(PhysicalPath);
-
-        public Encoding Encoding => _owner.GetEncoding(PhysicalPath);
+        public Stream CreateReadStream() => _owner.GetStream(PhysicalPath);
     }
 }

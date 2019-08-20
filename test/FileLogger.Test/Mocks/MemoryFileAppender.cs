@@ -37,18 +37,14 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
             return Task.FromResult(true);
         }
 
-        public Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding, CancellationToken cancellationToken = default)
+        public Stream CreateAppendStream(IFileInfo fileInfo)
         {
-            var memoryFileInfo = (MemoryFileInfo)fileInfo;
+            if (!fileInfo.Exists)
+                FileProvider.CreateFile(fileInfo.PhysicalPath);
 
-            if (!memoryFileInfo.Exists)
-                FileProvider.CreateFile(fileInfo.PhysicalPath, null, encoding);
-            else if (memoryFileInfo.IsDirectory)
-                throw new InvalidOperationException("A directory with the same path already exists.");
-
-            FileProvider.WriteContent(fileInfo.PhysicalPath, text, append: true);
-
-            return Task.CompletedTask;
+            MemoryStream stream = FileProvider.GetStream(fileInfo.PhysicalPath);
+            stream.Seek(0, SeekOrigin.End);
+            return stream;
         }
     }
 }

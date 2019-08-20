@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
@@ -12,7 +11,7 @@ namespace Karambolo.Extensions.Logging.File
         IFileProvider FileProvider { get; }
 
         Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default);
-        Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding, CancellationToken cancellationToken = default);
+        Stream CreateAppendStream(IFileInfo fileInfo);
     }
 
     public class PhysicalFileAppender : IFileAppender, IDisposable
@@ -51,19 +50,9 @@ namespace Karambolo.Extensions.Logging.File
             return Task.FromResult(true);
         }
 
-        public async Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding, CancellationToken cancellationToken = default)
+        public Stream CreateAppendStream(IFileInfo fileInfo)
         {
-            using (var fileStream = new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read))
-            {
-                if (fileStream.Length == 0)
-                {
-                    var preamble = encoding.GetPreamble();
-                    await fileStream.WriteAsync(preamble, 0, preamble.Length, cancellationToken).ConfigureAwait(false);
-                }
-
-                var data = encoding.GetBytes(text);
-                await fileStream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
-            }
+            return new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read);
         }
     }
 }
