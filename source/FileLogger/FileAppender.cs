@@ -53,7 +53,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public async Task AppendAllTextAsync(IFileInfo fileInfo, string text, Encoding encoding, CancellationToken cancellationToken = default)
         {
-            using (var fileStream = new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read))
+            using (var fileStream = new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read, 4096, useAsync: true))
             {
                 if (fileStream.Length == 0)
                 {
