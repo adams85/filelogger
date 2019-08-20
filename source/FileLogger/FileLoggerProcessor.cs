@@ -221,7 +221,7 @@ namespace Karambolo.Extensions.Logging.File
             {
                 IFileInfo fileInfo = fileAppender.FileProvider.GetFileInfo(logFile.GetFilePath(postfix));
                 if (fileInfo.Exists &&
-                    (fileInfo.IsDirectory || fileInfo.Length + fileEncoding.GetByteCount(entry.Text) > logFile.Settings.MaxFileSize))
+                    (fileInfo.IsDirectory || GetExpectedFileSize(fileInfo, entry, fileEncoding) > logFile.Settings.MaxFileSize))
                 {
                     logFile.Counter++;
                     return false;
@@ -229,6 +229,14 @@ namespace Karambolo.Extensions.Logging.File
             }
 
             return true;
+
+            long GetExpectedFileSize(IFileInfo fi, FileLogEntry le, Encoding enc)
+            {
+                var fileSize = fi.Length;
+                if (fileSize == 0)
+                    fileSize += enc.GetPreamble().Length;
+                return fileSize += enc.GetByteCount(le.Text);
+            }
         }
 
         private string GetPostfix(LogFileInfo logFile, IFileAppender fileAppender, Encoding fileEncoding, FileLogEntry entry)
