@@ -244,7 +244,7 @@ namespace Karambolo.Extensions.Logging.File
         protected virtual bool CheckFileSize(string filePath, LogFileInfo logFile, FileLogEntry entry)
         {
             long currentFileSize;
-            if (logFile.CurrentPath != filePath || logFile.AppendStream == null)
+            if (logFile.AppendStream == null || logFile.CurrentPath != filePath)
             {
                 IFileInfo fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, filePath));
 
