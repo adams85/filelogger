@@ -71,7 +71,7 @@ namespace Karambolo.Extensions.Logging.File
             .ToArray());
 
         private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
-        private readonly Dictionary<string, LogFileInfo> _logFiles;
+        private readonly Dictionary<ILogFileSettings, LogFileInfo> _logFiles;
         private readonly TaskCompletionSource<object> _completeTaskCompletionSource;
         private readonly CancellationTokenRegistration _completeTokenRegistration;
         private CancellationTokenSource _forcedCompleteTokenSource;
@@ -86,7 +86,7 @@ namespace Karambolo.Extensions.Logging.File
 
             Context = context;
 
-            _logFiles = new Dictionary<string, LogFileInfo>();
+            _logFiles = new Dictionary<ILogFileSettings, LogFileInfo>();
 
             _completeTaskCompletionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -224,8 +224,8 @@ namespace Karambolo.Extensions.Logging.File
                 if (_status != Status.Running)
                     return;
 
-                if (!_logFiles.TryGetValue(fileSettings.Path, out logFile))
-                    _logFiles.Add(fileSettings.Path, logFile = CreateLogFile(fileSettings, settings));
+                if (!_logFiles.TryGetValue(fileSettings, out logFile))
+                    _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
             }
 
             logFile.Queue.Post(entry);
