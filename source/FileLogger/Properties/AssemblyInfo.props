@@ -5,7 +5,7 @@
     <Authors>Adam Simon</Authors>
     <Company>Karambolo</Company>
     <Product>Karambolo.Extensions.Logging.File</Product>
-    <Description>A full-featured file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
+    <Description>A lightweight yet feature-rich file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
     <Copyright>© 2019 Adam Simon</Copyright>
     <AssemblyVersion>1.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
