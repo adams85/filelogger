@@ -113,7 +113,7 @@ namespace Karambolo.Extensions.Logging.File
             }
         }
 
-        public bool IsEnabled(LogLevel logLevel)
+        public virtual bool IsEnabled(LogLevel logLevel)
         {
             return logLevel != LogLevel.None;
         }

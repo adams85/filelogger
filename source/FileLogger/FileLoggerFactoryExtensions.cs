@@ -86,6 +86,9 @@ namespace Microsoft.Extensions.Logging
             if (optionsName == null)
                 optionsName = typeof(TProvider).FullName;
 
+            if (context == null)
+                context = FileLoggerContext.Default;
+
             builder.AddFile(optionsName, sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context, optionsName));
 
             if (configure != null)
