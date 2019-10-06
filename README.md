@@ -1,6 +1,10 @@
+| :mega: Important notices |
+|--------------|
+|* If you're upgrading from 2.x to 3.x, there's several breaking changes to be aware of. See the [notes below](#user-content-important-notes-for-existing-consumers) for the details.<br /> * Documentation of the previous major version (2.x) is available [here](https://github.com/adams85/filelogger/tree/2.1).|
+
 # Karambolo.Extensions.Logging.File
 
-This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Runs on all .NET platforms which implement .NET Standard 2.0+ including .NET Core 2 (ASP.NET Core 2.1+) and .NET Core 3 (ASP.NET Core 3.0 preview 8+). (Requires *Microsoft.Extensions.Logging* 2.1+, so ASP.NET Core 2.0 is not supported!)
+This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Runs on all .NET platforms which implement .NET Standard 2.0+ including .NET Core 2 (ASP.NET Core 2.1+) and .NET Core 3 (ASP.NET Core 3.0+). (Requires *Microsoft.Extensions.Logging* 2.1+, so ASP.NET Core 2.0 is not supported!)
 
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 
@@ -13,22 +17,18 @@ The code is based on [ConsoleLogger](https://github.com/aspnet/Extensions/tree/m
  - Rolling log files with customizable counter format.
  - Including log entry date in log file paths using templates.
  - Customizable log text formatting.
- - Extensibility and customizability by inheritance.
+ - Extensibility by inheritance.
  - Multiple providers with different settings.
 
 ### Important notes for existing consumers
 
-**Docs of the previous major version (2.x) are available [here](https://github.com/adams85/filelogger/tree/2.1).**
-
-**Version 3.0 is a major revision with many improvements involving breaking changes:**
-* Regular users should adjust their configuration as the configuration system went through a substantial rework.
+**Version 3.0 is a major revision with many improvements involving some breaking changes:**
+* Regular users should adjust their logger configuration as the configuration system went through a substantial rework.
 * Consumers using advanced features or customization should expect some more work to do because internals were changed extensively too.
 
 Thus, **version 3.0 is not backward compatible with previous versions**. If you want to upgrade from older versions, please read up on the new configuration system to be able to make the necessary adjustments. 
 
-However, you may stay with version 2.1 as it continues to work on .NET Core 3 according to my tests (but please note that it won't be developed any more).
-
-Version 3 is available as a prerelease package (rc1) for now. The production version is planned to be released after .NET Core 3 GA is shipped.
+However, you may stay with version 2.1 as it continues to work on .NET Core 3 according to my tests (but please note that it isn't developed actively any more).
 
 ### Configuration samples
 
