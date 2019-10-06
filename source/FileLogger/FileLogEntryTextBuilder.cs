@@ -14,6 +14,7 @@ namespace Karambolo.Extensions.Logging.File
     public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
     {
         public static readonly FileLogEntryTextBuilder Instance = new FileLogEntryTextBuilder();
+
         private readonly string _messagePadding;
         private readonly string _newLineWithMessagePadding;
 
