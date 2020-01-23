@@ -30,7 +30,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
         public IDisposable OnChange(Action<TOptions, string> listener)
         {
             lock (_gate)
-                _listeners = (Action<TOptions, string>)Delegate.Combine(_listeners, listener);
+                _listeners += listener;
 
             return new ChangeRegistrationToken(this, listener);
         }
@@ -51,7 +51,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
                 if (_listener != null)
                 {
                     lock (_owner._gate)
-                        _owner._listeners = (Action<TOptions, string>)Delegate.Remove(_owner._listeners, _listener);
+                        _owner._listeners -= _listener;
 
                     _listener = null;
                     _owner = null;
