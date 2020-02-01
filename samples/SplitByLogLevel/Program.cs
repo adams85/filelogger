@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -7,9 +8,9 @@ namespace SplitByLogLevel
 {
     // This sample demonstrates how to use multiple file logger providers with different settings.
     // We set up two provider instances to send messages to different files based on their log levels.
-    class Program
+    internal class Program
     {
-        private static void Main(string[] args)
+        private static async Task Main(string[] args)
         {
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
@@ -28,10 +29,10 @@ namespace SplitByLogLevel
                 builder.AddFile<InfoFileLoggerProvider>(configure: o => o.RootPath = AppContext.BaseDirectory);
             });
 
-            // create logger factory
-            using (ServiceProvider sp = services.BuildServiceProvider())
+            await using (ServiceProvider sp = services.BuildServiceProvider())
             {
-                var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger<Program>();
+                // create logger
+                ILogger<Program> logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger<Program>();
 
                 logger.LogTrace("This is a trace message. Should be discarded.");
                 logger.LogDebug("This is a debug message. Should be discarded.");
