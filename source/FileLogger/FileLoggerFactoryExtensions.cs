@@ -84,7 +84,7 @@ namespace Microsoft.Extensions.Logging
                 throw new ArgumentNullException(nameof(builder));
 
             if (optionsName == null)
-                optionsName = typeof(TProvider).FullName;
+                optionsName = typeof(TProvider).ToString();
 
             if (context == null)
                 context = FileLoggerContext.Default;

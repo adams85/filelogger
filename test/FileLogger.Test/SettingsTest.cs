@@ -74,15 +74,15 @@ $@"{{
 
             ILogFileSettings fileSettings = Array.Find(settings.Files, f => f.Path == "logger.log");
             Assert.NotNull(fileSettings);
-            Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).FullName));
-            Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(FileLogger).FullName));
-            Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(SettingsTest).FullName));
+            Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).ToString()));
+            Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(FileLogger).ToString()));
+            Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(SettingsTest).ToString()));
 
             fileSettings = Array.Find(settings.Files, f => f.Path == "test.log");
             Assert.NotNull(fileSettings);
-            Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).FullName));
-            Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(FileLogger).FullName));
-            Assert.Equal(LogLevel.Debug, fileSettings.GetMinLevel(typeof(SettingsTest).FullName));
+            Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).ToString()));
+            Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(FileLogger).ToString()));
+            Assert.Equal(LogLevel.Debug, fileSettings.GetMinLevel(typeof(SettingsTest).ToString()));
 
             Assert.Equal("yyyyMMdd", settings.DateFormat);
             Assert.Equal("000", settings.CounterFormat);

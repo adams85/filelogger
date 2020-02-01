@@ -111,7 +111,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
-                $"[info]: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"[info]: {typeof(LoggingTest)}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        This is a nice logger.",
                 ""
             }, lines);
@@ -123,7 +123,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             Assert.Equal(Encoding.UTF8, encoding);
             Assert.Equal(new[]
             {
-                $"[warn]: {typeof(LoggingTest).FullName}[1] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"[warn]: {typeof(LoggingTest)}[1] @ {context.GetTimestamp().ToLocalTime():o}",
                 $"        => SCOPE",
                 $"        This is a smart logger.",
                 ""
@@ -235,9 +235,9 @@ namespace Karambolo.Extensions.Logging.File.Test
                 Assert.Equal(Encoding.Unicode, encoding);
                 Assert.Equal(new[]
                 {
-                    $"info: {typeof(LoggingTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                    $"info: {typeof(LoggingTest)}[0] @ {context.GetTimestamp().ToLocalTime():o}",
                     $"      This is a nice logger.",
-                    $"warn: {typeof(LoggingTest).FullName}[1] @ {context.GetTimestamp().ToLocalTime():o}",
+                    $"warn: {typeof(LoggingTest)}[1] @ {context.GetTimestamp().ToLocalTime():o}",
                     $"      This is a smart logger.",
                     ""
                 }, lines);
