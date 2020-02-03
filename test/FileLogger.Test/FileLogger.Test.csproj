@@ -7,7 +7,7 @@
     <RootNamespace>Karambolo.Extensions.Logging.File.Test</RootNamespace>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\source\FileLogger\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>8.0</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

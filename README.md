@@ -175,8 +175,8 @@ These settings can be configured on log file level only (*LogFileOptions*):
 
 |  | **Description** | **Default value** | **Notes** |
 |---|---|---|---|
-| **Path** | Path of the log file relative to *FileLoggerOptions.BasePath*. | | Can be a simple path or a path template. Templates specify placeholders for date and counter strings like "&lt;date&gt;/app-&lt;counter&gt;.log". The file definition is ignored if *Path* is null or empty. *Path* should be unique, **multiple definitions with the same *Path* value may lead to erroneous behavior**. |
-| **MinLevel** | Defines log level switches for the individual file. | | Works similarly to [LogLevel](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging/#log-filtering) filter switches. However, this is a second-level filter which can only tighten the rules of the first-level *LogLevel* filters (as it can only filter messages that hit the provider). |
+| **Path** | Path of the log file relative to *FileLoggerOptions.BasePath*. | | Can be a simple path or a path template.<br/>Templates specify placeholders for date and counter strings like "&lt;date&gt;/app-&lt;counter&gt;.log".<br/>The file definition is ignored if *Path* is null or empty.<br/>*Path* should be unique, **multiple definitions with the same *Path* value may lead to erroneous behavior**. |
+| **MinLevel** | Defines log level switches for the individual file. | | Works similarly to [LogLevel](https://docs.microsoft.com/en-us/aspnet/core/fundamentals/logging/#log-filtering) filter switches. However, this is a second-level filter which can only tighten the rules of the first-level *LogLevel* filters (as it can only filter messages that hit the logger provider). |
 
 #### Globally configurable log file settings
 
@@ -186,10 +186,10 @@ The log file settings below can be specified globally (per provider) and individ
 |---|---|---|---|
 | **FileAccessMode** | Strategy for accessing log files. | LogFileAccessMode. KeepOpenAndAutoFlush | <ul><li>**KeepOpenAndAutoFlush**: Keeps open the log file until completion and flushes each entry into the file immediately.</li><li>**KeepOpen**: Keeps open the log file until completion but entries are flushed only when internal buffer gets full. (Provides the best performance but entries don't appear instantly in the log file.)</li><li>**OpenTemporarily**: Opens the log file only when an entry needs to be written and then closes it immediately. (Provides the worst performance but log files won't be locked by the process.)</li></ul> |
 | **FileEncoding** | Character encoding to use. | Encoding.UTF8 | The *FileEncodingName* shortcut property is also available for setting this option using an encoding name. |
-| **DateFormat** | Specifies the default date format to use in log file path templates. | "yyyyMMdd" | Value must be a standard .NET format string which can be passed to [DateTimeOffset.ToString](https://docs.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tostring#System_DateTimeOffset_ToString_System_String_). Date format can even be specified inline in the path template: e.g. "&lt;date:yyyy&gt;/app.log" |
-| **CounterFormat** | Specifies the default counter format to use in log file path templates. | basic integer to string conversion | Value must be a standard .NET format string which can be passed to [Int32.ToString](https://docs.microsoft.com/en-us/dotnet/api/system.int32.tostring#System_Int32_ToString_System_String_). Counter format can even be specified inline in the path template: e.g. "app-&lt;counter:000&gt;.log" |
+| **DateFormat** | Specifies the default date format to use in log file path templates. | "yyyyMMdd" | Value must be a standard .NET format string which can be passed to [DateTimeOffset.ToString](https://docs.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tostring#System_DateTimeOffset_ToString_System_String_).<br/>Date format can even be specified inline in the path template: e.g. "&lt;date:yyyy&gt;/app.log" |
+| **CounterFormat** | Specifies the default counter format to use in log file path templates. | basic integer to string conversion | Value must be a standard .NET format string which can be passed to [Int32.ToString](https://docs.microsoft.com/en-us/dotnet/api/system.int32.tostring#System_Int32_ToString_System_String_).<br/>Counter format can even be specified inline in the path template: e.g. "app-&lt;counter:000&gt;.log" |
 | **MaxFileSize** | If set, new files will be created when file size limit is reached. | | *Path* must be a template containing a counter placeholder, otherwise the file size limit is not enforced. |
-| **TextBuilder** | Specifies a custom log text formatter type. | FileLogEntryTextBuilder. Instance | The *TextBuilderType* shortcut property is also available for setting this option using a type name. |
+| **TextBuilder** | Specifies a custom log text formatter. | FileLogEntryTextBuilder. Instance | For best performance, if you set this to a formatter of the same type for multiple files, use the same formatter instance if possible.<br/>The *TextBuilderType* shortcut property is also available for setting this option using a type name. |
 | **IncludeScopes** | Enables including log scopes in the output. | false | Works exactly as in the case of *ConsoleLogger*. |
 | **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | -1 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
 
@@ -238,4 +238,4 @@ The log file settings below can be specified globally (per provider) and individ
 }
 ```
 
-(Don't forget to remove comments when targeting .NET Core 3 as the new [System.Text.Json](https://devblogs.microsoft.com/dotnet/try-the-new-system-text-json-apis/) parser don't like them!)
+(You may have to remove comments when targeting .NET Core 3 as the new [System.Text.Json](https://devblogs.microsoft.com/dotnet/try-the-new-system-text-json-apis/) parser don't like them!)

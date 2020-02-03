@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File
@@ -37,6 +39,10 @@ namespace Karambolo.Extensions.Logging.File
 
     public abstract class LogFileSettingsBase : ILogFileSettingsBase
     {
+        private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> s_textBuilderCache;
+        private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> TextBuilderCache =>
+            LazyInitializer.EnsureInitialized(ref s_textBuilderCache, () => new ConcurrentDictionary<Type, IFileLogEntryTextBuilder>());
+
         public LogFileSettingsBase() { }
 
         protected LogFileSettingsBase(LogFileSettingsBase other)
@@ -79,13 +85,18 @@ namespace Karambolo.Extensions.Logging.File
 
                 var type = Type.GetType(value, throwOnError: true);
 
-                if (!type.GetTypeInfo().ImplementedInterfaces.Contains(typeof(IFileLogEntryTextBuilder)))
-                    throw new ArgumentException($"Type must implement the {typeof(IFileLogEntryTextBuilder).Name} interface.", nameof(value));
+                // it's important to return the same instance of a given text builder type
+                // because FileLogger use the instance in its internal cache (FileGroups) as a part of the key
+                TextBuilder = TextBuilderCache.GetOrAdd(type, type =>
+                {
+                    if (!type.GetTypeInfo().ImplementedInterfaces.Contains(typeof(IFileLogEntryTextBuilder)))
+                        throw new ArgumentException($"Type must implement the {typeof(IFileLogEntryTextBuilder).Name} interface.", nameof(value));
 
-                if (!type.GetTypeInfo().DeclaredConstructors.Any(ci => ci.GetParameters().Length == 0))
-                    throw new ArgumentException("Type must provide a parameterless constructor.", nameof(value));
+                    if (!type.GetTypeInfo().DeclaredConstructors.Any(ci => ci.GetParameters().Length == 0))
+                        throw new ArgumentException("Type must provide a parameterless constructor.", nameof(value));
 
-                TextBuilder = (IFileLogEntryTextBuilder)Activator.CreateInstance(type);
+                    return (IFileLogEntryTextBuilder)Activator.CreateInstance(type);
+                });
             }
         }
 

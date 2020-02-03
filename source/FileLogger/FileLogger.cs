@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File
 {
-    using FileGroupsDictionary = Dictionary<(Type TextBuilderType, bool IncludeScopes), (ILogFileSettings Settings, LogLevel MinLevel, IFileLogEntryTextBuilder TextBuilder)[]>;
+    using FileGroupsDictionary = Dictionary<(IFileLogEntryTextBuilder TextBuilder, bool IncludeScopes), (ILogFileSettings Settings, LogLevel MinLevel)[]>;
 
     public class FileLogger : ILogger
     {
@@ -59,12 +59,11 @@ namespace Karambolo.Extensions.Logging.File
                 .Where(file => file != null && !string.IsNullOrEmpty(file.Path))
                 .Select(file => 
                     (Settings: file, 
-                     MinLevel: file.GetMinLevel(CategoryName),
-                     TextBuilder: file.TextBuilder ?? settings.TextBuilder ?? FileLogEntryTextBuilder.Instance))
+                     MinLevel: file.GetMinLevel(CategoryName)))
                 .Where(file => file.MinLevel != LogLevel.None)
                 .GroupBy(
                     file => 
-                        (file.TextBuilder.GetType(), 
+                        (file.Settings.TextBuilder ?? settings.TextBuilder ?? FileLogEntryTextBuilder.Instance, 
                          file.Settings.IncludeScopes ?? settings.IncludeScopes ?? false),
                     file => file)
                 .ToDictionary(group => group.Key, group => group.ToArray());
@@ -147,18 +146,20 @@ namespace Karambolo.Extensions.Logging.File
             if (sb == null)
                 sb = new StringBuilder();
 
-            foreach (KeyValuePair<(Type, bool), (ILogFileSettings, LogLevel, IFileLogEntryTextBuilder)[]> fileGroup in currentState.FileGroups)
+            foreach (KeyValuePair<(IFileLogEntryTextBuilder, bool), (ILogFileSettings, LogLevel)[]> fileGroup in currentState.FileGroups)
             {
                 FileLogEntry entry = null;
 
-                foreach ((ILogFileSettings fileSettings, LogLevel minLevel, IFileLogEntryTextBuilder textBuilder) in fileGroup.Value)
+                for (int i = 0, n = fileGroup.Value.Length; i < n; i++)
                 {
+                    (ILogFileSettings fileSettings, LogLevel minLevel) = fileGroup.Value[i];
+
                     if (logLevel < minLevel)
                         continue;
 
                     if (entry == null)
                     {
-                        (_, bool includeScopes) = fileGroup.Key;
+                        (IFileLogEntryTextBuilder textBuilder, bool includeScopes) = fileGroup.Key;
                         IExternalScopeProvider logScope = includeScopes ? currentState.ScopeProvider : null;
 
                         textBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
