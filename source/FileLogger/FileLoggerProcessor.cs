@@ -59,6 +59,12 @@ namespace Karambolo.Extensions.Logging.File
             public Func<LogFileInfo, CancellationToken, ValueTask> EnsurePreambleAsync { get; set; }
             public Stream AppendStream { get; set; }
 
+            public void OpenAppendStream(IFileInfo fileInfo)
+            {
+                AppendStream = FileAppender.CreateAppendStream(fileInfo);
+                EnsurePreambleAsync = FileLoggerProcessor.EnsurePreambleAsync;
+            }
+
             public void CloseAppendStream()
             {
                 Stream appendStream = AppendStream;
@@ -348,13 +354,8 @@ namespace Karambolo.Extensions.Logging.File
                     case WriteEntryState.CheckFile:
                         try
                         {
-                            if (UpdateFilePath(logFile, entry, cancellationToken))
-                            {
-                                logFile.EnsurePreambleAsync = EnsurePreambleAsync;
-
-                                if (logFile.AppendStream != null)
-                                    logFile.CloseAppendStream();
-                            }
+                            if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.AppendStream != null)
+                                logFile.CloseAppendStream();
 
                             state = logFile.AppendStream == null ? WriteEntryState.TryCreateStream : WriteEntryState.Write;
                         }
@@ -367,7 +368,7 @@ namespace Karambolo.Extensions.Logging.File
                         try
                         {
                             fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
-                            logFile.AppendStream = logFile.FileAppender.CreateAppendStream(fileInfo);
+                            logFile.OpenAppendStream(fileInfo);
 
                             state = WriteEntryState.Write;
                         }
@@ -381,7 +382,7 @@ namespace Karambolo.Extensions.Logging.File
                         {
                             if (await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false))
                             {
-                                logFile.AppendStream = logFile.FileAppender.CreateAppendStream(fileInfo);
+                                logFile.OpenAppendStream(fileInfo);
                                 state = WriteEntryState.Write;
                             }
                             else
