@@ -191,7 +191,7 @@ The log file settings below can be specified globally (per provider) and individ
 | **MaxFileSize** | If set, new files will be created when file size limit is reached. | | *Path* must be a template containing a counter placeholder, otherwise the file size limit is not enforced. |
 | **TextBuilder** | Specifies a custom log text formatter. | FileLogEntryTextBuilder. Instance | For best performance, if you set this to a formatter of the same type for multiple files, use the same formatter instance if possible.<br/>The *TextBuilderType* shortcut property is also available for setting this option using a type name. |
 | **IncludeScopes** | Enables including log scopes in the output. | false | Works exactly as in the case of *ConsoleLogger*. |
-| **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | -1 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
+| **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | 0 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
 
 #### Sample JSON configuration
 ``` json5

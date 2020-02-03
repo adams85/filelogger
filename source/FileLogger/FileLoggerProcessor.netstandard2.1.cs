@@ -5,16 +5,9 @@ namespace Karambolo.Extensions.Logging.File
 {
     public partial class FileLoggerProcessor : IFileLoggerProcessor
     {
-        protected virtual async ValueTask WriteEntryCoreAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        protected static ValueTask WriteBytesAsync(LogFileInfo logFile, byte[] bytes, CancellationToken cancellationToken)
         {
-            if (logFile.AppendStream.Length == 0)
-            {
-                var preamble = logFile.Encoding.GetPreamble();
-                await logFile.AppendStream.WriteAsync(preamble, cancellationToken).ConfigureAwait(false);
-            }
-
-            var data = logFile.Encoding.GetBytes(entry.Text);
-            await logFile.AppendStream.WriteAsync(data, cancellationToken).ConfigureAwait(false);
+            return logFile.AppendStream.WriteAsync(bytes, cancellationToken);
         }
     }
 }

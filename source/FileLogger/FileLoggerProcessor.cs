@@ -6,8 +6,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File
@@ -51,10 +51,12 @@ namespace Karambolo.Extensions.Logging.File
             public string CounterFormat { get; set; }
             public int MaxSize { get; set; }
 
-            public ActionBlock<FileLogEntry> Queue { get; set; }
+            public Channel<FileLogEntry> Queue { get; set; }
+            public Task WriteFileTask { get; set; }
 
             public int Counter { get; set; }
             public string CurrentPath { get; set; }
+            public Func<LogFileInfo, CancellationToken, ValueTask> EnsurePreambleAsync { get; set; }
             public Stream AppendStream { get; set; }
 
             public void CloseAppendStream()
@@ -82,9 +84,9 @@ namespace Karambolo.Extensions.Logging.File
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
-            _fallbackFileAppender = new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(Environment.CurrentDirectory));
-
             Context = context;
+
+            _fallbackFileAppender = new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(Environment.CurrentDirectory));
 
             _logFiles = new Dictionary<ILogFileSettings, LogFileInfo>();
 
@@ -137,9 +139,9 @@ namespace Karambolo.Extensions.Logging.File
 
                 completionTasks = _logFiles.Values.Select(async logFile =>
                 {
-                    logFile.Queue.Complete();
+                    logFile.Queue.Writer.Complete();
 
-                    await logFile.Queue.Completion.ConfigureAwait(false);
+                    await logFile.WriteFileTask.ConfigureAwait(false);
 
                     if (logFile.AppendStream != null)
                         logFile.CloseAppendStream();
@@ -199,17 +201,28 @@ namespace Karambolo.Extensions.Logging.File
             logFile.CounterFormat = fileSettings.CounterFormat ?? settings.CounterFormat;
             logFile.MaxSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
 
+            var maxQueueSize = fileSettings.MaxQueueSize ?? settings.MaxQueueSize ?? 0;
+            logFile.Queue =
+                maxQueueSize > 0 ?
+                Channel.CreateBounded<FileLogEntry>(ConfigureChannelOptions(new BoundedChannelOptions(maxQueueSize)
+                {
+                    FullMode = BoundedChannelFullMode.DropWrite
+                })) :
+                Channel.CreateUnbounded<FileLogEntry>(ConfigureChannelOptions(new UnboundedChannelOptions()));
+
             // important: closure must pick up the current token!
             CancellationToken forcedCompleteToken = _forcedCompleteTokenSource.Token;
-            logFile.Queue = new ActionBlock<FileLogEntry>(
-                e => WriteEntryAsync(logFile, e, forcedCompleteToken),
-                new ExecutionDataflowBlockOptions
-                {
-                    MaxDegreeOfParallelism = 1,
-                    BoundedCapacity = fileSettings.MaxQueueSize ?? settings.MaxQueueSize ?? -1,
-                });
+            logFile.WriteFileTask = Task.Run(() => WriteFileAsync(logFile, forcedCompleteToken));
 
             return logFile;
+
+            static TOptions ConfigureChannelOptions<TOptions>(TOptions options) where TOptions : ChannelOptions
+            {
+                options.AllowSynchronousContinuations = false;
+                options.SingleReader = true;
+                options.SingleWriter = false;
+                return options;
+            }
         }
 
         public void Enqueue(FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings)
@@ -228,7 +241,7 @@ namespace Karambolo.Extensions.Logging.File
                     _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
             }
 
-            logFile.Queue.Post(entry);
+            logFile.Queue.Writer.TryWrite(entry);
         }
 
         protected virtual string GetDate(string inlineFormat, LogFileInfo logFile, FileLogEntry entry)
@@ -306,11 +319,27 @@ namespace Karambolo.Extensions.Logging.File
             return true;
         }
 
-        private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        private static async ValueTask EnsurePreambleAsync(LogFileInfo logFile, CancellationToken cancellationToken)
         {
-            // discarding remaining entries on forced complete
-            cancellationToken.ThrowIfCancellationRequested();
+            if (logFile.AppendStream.Length == 0)
+            {
+                var preamble = logFile.Encoding.GetPreamble();
+                await WriteBytesAsync(logFile, preamble, cancellationToken).ConfigureAwait(false);
+            }
 
+            logFile.EnsurePreambleAsync = (lf, ct) => default;
+        }
+
+        protected virtual async ValueTask WriteEntryCoreAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        {
+            await logFile.EnsurePreambleAsync(logFile, cancellationToken).ConfigureAwait(false);
+
+            var data = logFile.Encoding.GetBytes(entry.Text);
+            await WriteBytesAsync(logFile, data, cancellationToken).ConfigureAwait(false);
+        }
+
+        private async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        {
             WriteEntryState state = WriteEntryState.CheckFile;
             IFileInfo fileInfo = null;
             for (; ; )
@@ -319,8 +348,13 @@ namespace Karambolo.Extensions.Logging.File
                     case WriteEntryState.CheckFile:
                         try
                         {
-                            if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.AppendStream != null)
-                                logFile.CloseAppendStream();
+                            if (UpdateFilePath(logFile, entry, cancellationToken))
+                            {
+                                logFile.EnsurePreambleAsync = EnsurePreambleAsync;
+
+                                if (logFile.AppendStream != null)
+                                    logFile.CloseAppendStream();
+                            }
 
                             state = logFile.AppendStream == null ? WriteEntryState.TryCreateStream : WriteEntryState.Write;
                         }
@@ -397,6 +431,20 @@ namespace Karambolo.Extensions.Logging.File
                         state = WriteEntryState.CheckFile;
                         break;
                 }
+        }
+
+        private async Task WriteFileAsync(LogFileInfo logFile, CancellationToken cancellationToken)
+        {
+            try
+            {
+                for (; ; )
+                {
+                    FileLogEntry entry = await logFile.Queue.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+
+                    await WriteEntryAsync(logFile, entry, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            catch (ChannelClosedException) { }
         }
     }
 }
