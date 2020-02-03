@@ -22,7 +22,7 @@ namespace Karambolo.Extensions.Logging.File
         Task CompleteAsync();
     }
 
-    public class FileLoggerProcessor : IFileLoggerProcessor
+    public partial class FileLoggerProcessor : IFileLoggerProcessor
     {
         private enum Status
         {
@@ -59,9 +59,9 @@ namespace Karambolo.Extensions.Logging.File
 
             public void CloseAppendStream()
             {
-                Stream writeStream = AppendStream;
+                Stream appendStream = AppendStream;
                 AppendStream = null;
-                writeStream.Dispose();
+                appendStream.Dispose();
             }
         }
 
@@ -304,18 +304,6 @@ namespace Karambolo.Extensions.Logging.File
 
             logFile.CurrentPath = filePath;
             return true;
-        }
-
-        protected virtual async Task WriteEntryCoreAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
-        {
-            if (logFile.AppendStream.Length == 0)
-            {
-                var preamble = logFile.Encoding.GetPreamble();
-                await logFile.AppendStream.WriteAsync(preamble, 0, preamble.Length, cancellationToken).ConfigureAwait(false);
-            }
-
-            var data = logFile.Encoding.GetBytes(entry.Text);
-            await logFile.AppendStream.WriteAsync(data, 0, data.Length, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
