@@ -56,13 +56,23 @@ namespace Karambolo.Extensions.Logging.File
 
             public int Counter { get; set; }
             public string CurrentPath { get; set; }
-            public Func<LogFileInfo, CancellationToken, ValueTask> EnsurePreambleAsync { get; set; }
-            public Stream AppendStream { get; set; }
+
+            public Stream AppendStream { get; private set; }
+            public Func<LogFileInfo, CancellationToken, ValueTask> EnsurePreambleAsync { get; private set; }
 
             public void OpenAppendStream(IFileInfo fileInfo)
             {
                 AppendStream = FileAppender.CreateAppendStream(fileInfo);
-                EnsurePreambleAsync = FileLoggerProcessor.EnsurePreambleAsync;
+
+                // the compiler creates a cached delegate for non-capturing lambda expressions,
+                // so frequent allocation in the case of LogFileAccessMode.OpenTemporarily can be avoided this way
+                EnsurePreambleAsync = async (logFile, cancellationToken) =>
+                {
+                    if (logFile.AppendStream.Length == 0)
+                        await WriteBytesAsync(logFile, logFile.Encoding.GetPreamble(), cancellationToken).ConfigureAwait(false);
+
+                    logFile.EnsurePreambleAsync = (lf, ct) => default;
+                };
             }
 
             public void CloseAppendStream()
@@ -325,23 +335,11 @@ namespace Karambolo.Extensions.Logging.File
             return true;
         }
 
-        private static async ValueTask EnsurePreambleAsync(LogFileInfo logFile, CancellationToken cancellationToken)
-        {
-            if (logFile.AppendStream.Length == 0)
-            {
-                var preamble = logFile.Encoding.GetPreamble();
-                await WriteBytesAsync(logFile, preamble, cancellationToken).ConfigureAwait(false);
-            }
-
-            logFile.EnsurePreambleAsync = (lf, ct) => default;
-        }
-
         protected virtual async ValueTask WriteEntryCoreAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
         {
             await logFile.EnsurePreambleAsync(logFile, cancellationToken).ConfigureAwait(false);
 
-            var data = logFile.Encoding.GetBytes(entry.Text);
-            await WriteBytesAsync(logFile, data, cancellationToken).ConfigureAwait(false);
+            await WriteBytesAsync(logFile, logFile.Encoding.GetBytes(entry.Text), cancellationToken).ConfigureAwait(false);
         }
 
         private async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
