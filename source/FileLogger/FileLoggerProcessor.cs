@@ -441,16 +441,10 @@ namespace Karambolo.Extensions.Logging.File
 
         private async Task WriteFileAsync(LogFileInfo logFile, CancellationToken cancellationToken)
         {
-            try
-            {
-                for (; ; )
-                {
-                    FileLogEntry entry = await logFile.Queue.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
-
+            ChannelReader<FileLogEntry> queue = logFile.Queue.Reader;
+            while (await queue.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+                while (queue.TryRead(out FileLogEntry entry))
                     await WriteEntryAsync(logFile, entry, cancellationToken).ConfigureAwait(false);
-                }
-            }
-            catch (ChannelClosedException) { }
         }
     }
 }
