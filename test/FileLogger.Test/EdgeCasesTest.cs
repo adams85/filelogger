@@ -99,12 +99,12 @@ namespace Karambolo.Extensions.Logging.File.Test
 
                 var lines = logFile.ReadAllText(out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
                 Assert.Equal(Encoding.UTF8, encoding);
-                Assert.Equal(lines, new[]
+                Assert.Equal(new[]
                 {
                     $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
                     $"      This should get through.",
                     ""
-                });
+                }, lines);
             }
             finally
             {

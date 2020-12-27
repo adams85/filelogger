@@ -28,21 +28,23 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
         {
             var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
-            IFileInfo dirPath = FileProvider.GetFileInfo(Path.GetDirectoryName(fileInfo.PhysicalPath));
+            var dirPath = (MemoryFileInfo)FileProvider.GetFileInfo(Path.GetDirectoryName(memoryFileInfo.LogicalPath));
             if (dirPath.Exists)
                 return Task.FromResult(false);
 
-            FileProvider.CreateDir(dirPath.PhysicalPath);
+            FileProvider.CreateDir(dirPath.LogicalPath);
 
             return Task.FromResult(true);
         }
 
         public Stream CreateAppendStream(IFileInfo fileInfo)
         {
-            if (!fileInfo.Exists)
-                FileProvider.CreateFile(fileInfo.PhysicalPath);
+            var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
-            MemoryStream stream = FileProvider.GetStream(fileInfo.PhysicalPath);
+            if (!memoryFileInfo.Exists)
+                FileProvider.CreateFile(memoryFileInfo.LogicalPath);
+
+            MemoryStream stream = FileProvider.GetStream(memoryFileInfo.LogicalPath);
             stream.Seek(0, SeekOrigin.End);
             return stream;
         }

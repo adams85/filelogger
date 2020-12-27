@@ -11,22 +11,24 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
         public MemoryFileInfo(MemoryFileProvider owner, string path)
         {
             _owner = owner;
-            PhysicalPath = MemoryFileProvider.NormalizePath(path);
-            Name = Path.GetFileName(PhysicalPath);
+            LogicalPath = MemoryFileProvider.NormalizePath(path);
+            Name = Path.GetFileName(LogicalPath);
         }
 
-        public bool Exists => _owner.Exists(PhysicalPath);
+        public bool Exists => _owner.Exists(LogicalPath);
 
-        public long Length => _owner.GetLength(PhysicalPath);
+        public long Length => _owner.GetLength(LogicalPath);
 
-        public string PhysicalPath { get; }
+        public string LogicalPath { get; }
+
+        public string PhysicalPath => null;
 
         public string Name { get; }
 
         public DateTimeOffset LastModified => throw new NotImplementedException();
 
-        public bool IsDirectory => _owner.IsDirectory(PhysicalPath);
+        public bool IsDirectory => _owner.IsDirectory(LogicalPath);
 
-        public Stream CreateReadStream() => _owner.GetStream(PhysicalPath);
+        public Stream CreateReadStream() => _owner.GetStream(LogicalPath);
     }
 }
