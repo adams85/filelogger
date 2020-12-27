@@ -5,9 +5,12 @@ namespace Karambolo.Extensions.Logging.File
 {
     public partial class FileLoggerProcessor : IFileLoggerProcessor
     {
-        protected static Task WriteBytesAsync(LogFileInfo logFile, byte[] bytes, CancellationToken cancellationToken)
+        protected partial class LogFileInfo
         {
-            return logFile.AppendStream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
+            internal Task WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
+            {
+                return _appendStream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
+            }
         }
     }
 }
