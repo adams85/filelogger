@@ -66,7 +66,11 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var completeCts = new CancellationTokenSource();
             var context = new TestFileLoggerContext(completeCts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+
             context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+            var diagnosticEventReceived = false;
+            context.DiagnosticEvent += _ => diagnosticEventReceived = true;
 
             var ex = new Exception();
 
@@ -103,6 +107,8 @@ namespace Karambolo.Extensions.Logging.File.Test
             }
 
             Assert.True(provider.Completion.IsCompleted);
+
+            Assert.False(diagnosticEventReceived);
 
             var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}-000.log");
             Assert.True(logFile.Exists && !logFile.IsDirectory);
@@ -184,7 +190,11 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             var cts = new CancellationTokenSource();
             var context = new TestFileLoggerContext(cts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+
             context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+            var diagnosticEventReceived = false;
+            context.DiagnosticEvent += _ => diagnosticEventReceived = true;
 
             var services = new ServiceCollection();
             services.AddOptions();
@@ -228,6 +238,8 @@ namespace Karambolo.Extensions.Logging.File.Test
                     Assert.True(providers.All(provider => provider.Completion.IsCompleted));
                 }
 
+                Assert.False(diagnosticEventReceived);
+
                 IFileInfo logFile = fileProvider.GetFileInfo($"{logsDirName}/test-{context.GetTimestamp().ToLocalTime():yyMMdd}.log");
                 Assert.True(logFile.Exists && !logFile.IsDirectory);
 
@@ -258,7 +270,8 @@ namespace Karambolo.Extensions.Logging.File.Test
             }
             finally
             {
-                Directory.Delete(logPath, recursive: true);
+                if (Directory.Exists(logPath))
+                    Directory.Delete(logPath, recursive: true);
             }
         }
 
@@ -267,6 +280,82 @@ namespace Karambolo.Extensions.Logging.File.Test
         {
             foreach (LogFileAccessMode accessMode in Enum.GetValues(typeof(LogFileAccessMode)))
                 await LoggingToPhysicalUsingDICore(accessMode);
+        }
+
+        [Fact]
+        public async Task LoggingToPhysicalUsingDIAndExpectingDiagnosticEvents()
+        {
+            var logsDirName = Guid.NewGuid().ToString("D");
+
+            var tempPath = Path.Combine(Path.GetTempPath());
+            var logPath = Path.Combine(tempPath, logsDirName);
+
+            var fileProvider = new PhysicalFileProvider(tempPath);
+
+            var cts = new CancellationTokenSource();
+            var context = new TestFileLoggerContext(cts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+
+            context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+            var diagnosticEvents = new List<IFileLoggerDiagnosticEvent>();
+            context.DiagnosticEvent += diagnosticEvents.Add;
+
+            var services = new ServiceCollection();
+            services.AddOptions();
+            services.AddLogging(b => b.AddFile(context, o =>
+            {
+                o.FileAppender = new PhysicalFileAppender(fileProvider);
+                o.BasePath = logsDirName;
+                o.FileAccessMode = LogFileAccessMode.KeepOpen;
+                o.Files = new[]
+                {
+                    new LogFileOptions
+                    {
+                        Path = "<invalid_filename>.log"
+                    }
+                };
+            }));
+
+            if (Directory.Exists(logPath))
+                Directory.Delete(logPath, recursive: true);
+
+            try
+            {
+                var ex = new Exception();
+
+                FileLoggerProvider[] providers;
+
+                using (ServiceProvider sp = services.BuildServiceProvider())
+                {
+                    providers = context.GetProviders(sp).ToArray();
+                    Assert.Equal(1, providers.Length);
+
+                    ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
+
+                    logger1.LogInformation("This is a nice logger.");
+                    logger1.LogWarning(1, "This is a smart logger.");
+
+                    cts.Cancel();
+
+                    // ensuring that all entries are processed
+                    await context.GetCompletion(sp);
+                    Assert.True(providers.All(provider => provider.Completion.IsCompleted));
+                }
+
+                Assert.NotEmpty(diagnosticEvents);
+                Assert.All(diagnosticEvents, e =>
+                {
+                    Assert.IsType<FileLoggerDiagnosticEvent.LogEntryWriteFailed>(e);
+                    Assert.IsType<FileLoggerProcessor>(e.Source);
+                    Assert.NotNull(e.FormattableMessage);
+                    Assert.NotNull(e.Exception);
+                });
+            }
+            finally
+            {
+                if (Directory.Exists(logPath))
+                    Directory.Delete(logPath, recursive: true);
+            }
         }
     }
 }

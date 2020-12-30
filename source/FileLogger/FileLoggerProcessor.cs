@@ -40,7 +40,7 @@ namespace Karambolo.Extensions.Logging.File
             Idle
         }
 
-        protected partial class LogFileInfo
+        protected internal partial class LogFileInfo
         {
             private Stream _appendStream;
 
@@ -202,7 +202,9 @@ namespace Karambolo.Extensions.Logging.File
 
             try
             {
-                await Task.WhenAny(Task.WhenAll(completionTasks), Task.Delay(Context.CompletionTimeout)).ConfigureAwait(false);
+                var completionTimeoutTask = Task.Delay(Context.CompletionTimeout);
+                if ((await Task.WhenAny(Task.WhenAll(completionTasks), completionTimeoutTask).ConfigureAwait(false)) == completionTimeoutTask)
+                    Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
 
                 forcedCompleteTokenSource.Cancel();
                 forcedCompleteTokenSource.Dispose();
@@ -271,7 +273,8 @@ namespace Karambolo.Extensions.Logging.File
                     _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
             }
 
-            logFile.Queue.Writer.TryWrite(entry);
+            if (!logFile.Queue.Writer.TryWrite(entry))
+                Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
         }
 
         protected virtual string GetDate(string inlineFormat, LogFileInfo logFile, FileLogEntry entry)
@@ -361,17 +364,30 @@ namespace Karambolo.Extensions.Logging.File
                             if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.IsOpen)
                                 logFile.Close();
 
-                            state = logFile.IsOpen ? WriteEntryState.Write : WriteEntryState.TryOpenFile;
+                            if (!logFile.IsOpen)
+                            {
+                                // GetFileInfo behavior regarding invalid filenames is inconsistent across .NET runtimes (and operating systems?)
+                                // e.g. PhysicalFileProvider returns NotFoundFileInfo in .NET 5 but throws an exception in previous versions on Windows
+                                fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
+                                state = WriteEntryState.TryOpenFile;
+                            }
+                            else
+                                state =  WriteEntryState.Write;
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {
+                            ReportFailure(logFile, entry, ex);
+
+                            // discarding entry when file path is invalid
+                            if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
+                                return;
+
                             state = WriteEntryState.Idle;
                         }
                         break;
                     case WriteEntryState.TryOpenFile:
                         try
                         {
-                            fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
                             logFile.Open(fileInfo);
 
                             state = WriteEntryState.Write;
@@ -384,16 +400,15 @@ namespace Karambolo.Extensions.Logging.File
                     case WriteEntryState.RetryOpenFile:
                         try
                         {
-                            if (await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false))
-                            {
-                                logFile.Open(fileInfo);
-                                state = WriteEntryState.Write;
-                            }
-                            else
-                                state = WriteEntryState.Idle;
+                            await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+                            logFile.Open(fileInfo);
+
+                            state = WriteEntryState.Write;
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {
+                            ReportFailure(logFile, entry, ex);
+
                             // discarding entry when file path is invalid
                             if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
                                 return;
@@ -424,6 +439,8 @@ namespace Karambolo.Extensions.Logging.File
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {
+                            ReportFailure(logFile, entry, ex);
+
                             state = WriteEntryState.Idle;
                         }
                         break;
@@ -437,6 +454,11 @@ namespace Karambolo.Extensions.Logging.File
                         state = WriteEntryState.CheckFile;
                         break;
                 }
+
+            void ReportFailure(LogFileInfo logFile, FileLogEntry entry, Exception exception)
+            {
+                Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.LogEntryWriteFailed(this, logFile, entry, exception));
+            }
         }
 
         private async Task WriteFileAsync(LogFileInfo logFile, CancellationToken cancellationToken)

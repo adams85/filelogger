@@ -129,7 +129,7 @@ $@"{{
             });
 
             var fileAppender = new MemoryFileAppender(fileProvider);
-            services.Configure<FileLoggerOptions>(o => o.FileAppender = o.FileAppender ?? fileAppender);
+            services.Configure<FileLoggerOptions>(o => o.FileAppender ??= fileAppender);
 
             FileLoggerProvider[] providers;
 
@@ -257,8 +257,8 @@ $@"{{
             services.AddLogging(lb =>
             {
                 lb.AddConfiguration(config);
-                lb.AddFile(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
-                lb.AddFile<OtherFileLoggerProvider>(context, o => o.FileAppender = o.FileAppender ?? fileAppender);
+                lb.AddFile(context, o => o.FileAppender ??= fileAppender);
+                lb.AddFile<OtherFileLoggerProvider>(context, o => o.FileAppender ??= fileAppender);
             });
 
             FileLoggerProvider[] providers;

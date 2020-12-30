@@ -28,6 +28,14 @@ namespace Karambolo.Extensions.Logging.File
 
         public TimeSpan WriteRetryDelay { get; }
 
+        public event Action<IFileLoggerDiagnosticEvent> DiagnosticEvent;
+
+        internal void ReportDiagnosticEvent<TEvent>(in TEvent @event)
+            where TEvent : struct, IFileLoggerDiagnosticEvent
+        {
+            DiagnosticEvent?.Invoke(@event);
+        }
+
         public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
 
         internal IEnumerable<FileLoggerProvider> GetProviders(IServiceProvider serviceProvider)
