@@ -76,7 +76,7 @@ namespace Karambolo.Extensions.Logging.File
             public Encoding Encoding { get; }
             public string DateFormat { get; }
             public string CounterFormat { get; }
-            public int MaxSize { get; }
+            public long MaxSize { get; }
 
             public Channel<FileLogEntry> Queue { get; }
             public Task WriteFileTask { get; }

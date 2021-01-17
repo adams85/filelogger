@@ -24,7 +24,7 @@ namespace Karambolo.Extensions.Logging.File
         Encoding FileEncoding { get; }
         string DateFormat { get; }
         string CounterFormat { get; }
-        int? MaxFileSize { get; }
+        long? MaxFileSize { get; }
         IFileLogEntryTextBuilder TextBuilder { get; }
         bool? IncludeScopes { get; }
         int? MaxQueueSize { get; }
@@ -73,7 +73,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public string CounterFormat { get; set; }
 
-        public int? MaxFileSize { get; set; }
+        public long? MaxFileSize { get; set; }
 
         public IFileLogEntryTextBuilder TextBuilder { get; set; }
 
