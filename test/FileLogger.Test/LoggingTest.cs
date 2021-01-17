@@ -75,35 +75,25 @@ namespace Karambolo.Extensions.Logging.File.Test
             var ex = new Exception();
 
             var provider = new FileLoggerProvider(context, Options.Create(options));
-            try
+
+            await using (provider)
+            using (var loggerFactory = new LoggerFactory(new[] { provider }, filterOptions))
             {
-                using (var loggerFactory = new LoggerFactory(new[] { provider }, filterOptions))
+                ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
+
+                logger1.LogInformation("This is a nice logger.");
+                using (logger1.BeginScope("SCOPE"))
                 {
-                    ILogger<LoggingTest> logger1 = loggerFactory.CreateLogger<LoggingTest>();
+                    logger1.LogWarning(1, "This is a smart logger.");
+                    logger1.LogTrace("This won't make it.");
 
-                    logger1.LogInformation("This is a nice logger.");
-                    using (logger1.BeginScope("SCOPE"))
+                    using (logger1.BeginScope("NESTED SCOPE"))
                     {
-                        logger1.LogWarning(1, "This is a smart logger.");
-                        logger1.LogTrace("This won't make it.");
-
-                        using (logger1.BeginScope("NESTED SCOPE"))
-                        {
-                            ILogger logger2 = loggerFactory.CreateLogger("X");
-                            logger2.LogWarning("Some warning.");
-                            logger2.LogError(0, ex, "Some failure!");
-                        }
+                        ILogger logger2 = loggerFactory.CreateLogger("X");
+                        logger2.LogWarning("Some warning.");
+                        logger2.LogError(0, ex, "Some failure!");
                     }
                 }
-            }
-            finally
-            {
-#if NETCOREAPP3_1 || NET5_0
-                await provider.DisposeAsync();
-#else
-                await Task.CompletedTask;
-                provider.Dispose();
-#endif
             }
 
             Assert.True(provider.Completion.IsCompleted);

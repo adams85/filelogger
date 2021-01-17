@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Karambolo.Extensions.Logging.File
 {
     [ProviderAlias(Alias)]
-    public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
+    public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope, IAsyncDisposable
     {
         public const string Alias = "File";
         private readonly Dictionary<string, FileLogger> _loggers;
@@ -51,6 +51,15 @@ namespace Karambolo.Extensions.Logging.File
             if (TryDisposeAsync(completeProcessorOnThreadPool: true, out Task completeProcessorTask))
             {
                 completeProcessorTask.ConfigureAwait(false).GetAwaiter().GetResult();
+                Processor.Dispose();
+            }
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (TryDisposeAsync(completeProcessorOnThreadPool: false, out Task completeProcessorTask))
+            {
+                await completeProcessorTask.ConfigureAwait(false);
                 Processor.Dispose();
             }
         }
