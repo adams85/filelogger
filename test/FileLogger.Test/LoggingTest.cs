@@ -321,8 +321,6 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             try
             {
-                var ex = new Exception();
-
                 FileLoggerProvider[] providers;
 
                 using (ServiceProvider sp = services.BuildServiceProvider())
@@ -356,6 +354,58 @@ namespace Karambolo.Extensions.Logging.File.Test
                 if (Directory.Exists(logPath))
                     Directory.Delete(logPath, recursive: true);
             }
+        }
+
+        [Fact]
+        public async Task LoggingToMemoryUsingCustomPathPlaceholderResolver()
+        {
+            const string appName = "myapp";
+            const string logsDirName = "Logs";
+
+            var fileProvider = new MemoryFileProvider();
+
+            var cts = new CancellationTokenSource();
+            var context = new TestFileLoggerContext(cts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+
+            context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+            var services = new ServiceCollection();
+            services.AddOptions();
+            services.AddLogging(b => b.AddFile(context, o =>
+            {
+                o.FileAppender = new MemoryFileAppender(fileProvider);
+                o.BasePath = logsDirName;
+                o.Files = new[]
+                {
+                    new LogFileOptions
+                    {
+                        Path = "<appname>-<counter:000>.log"
+                    }
+                };
+                o.PathPlaceholderResolver = (placeholderName, inlineFormat, context) => placeholderName == "appname" ? appName : null;
+            }));
+
+            FileLoggerProvider[] providers;
+
+            using (ServiceProvider sp = services.BuildServiceProvider())
+            {
+                providers = context.GetProviders(sp).ToArray();
+                Assert.Equal(1, providers.Length);
+
+                ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
+
+                logger1.LogInformation("This is a nice logger.");
+                logger1.LogWarning(1, "This is a smart logger.");
+
+                cts.Cancel();
+
+                // ensuring that all entries are processed
+                await context.GetCompletion(sp);
+                Assert.True(providers.All(provider => provider.Completion.IsCompleted));
+            }
+
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/{appName}-000.log");
+            Assert.True(logFile.Exists && !logFile.IsDirectory);
         }
     }
 }

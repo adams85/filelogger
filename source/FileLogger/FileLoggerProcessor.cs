@@ -48,6 +48,7 @@ namespace Karambolo.Extensions.Logging.File
             {
                 BasePath = settings.BasePath ?? string.Empty;
                 PathFormat = fileSettings.Path;
+                PathPlaceholderResolver = GetActualPathPlaceholderResolver(fileSettings.PathPlaceholderResolver ?? settings.PathPlaceholderResolver);
                 FileAppender = settings.FileAppender ?? processor._fallbackFileAppender.Value;
                 AccessMode = fileSettings.FileAccessMode ?? settings.FileAccessMode ?? LogFileAccessMode.Default;
                 Encoding = fileSettings.FileEncoding ?? settings.FileEncoding ?? Encoding.UTF8;
@@ -60,10 +61,16 @@ namespace Karambolo.Extensions.Logging.File
                 // important: closure must pick up the current token!
                 CancellationToken forcedCompleteToken = processor._forcedCompleteTokenSource.Token;
                 WriteFileTask = Task.Run(() => processor.WriteFileAsync(this, forcedCompleteToken));
+
+                static LogFilePathPlaceholderResolver GetActualPathPlaceholderResolver(LogFilePathPlaceholderResolver resolver) =>
+                    resolver == null ?
+                    s_defaultPathPlaceholderResolver :
+                    (placeholderName, inlineFormat, context) => resolver(placeholderName, inlineFormat, context) ?? s_defaultPathPlaceholderResolver(placeholderName, inlineFormat, context);
             }
 
             public string BasePath { get; }
             public string PathFormat { get; }
+            public LogFilePathPlaceholderResolver PathPlaceholderResolver { get; }
             public IFileAppender FileAppender { get; }
             public LogFileAccessMode AccessMode { get; }
             public Encoding Encoding { get; }
@@ -111,6 +118,51 @@ namespace Karambolo.Extensions.Logging.File
                 appendStream.Dispose();
             }
         }
+
+        protected class LogFilePathFormatContext : ILogFilePathFormatContext
+        {
+            private readonly FileLoggerProcessor _processor;
+            private readonly LogFileInfo _logFile;
+            private readonly FileLogEntry _logEntry;
+
+            public LogFilePathFormatContext(FileLoggerProcessor processor, LogFileInfo logFile, FileLogEntry logEntry)
+            {
+                _processor = processor;
+                _logFile = logFile;
+                _logEntry = logEntry;
+            }
+
+            FileLogEntry ILogFilePathFormatContext.LogEntry => _logEntry;
+
+            string ILogFilePathFormatContext.DateFormat => _logFile.DateFormat;
+            string ILogFilePathFormatContext.CounterFormat => _logFile.CounterFormat;
+            int ILogFilePathFormatContext.Counter => _logFile.Counter;
+
+            string ILogFilePathFormatContext.FormatDate(string inlineFormat) => _processor.GetDate(inlineFormat, _logFile, _logEntry);
+            string ILogFilePathFormatContext.FormatCounter(string inlineFormat) => _processor.GetCounter(inlineFormat, _logFile, _logEntry);
+
+            public string ResolvePlaceholder(Match match)
+            {
+                var placeholderName = match.Groups[1].Value;
+                var inlineFormat = match.Groups[2].Value;
+
+                return
+                    _logFile.PathPlaceholderResolver(placeholderName, inlineFormat.Length > 0 ? inlineFormat : null, this) ??
+                    match.Groups[0].Value;
+            }
+        }
+
+        private static readonly LogFilePathPlaceholderResolver s_defaultPathPlaceholderResolver = (placeholderName, inlineFormat, context) =>
+        {
+            switch (placeholderName)
+            {
+                case "date": return context.FormatDate(inlineFormat);
+                case "counter": return context.FormatCounter(inlineFormat);
+                default: return null;
+            }
+        };
+
+        private static readonly Regex s_pathPlaceholderRegex = new Regex(@"<([_a-zA-Z][_a-zA-Z0-9-]*)(?::\s*([^<>]*[^\s<>]))?>", RegexOptions.Compiled);
 
         private static readonly Lazy<char[]> s_invalidPathChars = new Lazy<char[]>(() => Path.GetInvalidPathChars()
             .Concat(Path.GetInvalidFileNameChars())
@@ -313,17 +365,7 @@ namespace Karambolo.Extensions.Logging.File
 
         protected virtual string FormatFilePath(LogFileInfo logFile, FileLogEntry entry)
         {
-            return Regex.Replace(logFile.PathFormat, @"<(date|counter)(?::([^<>]+))?>", match =>
-            {
-                var inlineFormat = match.Groups[2].Value;
-
-                switch (match.Groups[1].Value)
-                {
-                    case "date": return GetDate(inlineFormat.Length > 0 ? inlineFormat : null, logFile, entry);
-                    case "counter": return GetCounter(inlineFormat.Length > 0 ? inlineFormat : null, logFile, entry);
-                    default: throw new InvalidOperationException();
-                }
-            });
+            return s_pathPlaceholderRegex.Replace(logFile.PathFormat, new LogFilePathFormatContext(this, logFile, entry).ResolvePlaceholder);
         }
 
         protected virtual bool UpdateFilePath(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
@@ -372,7 +414,7 @@ namespace Karambolo.Extensions.Logging.File
                                 state = WriteEntryState.TryOpenFile;
                             }
                             else
-                                state =  WriteEntryState.Write;
+                                state = WriteEntryState.Write;
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {

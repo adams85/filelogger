@@ -25,7 +25,7 @@
     <None Include="**\*.cs" />
     <None Remove="$(BaseIntermediateOutputPath)\**" />
   </ItemGroup>
-  
+
   <Choose>
     <When Condition="'$(TargetFramework)' == 'netstandard2.0'">
       <ItemGroup>
@@ -58,5 +58,5 @@
     </PackageReference>
     <PackageReference Include="System.Threading.Channels" Version="4.7.0" />
   </ItemGroup>
-  
+
 </Project>

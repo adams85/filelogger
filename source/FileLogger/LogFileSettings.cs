@@ -28,6 +28,7 @@ namespace Karambolo.Extensions.Logging.File
         IFileLogEntryTextBuilder TextBuilder { get; }
         bool? IncludeScopes { get; }
         int? MaxQueueSize { get; }
+        LogFilePathPlaceholderResolver PathPlaceholderResolver { get; }
     }
 
     public interface ILogFileSettings : ILogFileSettingsBase
@@ -55,6 +56,7 @@ namespace Karambolo.Extensions.Logging.File
             TextBuilder = other.TextBuilder;
             IncludeScopes = other.IncludeScopes;
             MaxQueueSize = other.MaxQueueSize;
+            PathPlaceholderResolver = other.PathPlaceholderResolver;
         }
 
         public LogFileAccessMode? FileAccessMode { get; set; }
@@ -103,6 +105,8 @@ namespace Karambolo.Extensions.Logging.File
         public bool? IncludeScopes { get; set; }
 
         public int? MaxQueueSize { get; set; }
+
+        public LogFilePathPlaceholderResolver PathPlaceholderResolver { get; set; }
     }
 
     public class LogFileOptions : LogFileSettingsBase, ILogFileSettings

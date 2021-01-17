@@ -58,8 +58,6 @@ namespace Karambolo.Extensions.Logging.File.Test
 
             try
             {
-                var ex = new Exception();
-
                 FileLoggerProvider[] providers;
 
                 using (ServiceProvider sp = services.BuildServiceProvider())
