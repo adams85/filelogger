@@ -263,12 +263,12 @@ If you have [added the right NuGet package](#user-content-installation) and [con
 If none of these helps, since version 3.2.0 you can track down the problem by observing the file logger's diagnostic events:
 
 ```csharp
-    // this subscription should happen before anything is logged,
-    // so place it in your code early enough (preferably, before configuration of logging)
-    FileLoggerContext.Default.DiagnosticEvent += e =>
-    {
-        // examine the diagnostic event here:
-        // print it to the debug window, set a breakpoint and inspect internal state on break, etc.
-        Debug.WriteLine(e);
-    };
+// this subscription should happen before anything is logged,
+// so place it in your code early enough (preferably, before configuration of logging)
+FileLoggerContext.Default.DiagnosticEvent += e =>
+{
+    // examine the diagnostic event here:
+    // print it to the debug window, set a breakpoint and inspect internal state on break, etc.
+    Debug.WriteLine(e);
+};
 ```
