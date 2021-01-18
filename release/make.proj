@@ -54,6 +54,13 @@
     <!-- create nuget package -->
     <MSBuild Projects="$(Solution)" Targets="Restore;Pack" Properties="Configuration=Release;Platform=Any CPU" />
     
+    <ItemGroup>
+      <Package Include="$(SolutionPath)\**\Release\*.nupkg" />
+    </ItemGroup>
+
+    <!-- copy packages -->
+    <Move SourceFiles="@(Package)" DestinationFolder="$(MSBuildProjectDirectory)" />    
+    
     <OnError ExecuteTargets="Cleanup" />
   </Target>
 
