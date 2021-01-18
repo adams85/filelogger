@@ -4,11 +4,11 @@
 
 # Karambolo.Extensions.Logging.File
 
-This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Runs on all .NET platforms which implement .NET Standard 2.0+ including .NET Core 2 (ASP.NET Core 2.1+) and .NET Core 3 (ASP.NET Core 3.0+). (Requires *Microsoft.Extensions.Logging* 2.1+, so ASP.NET Core 2.0 is not supported!)
+This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Runs on all .NET platforms which implement .NET Standard 2.0+ including .NET Core 2 (ASP.NET Core 2.1+), .NET Core 3 (ASP.NET Core 3.0+) and .NET 5. (Requires *Microsoft.Extensions.Logging* 2.1+, so ASP.NET Core 2.0 is not supported!)
 
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 
-The code is based on [ConsoleLogger](https://github.com/aspnet/Extensions/tree/master/src/Logging/Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage.
+The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/master/src/libraries/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage.
 
 ### Additional features:
  - Flexible configuration:
@@ -26,15 +26,27 @@ The code is based on [ConsoleLogger](https://github.com/aspnet/Extensions/tree/m
 * Regular users should adjust their logger configuration as the configuration system went through a substantial rework.
 * Consumers using advanced features or customization should expect some more work to do because internals were changed extensively too.
 
-Thus, **version 3.0 is not backward compatible with previous versions**. If you want to upgrade from older versions, please read up on the new configuration system to be able to make the necessary adjustments. 
+Thus, **version 3.0 is not backward compatible with previous versions**. If you want to upgrade from older versions, please read up on the new configuration system to be able to make the necessary adjustments.
 
 However, you may stay with version 2.1 as it continues to work on .NET Core 3 according to my tests (but please note that it isn't developed actively any more).
 
-### Configuration samples
+### Installation
 
-#### .NET Core 3
+Add the *Karambolo.Extensions.Logging.File* NuGet package to your application project:
 
-* ASP.NET Core 3.0 application
+    dotnet add package Karambolo.Extensions.Logging.File
+
+Note: The package depends on some framework libraries and references the lowest possible versions of these depencencies (e.g. *Microsoft.Extensions.Logging.Configuration* 3.0.0 in the case of .NET Standard 2.1 target framework). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor (or even major) version (e.g. .NET Core 3.1.11). Thus, referencing *Karambolo.Extensions.Logging.File* in itself usually results in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 3.0.0 instead of 3.1.11).
+
+Luckily, **in the case of ASP.NET Core this is resolved automatically** as ASP.NET Core projects already reference the correct (newer) versions of the framework libraries in question (by means of the *Microsoft.AspNetCore.App* metapackage).
+
+However, **in other cases (like a plain .NET Core console application) you may end up with outdated dependencies** and you need to decide if this is acceptable for you. If not, you need to directly reference the desired version of the framework libraries which the file logger library depends on in your application project. (For more details see [NuGet package dependency resolution](https://docs.microsoft.com/en-us/nuget/concepts/dependency-resolution).)
+
+### Configuration
+
+#### .NET Core 3, .NET 5
+
+* ASP.NET Core 3.0+, ASP.NET Core 5 application
 
 ``` csharp
 public class Program
@@ -75,7 +87,7 @@ services.AddLogging(builder =>
 });
 
 // create logger factory
-using (var sp = services.BuildServiceProvider())
+await using (var sp = services.BuildServiceProvider())
 {
     var loggerFactory = sp.GetService<ILoggerFactory>();
     // ...
@@ -130,7 +142,7 @@ using (var sp = services.BuildServiceProvider())
 
 #### Advanced use cases
 
-* Using multiple providers with different settings
+##### Using multiple providers with different settings
 
 First of all, you need a little bit of boilerplate code:
 
@@ -165,9 +177,9 @@ There are some settings which are configured on provider level only (*FileLogger
 
 |  | **Description** | **Default value** | **Notes** |
 |---|---|---|---|
-| **FileAppender** | Specifies the object responsible for appending log messages. | *PhysicalFileAppender* instance with root path set to *Environment.CurrentDirectory* | The *RootPath* shortcut property is also available for setting a *PhysicalFileAppender* with a custom root path. |
-| **BasePath** | Path to the base directory of log files. | "" (none) | Path is relative to (but cannot point outside of) the root path of the underlying file provider (*FileAppender.FileProvider*). |
-| **Files** | An array of *LogFileOptions* which define the settings of the individual log files. | | There is an important change compared to the older versions: **you must explicitly define at least one log file**, otherwise the provider won't log anything. |
+| **FileAppender** | Specifies the object responsible for appending log messages. | *PhysicalFileAppender* instance with root path set to *Environment.CurrentDirectory* | The *RootPath* shortcut property is also available for setting a *PhysicalFileAppender* with a custom root path. (This path must point to an existing directory.) |
+| **BasePath** | Path to the base directory of log files. | "" (none) | Base path is relative to (but cannot point outside of) the root path of the underlying file provider (*FileAppender.FileProvider*). (If this path does not exist, it will be created automatically.) |
+| **Files** | An array of *LogFileOptions* which define the settings of the individual log files. | | There is an important change compared to older (2.x or earlier) versions: **you must explicitly define at least one log file**, otherwise the provider won't log anything. |
 
 #### Log file settings
 
@@ -192,6 +204,7 @@ The log file settings below can be specified globally (per provider) and individ
 | **TextBuilder** | Specifies a custom log text formatter. | FileLogEntryTextBuilder. Instance | For best performance, if you set this to a formatter of the same type for multiple files, use the same formatter instance if possible.<br/>The *TextBuilderType* shortcut property is also available for setting this option using a type name. |
 | **IncludeScopes** | Enables including log scopes in the output. | false | Works exactly as in the case of *ConsoleLogger*. |
 | **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | 0 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
+| **PathPlaceholderResolver** | Provides a way to hook into path template resolution. | | Callback which can be used to customize or extend the resolution of path template placeholders. Enables special formatting, custom placeholders, etc.<br/>For usage, see the examples [here](https://github.com/adams85/filelogger/issues/6) and [here](https://github.com/adams85/filelogger/issues/7).<br/>(Available only since version 3.2.0) |
 
 #### Sample JSON configuration
 ``` json5
@@ -231,11 +244,31 @@ The log file settings below can be specified globally (per provider) and individ
       ]
     }
   },
-  // global filter settings 
+  // global filter settings
   "LogLevel": {
     "Default": "Information"
   }
 }
 ```
 
-(You may have to remove comments when targeting .NET Core 3 as the new [System.Text.Json](https://devblogs.microsoft.com/dotnet/try-the-new-system-text-json-apis/) parser don't like them!)
+### Troubleshooting
+
+If you have [added the right NuGet package](#user-content-installation) and [configured logging in your application by the above](#user-content-configuration) but the application outputs no log files, check the following points:
+
+* Have you defined at least one log file in the `Files` collection? If so, have you specified the `Path` property of that file? (See also [this issue](https://github.com/adams85/filelogger/issues/12).)
+* Are the `Path` properties of the defined log files valid paths on the operating system you use? If you use path templates (that is, paths containing placeholders like `<date>` or `<counter>`), are they resolved to valid paths?
+* Do the combined paths of the defined log files point inside `RootPath` (or more precisely, inside the root path of `FileAppender.FileProvider`)? (See also [this issue](https://github.com/adams85/filelogger/issues/1).)
+* Does the application's process have the sufficient file system permissions to create and write files in `RootPath`\\`BasePath`? (See also [this issue](https://github.com/adams85/filelogger/issues/8#issuecomment-611755013).)
+
+If none of these helps, since version 3.2.0 you can track down the problem by observing the file logger's diagnostic events:
+
+```csharp
+    // this subscription should happen before anything is logged,
+    // so place it in your code early enough (preferably, before configuration of logging)
+    FileLoggerContext.Default.DiagnosticEvent += e =>
+    {
+        // examine the diagnostic event here:
+        // print it to the debug window, set a breakpoint and inspect internal state on break, etc.
+        Debug.WriteLine(e);
+    };
+```
