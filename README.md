@@ -210,6 +210,10 @@ The log file settings below can be specified globally (per provider) and individ
 ``` json5
 {
   "Logging": {
+    // global filter settings
+    "LogLevel": {
+        "Default": "Information"
+    },
     // provider level settings
     "File": {
       "BasePath": "Logs",
@@ -243,10 +247,6 @@ The log file settings below can be specified globally (per provider) and individ
         }
       ]
     }
-  },
-  // global filter settings
-  "LogLevel": {
-    "Default": "Information"
   }
 }
 ```
