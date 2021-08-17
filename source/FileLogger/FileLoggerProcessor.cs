@@ -31,15 +31,6 @@ namespace Karambolo.Extensions.Logging.File
             Completed,
         }
 
-        private enum WriteEntryState
-        {
-            CheckFile,
-            TryOpenFile,
-            RetryOpenFile,
-            Write,
-            Idle
-        }
-
         protected internal partial class LogFileInfo
         {
             private Stream _appendStream;
@@ -395,12 +386,18 @@ namespace Karambolo.Extensions.Logging.File
 
         private async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
         {
-            WriteEntryState state = WriteEntryState.CheckFile;
+            const int checkFileState = 0;
+            const int tryOpenFileState = 1;
+            const int retryOpenFileState = 2;
+            const int writeState = 3;
+            const int idleState = 4;
+
+            int state = checkFileState;
             IFileInfo fileInfo = null;
             for (; ; )
                 switch (state)
                 {
-                    case WriteEntryState.CheckFile:
+                    case checkFileState:
                         try
                         {
                             if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.IsOpen)
@@ -411,10 +408,10 @@ namespace Karambolo.Extensions.Logging.File
                                 // GetFileInfo behavior regarding invalid filenames is inconsistent across .NET runtimes (and operating systems?)
                                 // e.g. PhysicalFileProvider returns NotFoundFileInfo in .NET 5 but throws an exception in previous versions on Windows
                                 fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
-                                state = WriteEntryState.TryOpenFile;
+                                state = tryOpenFileState;
                             }
                             else
-                                state = WriteEntryState.Write;
+                                state = writeState;
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {
@@ -424,28 +421,28 @@ namespace Karambolo.Extensions.Logging.File
                             if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
                                 return;
 
-                            state = WriteEntryState.Idle;
+                            state = idleState;
                         }
                         break;
-                    case WriteEntryState.TryOpenFile:
+                    case tryOpenFileState:
                         try
                         {
                             logFile.Open(fileInfo);
 
-                            state = WriteEntryState.Write;
+                            state = writeState;
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {
-                            state = WriteEntryState.RetryOpenFile;
+                            state = retryOpenFileState;
                         }
                         break;
-                    case WriteEntryState.RetryOpenFile:
+                    case retryOpenFileState:
                         try
                         {
                             await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false);
                             logFile.Open(fileInfo);
 
-                            state = WriteEntryState.Write;
+                            state = writeState;
                         }
                         catch (Exception ex) when (!(ex is OperationCanceledException))
                         {
@@ -455,10 +452,10 @@ namespace Karambolo.Extensions.Logging.File
                             if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
                                 return;
 
-                            state = WriteEntryState.Idle;
+                            state = idleState;
                         }
                         break;
-                    case WriteEntryState.Write:
+                    case writeState:
                         try
                         {
                             try
@@ -483,17 +480,17 @@ namespace Karambolo.Extensions.Logging.File
                         {
                             ReportFailure(logFile, entry, ex);
 
-                            state = WriteEntryState.Idle;
+                            state = idleState;
                         }
                         break;
-                    case WriteEntryState.Idle:
+                    case idleState:
                         // discarding failed entry on forced complete
                         if (Context.WriteRetryDelay > TimeSpan.Zero)
                             await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
                         else
                             cancellationToken.ThrowIfCancellationRequested();
 
-                        state = WriteEntryState.CheckFile;
+                        state = checkFileState;
                         break;
                 }
 
