@@ -38,7 +38,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
 
         internal static string NormalizePath(string path)
         {
-            path = Regex.Replace(path, @"/|\\", Path.DirectorySeparatorChar.ToString());
+            path = Regex.Replace(path, @"/|\\", Path.DirectorySeparatorChar.ToString(), RegexOptions.CultureInvariant);
             if (path.Length > 0 && path[0] == Path.DirectorySeparatorChar)
                 path.Substring(1);
             return path;

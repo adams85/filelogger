@@ -9,14 +9,14 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.Extensions.Logging
 {
-    internal class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
+    internal sealed class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
         where TProvider : FileLoggerProvider
     {
         public FileLoggerOptionsChangeTokenSource(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
             : base(optionsName, providerConfiguration.Configuration) { }
     }
 
-    internal class FileLoggerOptionsSetup<TProvider> : NamedConfigureFromConfigurationOptions<FileLoggerOptions>
+    internal sealed class FileLoggerOptionsSetup<TProvider> : NamedConfigureFromConfigurationOptions<FileLoggerOptions>
         where TProvider : FileLoggerProvider
     {
         public FileLoggerOptionsSetup(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)

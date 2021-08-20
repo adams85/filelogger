@@ -153,7 +153,7 @@ namespace Karambolo.Extensions.Logging.File
             }
         };
 
-        private static readonly Regex s_pathPlaceholderRegex = new Regex(@"<([_a-zA-Z][_a-zA-Z0-9-]*)(?::\s*([^<>]*[^\s<>]))?>", RegexOptions.Compiled);
+        private static readonly Regex s_pathPlaceholderRegex = new Regex(@"<([_a-zA-Z][_a-zA-Z0-9-]*)(?::\s*([^<>]*[^\s<>]))?>", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
         private static readonly Lazy<char[]> s_invalidPathChars = new Lazy<char[]>(() => Path.GetInvalidPathChars()
             .Concat(Path.GetInvalidFileNameChars())
