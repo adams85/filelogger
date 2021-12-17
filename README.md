@@ -4,7 +4,7 @@
 
 # Karambolo.Extensions.Logging.File
 
-This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Runs on all .NET platforms which implement .NET Standard 2.0+ including .NET Core 2 (ASP.NET Core 2.1+), .NET Core 3 (ASP.NET Core 3.0+) and .NET 5. (Requires *Microsoft.Extensions.Logging* 2.1+, so ASP.NET Core 2.0 is not supported!)
+This class library contains a lightweight implementation of the [Microsoft.Extensions.Logging.ILoggerProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.logging.iloggerprovider) interface for file logging. Runs on all .NET platforms which implement .NET Standard 2.0+ including .NET Core 2 (ASP.NET Core 2.1+), .NET Core 3 and .NET 5+.
 
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 [![Donate](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/adams85)
@@ -36,18 +36,30 @@ However, you may stay with version 2.1 as it continues to work on .NET Core 3 ac
 Add the *Karambolo.Extensions.Logging.File* NuGet package to your application project:
 
     dotnet add package Karambolo.Extensions.Logging.File
+    
+If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web application (e.g. a console application), also add explicit references to the following NuGet packages *with the version matching your .NET runtime*. For example if your project runs on .NET 6.0.0:
 
-Note: The package depends on some framework libraries and references the lowest possible versions of these depencencies (e.g. *Microsoft.Extensions.Logging.Configuration* 3.0.0 in the case of .NET Standard 2.1 target framework). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor (or even major) version (e.g. .NET Core 3.1.11). Thus, referencing *Karambolo.Extensions.Logging.File* in itself usually results in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 3.0.0 instead of 3.1.11).
+    dotnet add package Microsoft.Extensions.FileProviders.Physical -v 6.0.0
+    dotnet add package Microsoft.Extensions.Logging.Configuration -v 6.0.0
+    dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions -v 6.0.0
 
-Luckily, **in the case of ASP.NET Core this is resolved automatically** as ASP.NET Core projects already reference the correct (newer) versions of the framework libraries in question (by means of the *Microsoft.AspNetCore.App* metapackage).
+<details>
+  <summary>Explanation why this is necessary</summary>
+  
+  The *Karambolo.Extensions.Logging.File* package depends on some framework libraries and references the lowest possible versions of these depencencies (e.g. *Microsoft.Extensions.Logging.Configuration* 3.0.0 in the case of .NET Standard 2.1 target framework). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor (or even major) version (e.g. .NET Core 6.0.0). Thus, referencing *Karambolo.Extensions.Logging.File* in itself usually results in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 3.0.0 instead of 6.0.0).
 
-However, **in other cases (like a plain .NET Core console application) you may end up with outdated dependencies** and you need to decide if this is acceptable for you. If not, you need to directly reference the desired version of the framework libraries which the file logger library depends on in your application project. (For more details see [NuGet package dependency resolution](https://docs.microsoft.com/en-us/nuget/concepts/dependency-resolution).)
+  Luckily, **in the case of ASP.NET Core this is resolved automatically** as ASP.NET Core projects already reference the correct (newer) versions of the framework libraries in question (by means of the *Microsoft.AspNetCore.App* metapackage).
+
+  However, **in other cases (like a plain .NET Core console application) you may end up with outdated dependencies**, which is usually undesired (even can lead to issues like [this](https://github.com/adams85/filelogger/issues/19)), so you want to resolve this situation by adding the explicit package references listed above.
+
+  For more details see [NuGet package dependency resolution](https://docs.microsoft.com/en-us/nuget/concepts/dependency-resolution).
+</details>
 
 ### Configuration
 
-#### .NET Core 3, .NET 5
+#### .NET Core 3, .NET 5+
 
-* ASP.NET Core 3.0+, ASP.NET Core 5 application
+* ASP.NET Core 3.0+, ASP.NET Core 5+ application
 
 ``` csharp
 public class Program
