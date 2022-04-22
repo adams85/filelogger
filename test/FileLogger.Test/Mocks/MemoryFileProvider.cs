@@ -152,7 +152,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks
         {
             path = NormalizePath(path);
             lock (_catalog)
-                return GetStreamCore(path, out File _);
+                return GetStreamCore(path, out _);
         }
 
         private void ReleaseFile(File file)

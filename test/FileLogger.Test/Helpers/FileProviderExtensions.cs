@@ -19,7 +19,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Helpers
 
         public static string ReadAllText(this IFileInfo fileInfo, Encoding encoding = null)
         {
-            return ReadAllText(fileInfo, encoding ?? Encoding.UTF8, out Encoding _);
+            return ReadAllText(fileInfo, encoding ?? Encoding.UTF8, out _);
         }
 
         public static string ReadAllText(this IFileInfo fileInfo, out Encoding detectedEncoding)
