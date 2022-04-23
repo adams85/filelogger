@@ -364,6 +364,15 @@ namespace Karambolo.Extensions.Logging.File
             string filePath = FormatFilePath(logFile, entry);
 
             if (logFile.MaxSize > 0)
+            {
+                // has something changed in the file path apart from the counter (e.g. date)?
+                if (filePath != logFile.CurrentPath)
+                {
+                    // if so, we need to reset the counter
+                    logFile.Counter = 0;
+                    filePath = FormatFilePath(logFile, entry);
+                }
+
                 while (!CheckFileSize(filePath, logFile, entry))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -371,11 +380,13 @@ namespace Karambolo.Extensions.Logging.File
                     logFile.Counter++;
                     var newFilePath = FormatFilePath(logFile, entry);
 
+                    // guard against falling into an infinite loop
                     if (filePath == newFilePath)
                         break;
 
                     filePath = newFilePath;
                 }
+            }
 
             if (logFile.CurrentPath == filePath)
                 return false;
