@@ -5,11 +5,15 @@
     <SolutionPath>$(MSBuildProjectDirectory)\..\source</SolutionPath>
     <TestSolutionPath>$(MSBuildProjectDirectory)\..\test</TestSolutionPath>
     <Solution>$(SolutionPath)\FileLogger.sln</Solution>
-    <VersionPropsPath>$(SolutionPath)\FileLogger\Properties\AssemblyInfo.props</VersionPropsPath>
   </PropertyGroup>
 
   <ItemGroup>
     <TestProject Include="$(TestSolutionPath)\FileLogger.Test\FileLogger.Test.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <VersionPropsPath Include="$(SolutionPath)\FileLogger\Properties\AssemblyInfo.props" />
+    <VersionPropsPath Include="$(SolutionPath)\FileLogger.Json\Properties\AssemblyInfo.props" />
   </ItemGroup>
 
   <Target Name="GetVersion" Condition="$(TagVersion) == '' Or $(Revision) == ''">
@@ -49,7 +53,7 @@
   
   <Target Name="Make" DependsOnTargets="RunTests;GetVersion">
     <!-- setting version -->
-    <UpdateVersion TagVersion="$(TagVersion)" Revision="$(Revision)" VersionPropsPath="$(VersionPropsPath)" />
+    <UpdateVersion TagVersion="$(TagVersion)" Revision="$(Revision)" VersionPropsPath="%(VersionPropsPath.Identity)" />
 
     <!-- create nuget package -->
     <MSBuild Projects="$(Solution)" Targets="Restore;Pack" Properties="Configuration=Release;Platform=Any CPU" />
@@ -65,7 +69,7 @@
   </Target>
 
   <Target Name="Cleanup" AfterTargets="Make">
-    <RestoreVersion VersionPropsPath="$(VersionPropsPath)" />
+    <RestoreVersion VersionPropsPath="%(VersionPropsPath.Identity)" />
   </Target>
 
   <UsingTask TaskName="UpdateVersion" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.v12.0.dll" >

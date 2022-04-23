@@ -129,4 +129,16 @@ namespace Karambolo.Extensions.Logging.File
                 AppendException(sb, exception);
         }
     }
+
+    public abstract class StructuredFileLogEntryTextBuilder : IFileLogEntryTextBuilder
+    {
+        public abstract void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, TState state, Exception exception,
+            IExternalScopeProvider scopeProvider, DateTimeOffset timestamp);
+
+        void IFileLogEntryTextBuilder.BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, Exception exception,
+            IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
+        {
+            BuildEntryText<object>(sb, categoryName, logLevel, eventId, message, null, exception, scopeProvider, timestamp);
+        }
+    }
 }

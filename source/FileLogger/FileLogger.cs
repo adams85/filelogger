@@ -162,7 +162,10 @@ namespace Karambolo.Extensions.Logging.File
                         (IFileLogEntryTextBuilder textBuilder, bool includeScopes) = fileGroup.Key;
                         IExternalScopeProvider logScope = includeScopes ? currentState.ScopeProvider : null;
 
-                        textBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
+                        if (textBuilder is StructuredFileLogEntryTextBuilder structuredTextBuilder)
+                            structuredTextBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, state, exception, logScope, timestamp);
+                        else
+                            textBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
 
                         if (sb.Length > 0)
                         {

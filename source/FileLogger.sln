@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26730.8
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32414.318
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger", "FileLogger\FileLogger.csproj", "{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger.Json", "FileLogger.Json\FileLogger.Json.csproj", "{C842AFE3-6239-411E-9561-36CCA3705378}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
