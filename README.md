@@ -9,17 +9,17 @@ This class library contains a lightweight implementation of the [Microsoft.Exten
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 [![Donate](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/adams85)
 
-The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/master/src/libraries/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage.
+The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/master/src/libraries/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage. As of version 3.3.0 **JSON structured logging** (following the format established by [the JSON formatter of the built-in console logger](https://docs.microsoft.com/en-us/dotnet/core/extensions/console-log-formatter#register-formatter)) is also available.
 
 ### Additional features:
  - Flexible configuration:
-   - Two-level log file settings.
+   - Hierarchical (two-level) log file settings.
    - Fine-grained control over log message filtering.
+ - File path templates for including log entry date (or other user-defined tokens) in log file paths/names.
  - Rolling log files with customizable counter format.
- - Including log entry date in log file paths using templates.
- - Customizable log text formatting.
- - Extensibility by inheritance.
- - Multiple providers with different settings.
+ - Fully customizable log text formatting.
+ - Designed with extensibility/customizability in mind.
+ - Support for multiple providers with different settings.
 
 ### Important notes for existing consumers
 
@@ -36,6 +36,10 @@ However, you may stay with version 2.1 as it continues to work on .NET Core 3 ac
 Add the *Karambolo.Extensions.Logging.File* NuGet package to your application project:
 
     dotnet add package Karambolo.Extensions.Logging.File
+    
+or, if you want structured logging, add *Karambolo.Extensions.Logging.File.Json* NuGet package instead:
+
+    dotnet add package Karambolo.Extensions.Logging.File.Json
     
 If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web application (e.g. a console application), also add explicit references to the following NuGet packages *with the version matching your .NET runtime*. For example if your project runs on .NET 6.0.0:
 
@@ -57,7 +61,29 @@ If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web applicati
 
 ### Configuration
 
+If you've chosen structured logging, replace calls to `AddFile(...)` with `AddJsonFile(...)` in the following samples.
+
+<details>
+  <summary>A sidenote regarding structured logging</summary>
+  
+  `AddJsonFile` is just a convenience method which sets the `TextBuilder` setting to the default JSON formatter (`JsonFileLogEntryTextBuilder`) globally. You can achieve the same effect by using `AddFile` and setting `TextBuilder` (or `TextBuilderType`) to the aforementioned formatter manually. For details, see the [Settings section](#settings).
+  
+  It also follows from the above that you can still override this setting in your configuration (`appsettings.json` or configure callback) and use other formatters regardless the defaults set by `AddJsonFile`.
+</details>
+
 #### .NET Core 3, .NET 5+
+
+* ASP.NET Core 6+ application (minimal hosting model)
+
+``` csharp
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.AddFile(o => o.RootPath = o.RootPath = builder.Environment.ContentRootPath);
+
+var app = builder.Build();
+
+// ...
+```
 
 * ASP.NET Core 3.0+, ASP.NET Core 5+ application
 
