@@ -94,10 +94,11 @@ namespace Karambolo.Extensions.Logging.File
                     if (!type.GetTypeInfo().ImplementedInterfaces.Contains(typeof(IFileLogEntryTextBuilder)))
                         throw new ArgumentException($"Type must implement the {typeof(IFileLogEntryTextBuilder).Name} interface.", nameof(value));
 
-                    if (!type.GetTypeInfo().DeclaredConstructors.Any(ci => ci.GetParameters().Length == 0))
+                    ConstructorInfo ctor = type.GetTypeInfo().DeclaredConstructors.FirstOrDefault(ci => ci.GetParameters().Length == 0);
+                    if (ctor == null)
                         throw new ArgumentException("Type must provide a parameterless constructor.", nameof(value));
 
-                    return (IFileLogEntryTextBuilder)Activator.CreateInstance(type);
+                    return (IFileLogEntryTextBuilder)ctor.Invoke(null);
                 });
             }
         }
