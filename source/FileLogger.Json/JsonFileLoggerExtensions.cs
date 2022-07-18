@@ -7,16 +7,15 @@ namespace Microsoft.Extensions.Logging
 {
     public static partial class JsonFileLoggerExtensions
     {
-        private static ILoggingBuilder ConfigureTextBuilder(this ILoggingBuilder builder, JsonFileLogEntryTextBuilder textBuilder)
+        private static ILoggingBuilder ConfigureTextBuilder(this ILoggingBuilder builder, JsonFileLogEntryTextBuilder textBuilder, string optionsName)
         {
-            textBuilder ??= JsonFileLogEntryTextBuilder.Default;
-            builder.Services.Configure<FileLoggerOptions>(options => options.TextBuilder = textBuilder);
+            builder.Services.Configure<FileLoggerOptions>(optionsName, options => options.TextBuilder = textBuilder);
             return builder;
         }
 
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder)
         {
-            return builder.AddFile().ConfigureTextBuilder(null);
+            return builder.AddFile().ConfigureTextBuilder(JsonFileLogEntryTextBuilder.Default, Options.Options.DefaultName);
         }
 
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, Action<FileLoggerOptions> configure)
@@ -24,7 +23,7 @@ namespace Microsoft.Extensions.Logging
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
 
-            builder.AddFile().ConfigureTextBuilder(null);
+            builder.AddFile().ConfigureTextBuilder(JsonFileLogEntryTextBuilder.Default, Options.Options.DefaultName);
             builder.Services.Configure(configure);
             return builder;
         }
@@ -32,7 +31,8 @@ namespace Microsoft.Extensions.Logging
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
             Action<FileLoggerOptions> configure = null)
         {
-            (context == null ? builder.AddFile() : builder.AddFile(context)).ConfigureTextBuilder(textBuilder);
+            (context == null ? builder.AddFile() : builder.AddFile(context))
+                .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, Options.Options.DefaultName);
 
             if (configure != null)
                 builder.Services.Configure(configure);
@@ -44,7 +44,8 @@ namespace Microsoft.Extensions.Logging
             Action<FileLoggerOptions> configure = null, string optionsName = null)
             where TProvider : FileLoggerProvider
         {
-            builder.AddFile<TProvider>(context, configure: null, optionsName).ConfigureTextBuilder(textBuilder);
+            builder.AddFile<TProvider>(context, configure: null, optionsName)
+                .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName ?? typeof(TProvider).ToString());
 
             if (configure != null)
                 builder.Services.Configure(configure);
