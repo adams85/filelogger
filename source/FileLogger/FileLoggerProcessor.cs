@@ -403,107 +403,101 @@ namespace Karambolo.Extensions.Logging.File
             const int writeState = 3;
             const int idleState = 4;
 
-            int state = checkFileState;
             IFileInfo fileInfo = null;
-            for (; ; )
-                switch (state)
-                {
-                    case checkFileState:
-                        try
+
+            switch (checkFileState)
+            {
+                case checkFileState:
+                    try
+                    {
+                        if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.IsOpen)
+                            logFile.Close();
+
+                        if (!logFile.IsOpen)
                         {
-                            if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.IsOpen)
-                                logFile.Close();
-
-                            if (!logFile.IsOpen)
-                            {
-                                // GetFileInfo behavior regarding invalid filenames is inconsistent across .NET runtimes (and operating systems?)
-                                // e.g. PhysicalFileProvider returns NotFoundFileInfo in .NET 5 but throws an exception in previous versions on Windows
-                                fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
-                                state = tryOpenFileState;
-                            }
-                            else
-                                state = writeState;
+                            // GetFileInfo behavior regarding invalid filenames is inconsistent across .NET runtimes (and operating systems?)
+                            // e.g. PhysicalFileProvider returns NotFoundFileInfo in .NET 5 but throws an exception in previous versions on Windows
+                            fileInfo = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, logFile.CurrentPath));
+                            goto case tryOpenFileState;
                         }
-                        catch (Exception ex) when (!(ex is OperationCanceledException))
-                        {
-                            ReportFailure(logFile, entry, ex);
-
-                            // discarding entry when file path is invalid
-                            if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
-                                return;
-
-                            state = idleState;
-                        }
-                        break;
-                    case tryOpenFileState:
-                        try
-                        {
-                            logFile.Open(fileInfo);
-
-                            state = writeState;
-                        }
-                        catch (Exception ex) when (!(ex is OperationCanceledException))
-                        {
-                            state = retryOpenFileState;
-                        }
-                        break;
-                    case retryOpenFileState:
-                        try
-                        {
-                            await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false);
-                            logFile.Open(fileInfo);
-
-                            state = writeState;
-                        }
-                        catch (Exception ex) when (!(ex is OperationCanceledException))
-                        {
-                            ReportFailure(logFile, entry, ex);
-
-                            // discarding entry when file path is invalid
-                            if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
-                                return;
-
-                            state = idleState;
-                        }
-                        break;
-                    case writeState:
-                        try
-                        {
-                            try
-                            {
-                                if (logFile.ShouldEnsurePreamble)
-                                    await logFile.EnsurePreambleAsync(cancellationToken).ConfigureAwait(false);
-
-                                await logFile.WriteTextAsync(entry.Text, logFile.Encoding, cancellationToken).ConfigureAwait(false);
-
-                                if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
-                                    logFile.Flush();
-                            }
-                            finally
-                            {
-                                if (logFile.AccessMode == LogFileAccessMode.OpenTemporarily)
-                                    logFile.Close();
-                            }
-
-                            return;
-                        }
-                        catch (Exception ex) when (!(ex is OperationCanceledException))
-                        {
-                            ReportFailure(logFile, entry, ex);
-
-                            state = idleState;
-                        }
-                        break;
-                    case idleState:
-                        // discarding failed entry on forced complete
-                        if (Context.WriteRetryDelay > TimeSpan.Zero)
-                            await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
                         else
-                            cancellationToken.ThrowIfCancellationRequested();
+                            goto case writeState;
+                    }
+                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    {
+                        ReportFailure(logFile, entry, ex);
 
-                        state = checkFileState;
-                        break;
-                }
+                        // discarding entry when file path is invalid
+                        if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
+                            return;
+
+                        goto case idleState;
+                    }
+                case tryOpenFileState:
+                    try
+                    {
+                        logFile.Open(fileInfo);
+
+                        goto case writeState;
+                    }
+                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    {
+                        goto case retryOpenFileState;
+                    }
+                case retryOpenFileState:
+                    try
+                    {
+                        await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+                        logFile.Open(fileInfo);
+
+                        goto case writeState;
+                    }
+                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    {
+                        ReportFailure(logFile, entry, ex);
+
+                        // discarding entry when file path is invalid
+                        if (logFile.CurrentPath.IndexOfAny(s_invalidPathChars.Value) >= 0)
+                            return;
+
+                        goto case idleState;
+                    }
+                case writeState:
+                    try
+                    {
+                        try
+                        {
+                            if (logFile.ShouldEnsurePreamble)
+                                await logFile.EnsurePreambleAsync(cancellationToken).ConfigureAwait(false);
+
+                            await logFile.WriteTextAsync(entry.Text, logFile.Encoding, cancellationToken).ConfigureAwait(false);
+
+                            if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
+                                logFile.Flush();
+                        }
+                        finally
+                        {
+                            if (logFile.AccessMode == LogFileAccessMode.OpenTemporarily)
+                                logFile.Close();
+                        }
+
+                        return;
+                    }
+                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    {
+                        ReportFailure(logFile, entry, ex);
+
+                        goto case idleState;
+                    }
+                case idleState:
+                    // discarding failed entry on forced complete
+                    if (Context.WriteRetryDelay > TimeSpan.Zero)
+                        await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
+                    else
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                    goto case checkFileState;
+            }
 
             void ReportFailure(LogFileInfo logFile, FileLogEntry entry, Exception exception)
             {
