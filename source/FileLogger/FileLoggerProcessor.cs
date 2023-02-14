@@ -474,7 +474,7 @@ namespace Karambolo.Extensions.Logging.File
                                 if (logFile.ShouldEnsurePreamble)
                                     await logFile.EnsurePreambleAsync(cancellationToken).ConfigureAwait(false);
 
-                                await logFile.WriteBytesAsync(logFile.Encoding.GetBytes(entry.Text), cancellationToken).ConfigureAwait(false);
+                                await logFile.WriteTextAsync(entry.Text, logFile.Encoding, cancellationToken).ConfigureAwait(false);
 
                                 if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
                                     logFile.Flush();
