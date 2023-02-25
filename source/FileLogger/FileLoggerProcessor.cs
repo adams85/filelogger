@@ -245,9 +245,16 @@ namespace Karambolo.Extensions.Logging.File
 
             try
             {
-                var completionTimeoutTask = Task.Delay(Context.CompletionTimeout);
-                if ((await Task.WhenAny(Task.WhenAll(completionTasks), completionTimeoutTask).ConfigureAwait(false)) == completionTimeoutTask)
-                    Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
+                using (var delayCancellationTokenSource = new CancellationTokenSource())
+                {
+                    var completionTimeoutTask = Task.Delay(Context.CompletionTimeout, delayCancellationTokenSource.Token);
+                    Task completedTask = await Task.WhenAny(Task.WhenAll(completionTasks), completionTimeoutTask).ConfigureAwait(false);
+
+                    if (completedTask != completionTimeoutTask)
+                        delayCancellationTokenSource.Cancel();
+                    else
+                        Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
+                }
 
                 forcedCompleteTokenSource.Cancel();
                 forcedCompleteTokenSource.Dispose();
@@ -395,7 +402,7 @@ namespace Karambolo.Extensions.Logging.File
             return true;
         }
 
-        private async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+        private async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken forcedCompleteToken)
         {
             const int checkFileState = 0;
             const int tryOpenFileState = 1;
@@ -410,7 +417,7 @@ namespace Karambolo.Extensions.Logging.File
                 case checkFileState:
                     try
                     {
-                        if (UpdateFilePath(logFile, entry, cancellationToken) && logFile.IsOpen)
+                        if (UpdateFilePath(logFile, entry, forcedCompleteToken) && logFile.IsOpen)
                             logFile.Close();
 
                         if (!logFile.IsOpen)
@@ -423,7 +430,7 @@ namespace Karambolo.Extensions.Logging.File
                         else
                             goto case writeState;
                     }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
                     {
                         ReportFailure(logFile, entry, ex);
 
@@ -440,19 +447,19 @@ namespace Karambolo.Extensions.Logging.File
 
                         goto case writeState;
                     }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
                     {
                         goto case retryOpenFileState;
                     }
                 case retryOpenFileState:
                     try
                     {
-                        await logFile.FileAppender.EnsureDirAsync(fileInfo, cancellationToken).ConfigureAwait(false);
+                        await logFile.FileAppender.EnsureDirAsync(fileInfo, forcedCompleteToken).ConfigureAwait(false);
                         logFile.Open(fileInfo);
 
                         goto case writeState;
                     }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
                     {
                         ReportFailure(logFile, entry, ex);
 
@@ -468,9 +475,9 @@ namespace Karambolo.Extensions.Logging.File
                         try
                         {
                             if (logFile.ShouldEnsurePreamble)
-                                await logFile.EnsurePreambleAsync(cancellationToken).ConfigureAwait(false);
+                                await logFile.EnsurePreambleAsync(forcedCompleteToken).ConfigureAwait(false);
 
-                            await logFile.WriteTextAsync(entry.Text, logFile.Encoding, cancellationToken).ConfigureAwait(false);
+                            await logFile.WriteTextAsync(entry.Text, logFile.Encoding, forcedCompleteToken).ConfigureAwait(false);
 
                             if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
                                 logFile.Flush();
@@ -483,7 +490,7 @@ namespace Karambolo.Extensions.Logging.File
 
                         return;
                     }
-                    catch (Exception ex) when (!(ex is OperationCanceledException))
+                    catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
                     {
                         ReportFailure(logFile, entry, ex);
 
@@ -492,9 +499,9 @@ namespace Karambolo.Extensions.Logging.File
                 case idleState:
                     // discarding failed entry on forced complete
                     if (Context.WriteRetryDelay > TimeSpan.Zero)
-                        await Task.Delay(Context.WriteRetryDelay, cancellationToken).ConfigureAwait(false);
+                        await Task.Delay(Context.WriteRetryDelay, forcedCompleteToken).ConfigureAwait(false);
                     else
-                        cancellationToken.ThrowIfCancellationRequested();
+                        forcedCompleteToken.ThrowIfCancellationRequested();
 
                     goto case checkFileState;
             }
@@ -505,12 +512,12 @@ namespace Karambolo.Extensions.Logging.File
             }
         }
 
-        private async Task WriteFileAsync(LogFileInfo logFile, CancellationToken cancellationToken)
+        private async Task WriteFileAsync(LogFileInfo logFile, CancellationToken forcedCompleteToken)
         {
             ChannelReader<FileLogEntry> queue = logFile.Queue.Reader;
-            while (await queue.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
+            while (await queue.WaitToReadAsync(forcedCompleteToken).ConfigureAwait(false))
                 while (queue.TryRead(out FileLogEntry entry))
-                    await WriteEntryAsync(logFile, entry, cancellationToken).ConfigureAwait(false);
+                    await WriteEntryAsync(logFile, entry, forcedCompleteToken).ConfigureAwait(false);
         }
     }
 }

@@ -34,7 +34,7 @@ namespace Karambolo.Extensions.Logging.File.Json
                 LogLevel.Warning => "Warning",
                 LogLevel.Error => "Error",
                 LogLevel.Critical => "Critical",
-                _ => throw new ArgumentOutOfRangeException(nameof(logLevel))
+                _ => throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null)
             };
         }
 

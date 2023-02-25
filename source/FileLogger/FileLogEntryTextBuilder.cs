@@ -43,7 +43,7 @@ namespace Karambolo.Extensions.Logging.File
                 case LogLevel.Critical:
                     return "crit";
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(logLevel));
+                    throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null);
             }
         }
 
