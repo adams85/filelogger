@@ -19,7 +19,11 @@ namespace Karambolo.Extensions.Logging.File.Test
 {
     public class LoggingTest
     {
-        private async Task LoggingToMemoryWithoutDICore(LogFileAccessMode accessMode)
+        [Theory]
+        [InlineData(LogFileAccessMode.KeepOpen)]
+        [InlineData(LogFileAccessMode.KeepOpenAndAutoFlush)]
+        [InlineData(LogFileAccessMode.OpenTemporarily)]
+        public async Task LoggingToMemoryWithoutDI(LogFileAccessMode accessMode)
         {
             const string logsDirName = "Logs";
 
@@ -141,17 +145,14 @@ namespace Karambolo.Extensions.Logging.File.Test
                 $"        Some failure!",
             }
             .Concat(ex.ToString().Split(new[] { Environment.NewLine }, StringSplitOptions.None))
-            .Append(""), lines);
+            .Concat(new[] { "" }), lines);
         }
 
-        [Fact]
-        public async Task LoggingToMemoryWithoutDI()
-        {
-            foreach (LogFileAccessMode accessMode in Enum.GetValues(typeof(LogFileAccessMode)))
-                await LoggingToMemoryWithoutDICore(accessMode);
-        }
-
-        private async Task LoggingToPhysicalUsingDICore(LogFileAccessMode accessMode)
+        [Theory]
+        [InlineData(LogFileAccessMode.KeepOpen)]
+        [InlineData(LogFileAccessMode.KeepOpenAndAutoFlush)]
+        [InlineData(LogFileAccessMode.OpenTemporarily)]
+        public async Task LoggingToPhysicalUsingDI(LogFileAccessMode accessMode)
         {
             var logsDirName = Guid.NewGuid().ToString("D");
 
@@ -256,20 +257,13 @@ namespace Karambolo.Extensions.Logging.File.Test
                     $"      Some failure!",
                 }
                 .Concat(ex.ToString().Split(new[] { Environment.NewLine }, StringSplitOptions.None))
-                .Append(""), lines);
+                .Concat(new[] { "" }), lines);
             }
             finally
             {
                 if (Directory.Exists(logPath))
                     Directory.Delete(logPath, recursive: true);
             }
-        }
-
-        [Fact]
-        public async Task LoggingToPhysicalUsingDI()
-        {
-            foreach (LogFileAccessMode accessMode in Enum.GetValues(typeof(LogFileAccessMode)))
-                await LoggingToPhysicalUsingDICore(accessMode);
         }
 
         [Fact]

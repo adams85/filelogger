@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File.Json</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File.Json</RootNamespace>
     <SignAssembly>true</SignAssembly>
@@ -16,18 +16,37 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="**\*.netstandard*.cs" />
+    <Compile Remove="**\*.net*.cs" />
     <!-- Workaround https://github.com/dotnet/project-system/issues/935 -->
-    <None Include="**\*.netstandard*.cs" Exclude="$(BaseIntermediateOutputPath)\**" />
+    <None Include="**\*.net*.cs" Exclude="$(BaseIntermediateOutputPath)\**" />
     <Compile Include="**\*.$(TargetFramework).cs" />
   </ItemGroup>
 
+  <Choose>
+    <When Condition="'$(TargetFramework)' == 'netstandard2.0'">
+      <ItemGroup>
+        <PackageReference Include="System.Text.Json" Version="4.7.2" />
+      </ItemGroup>
+    </When>
+
+    <When Condition="'$(TargetFramework)' == 'netstandard2.1'">
+      <ItemGroup>
+        <PackageReference Include="System.Text.Json" Version="4.7.2" />
+      </ItemGroup>
+    </When>
+
+    <When Condition="'$(TargetFramework)' == 'net6.0'">
+      <ItemGroup>
+        <PackageReference Include="System.Text.Json" Version="6.0.0" />
+      </ItemGroup>
+    </When>
+  </Choose>
+
   <ItemGroup>
-    <PackageReference Include="ConfigureAwaitChecker.Analyzer" Version="4.0.0">
+    <PackageReference Include="ConfigureAwaitChecker.Analyzer" Version="5.0.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="System.Text.Json" Version="4.7.2" />
   </ItemGroup>
 
   <ItemGroup>

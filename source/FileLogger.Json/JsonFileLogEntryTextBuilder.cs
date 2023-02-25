@@ -109,7 +109,7 @@ namespace Karambolo.Extensions.Logging.File.Json
                     writer.WriteNumberValue(sbyteValue);
                     break;
                 case char charValue:
-#if NETSTANDARD2_1_OR_GREATER
+#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
                     writer.WriteStringValue(MemoryMarshal.CreateSpan(ref charValue, 1));
 #else
                     writer.WriteStringValue(charValue.ToString());
@@ -227,7 +227,7 @@ namespace Karambolo.Extensions.Logging.File.Json
                     writer.Flush();
                 }
 
-#if NETSTANDARD2_1_OR_GREATER
+#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
                 sb.Append(Encoding.UTF8.GetString(output.WrittenMemory.AsSpan()));
 #else
                 sb.Append(Encoding.UTF8.GetString(output.WrittenMemory.Array, output.WrittenMemory.Offset, output.WrittenMemory.Count));

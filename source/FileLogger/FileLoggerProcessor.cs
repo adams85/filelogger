@@ -245,16 +245,31 @@ namespace Karambolo.Extensions.Logging.File
 
             try
             {
+                var hasCompletionTimedOut = false;
+
+#if NET6_0_OR_GREATER
+                try
+                {
+                    await Task.WhenAll(completionTasks).WaitAsync(Context.CompletionTimeout).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    hasCompletionTimedOut = true;
+                }
+#else
                 using (var delayCancellationTokenSource = new CancellationTokenSource())
                 {
                     var completionTimeoutTask = Task.Delay(Context.CompletionTimeout, delayCancellationTokenSource.Token);
                     Task completedTask = await Task.WhenAny(Task.WhenAll(completionTasks), completionTimeoutTask).ConfigureAwait(false);
-
                     if (completedTask != completionTimeoutTask)
                         delayCancellationTokenSource.Cancel();
                     else
-                        Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
+                        hasCompletionTimedOut = true;
                 }
+#endif
+
+                if (hasCompletionTimedOut)
+                    Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
 
                 forcedCompleteTokenSource.Cancel();
                 forcedCompleteTokenSource.Dispose();
