@@ -16,17 +16,24 @@ namespace Karambolo.Extensions.Logging.File
 
     public class PhysicalFileAppender : IFileAppender, IDisposable
     {
+        private readonly int _appendStreamBufferSize;
+        private readonly FileOptions _appendStreamFileOptions;
         private readonly bool _isOwner;
 
         public PhysicalFileAppender(string root)
             : this(new PhysicalFileProvider(root), isOwner: true) { }
 
         public PhysicalFileAppender(PhysicalFileProvider fileProvider, bool isOwner = false)
+            : this(fileProvider, 4096, FileOptions.None, isOwner) { }
+
+        public PhysicalFileAppender(PhysicalFileProvider fileProvider, int appendStreamBufferSize, FileOptions appendStreamFileOptions, bool isOwner = false)
         {
             if (fileProvider == null)
                 throw new ArgumentNullException(nameof(fileProvider));
 
             FileProvider = fileProvider;
+            _appendStreamBufferSize = appendStreamBufferSize;
+            _appendStreamFileOptions = (appendStreamFileOptions & ~FileOptions.RandomAccess) | FileOptions.SequentialScan | FileOptions.Asynchronous;
             _isOwner = isOwner;
         }
 
@@ -52,7 +59,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public Stream CreateAppendStream(IFileInfo fileInfo)
         {
-            return new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read, 4096, useAsync: true);
+            return new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read, _appendStreamBufferSize, _appendStreamFileOptions);
         }
     }
 }
