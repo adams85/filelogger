@@ -13,11 +13,10 @@ namespace Karambolo.Extensions.Logging.File
             internal async ValueTask WriteTextAsync(string text, Encoding encoding, CancellationToken cancellationToken)
             {
                 var buffer = ArrayPool<byte>.Shared.Rent(encoding.GetMaxByteCount(text.Length));
-
                 try
                 {
                     var byteCount = encoding.GetBytes(text, buffer);
-                    await _appendStream.WriteAsync(buffer.AsMemory(0, byteCount), cancellationToken).ConfigureAwait(false);
+                    await _appendStream.WriteAsync(new ReadOnlyMemory<byte>(buffer, 0, byteCount), cancellationToken).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -25,9 +24,9 @@ namespace Karambolo.Extensions.Logging.File
                 }
             }
 
-            internal Task WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
+            internal ValueTask WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
             {
-                return _appendStream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
+                return _appendStream.WriteAsync(new ReadOnlyMemory<byte>(bytes), cancellationToken);
             }
         }
     }
