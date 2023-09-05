@@ -41,22 +41,23 @@ or, if you want structured logging, add *Karambolo.Extensions.Logging.File.Json*
 
     dotnet add package Karambolo.Extensions.Logging.File.Json
     
-If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web application (e.g. a console application), also add explicit references to the following NuGet packages *with the version matching your .NET runtime*. For example if your project runs on .NET 6.0.0:
+If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web application (e.g. a console application), you should also consider adding explicit references to the following NuGet packages *with the version matching your .NET runtime*. For example, if your project targets .NET 7:
 
-    dotnet add package Microsoft.Extensions.FileProviders.Physical -v 6.0.0
-    dotnet add package Microsoft.Extensions.Logging.Configuration -v 6.0.0
-    dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions -v 6.0.0
+    dotnet add package Microsoft.Extensions.FileProviders.Physical -v 7.0.*
+    dotnet add package Microsoft.Extensions.Logging.Configuration -v 7.0.*
+    dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions -v 7.0.*
+    dotnet add package System.Threading.Channels -v 7.0.*
 
 <details>
-  <summary>Explanation why this is necessary</summary>
+  <summary>Explanation why this is recommended</summary>
   
-  The *Karambolo.Extensions.Logging.File* package depends on some framework libraries and references the lowest possible versions of these depencencies (e.g. *Microsoft.Extensions.Logging.Configuration* 3.0.0 in the case of .NET Standard 2.1 target framework). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor (or even major) version (e.g. .NET Core 6.0.0). Thus, referencing *Karambolo.Extensions.Logging.File* in itself usually results in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 3.0.0 instead of 6.0.0).
+  The *Karambolo.Extensions.Logging.File* package depends on some framework libraries and references the lowest possible versions of these depencencies (e.g. the build targeting .NET 6 references *Microsoft.Extensions.Logging.Configuration* 6.0.0). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor or even major version (e.g. .NET 7). Thus, referencing *Karambolo.Extensions.Logging.File* in itself may result in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 6.0.0 instead of 7.0.0).
 
   Luckily, **in the case of ASP.NET Core this is resolved automatically** as ASP.NET Core projects already reference the correct (newer) versions of the framework libraries in question (by means of the *Microsoft.AspNetCore.App* metapackage).
 
-  However, **in other cases (like a plain .NET Core console application) you may end up with outdated dependencies**, which is usually undesired (even can lead to issues like [this](https://github.com/adams85/filelogger/issues/19)), so you want to resolve this situation by adding the explicit package references listed above.
+  However, **in other cases (like a plain .NET Core/.NET 5+ console application) you may end up with outdated dependencies**, which is usually undesired (even can lead to issues like [this](https://github.com/adams85/filelogger/issues/19)), so you want to resolve this situation by adding the explicit package references listed above.
 
-  For more details see [NuGet package dependency resolution](https://docs.microsoft.com/en-us/nuget/concepts/dependency-resolution).
+  For more details, see [NuGet package dependency resolution](https://docs.microsoft.com/en-us/nuget/concepts/dependency-resolution).
 </details>
 
 ### Configuration
@@ -208,6 +209,12 @@ Now, you have two independent file logger providers. One of them picks up its co
 
 You may check out [this demo application](https://github.com/adams85/filelogger/tree/master/samples/SplitByLogLevel) which shows a complete example of this advanced setup.
 
+##### Customizing/extending the logging logic
+
+The implementation of the file logger provides many extension points (mostly, in the form of overridable virtual methods), so you can customize its behavior and/or implement features that are not available out of the box.
+
+For example, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/LogRotation), which adds the ability of doing log file rotation to the file logger.
+
 ### Settings
 
 #### Provider settings
@@ -240,10 +247,10 @@ The log file settings below can be specified globally (per provider) and individ
 | **DateFormat** | Specifies the default date format to use in log file path templates. | "yyyyMMdd" | Value must be a standard .NET format string which can be passed to [DateTimeOffset.ToString](https://docs.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tostring#System_DateTimeOffset_ToString_System_String_).<br/>Date format can even be specified inline in the path template: e.g. "&lt;date:yyyy&gt;/app.log" |
 | **CounterFormat** | Specifies the default counter format to use in log file path templates. | basic integer to string conversion | Value must be a standard .NET format string which can be passed to [Int32.ToString](https://docs.microsoft.com/en-us/dotnet/api/system.int32.tostring#System_Int32_ToString_System_String_).<br/>Counter format can even be specified inline in the path template: e.g. "app-&lt;counter:000&gt;.log" |
 | **MaxFileSize** | If set, new files will be created when file size limit is reached. | | *Path* must be a template containing a counter placeholder, otherwise the file size limit is not enforced. |
-| **TextBuilder** | Specifies a custom log text formatter. | FileLogEntryTextBuilder. Instance | For best performance, if you set this to a formatter of the same type for multiple files, use the same formatter instance if possible.<br/>The *TextBuilderType* shortcut property is also available for setting this option using a type name. |
+| **TextBuilder** | Specifies a custom log text formatter. | FileLogEntryTextBuilder. Instance | For best performance, if you set this to a formatter of the same type for multiple files, use the same formatter instance if possible.<br/>The *TextBuilderType* shortcut property is also available for setting this option using a type name.<br/>For an example of usage, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/CustomLogFormat). |
 | **IncludeScopes** | Enables including log scopes in the output. | false | Works exactly as in the case of *ConsoleLogger*. |
 | **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | 0 (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
-| **PathPlaceholderResolver** | Provides a way to hook into path template resolution. | | Callback which can be used to customize or extend the resolution of path template placeholders. Enables special formatting, custom placeholders, etc.<br/>For usage, see the examples [here](https://github.com/adams85/filelogger/issues/6) and [here](https://github.com/adams85/filelogger/issues/7).<br/>(Available only since version 3.2.0) |
+| **PathPlaceholderResolver** | Provides a way to hook into path template resolution. | | Callback which can be used to customize or extend the resolution of path template placeholders. Enables special formatting, custom placeholders, etc.<br/>For an example of usage, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/CustomPathPlaceholder).<br/>(Available only since version 3.2.0) |
 
 #### Sample JSON configuration
 ``` json5
