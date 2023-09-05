@@ -15,7 +15,12 @@ namespace Microsoft.Extensions.Logging
 
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder)
         {
-            return builder.AddFile().ConfigureTextBuilder(JsonFileLogEntryTextBuilder.Default, Options.Options.DefaultName);
+            return builder.AddJsonFile(context: null, JsonFileLogEntryTextBuilder.Default);
+        }
+
+        public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, JsonFileLogFormatOptions formatOptions)
+        {
+            return builder.AddJsonFile(context: null, new JsonFileLogEntryTextBuilder(formatOptions));
         }
 
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, Action<FileLoggerOptions> configure)
@@ -23,9 +28,15 @@ namespace Microsoft.Extensions.Logging
             if (configure == null)
                 throw new ArgumentNullException(nameof(configure));
 
-            builder.AddFile().ConfigureTextBuilder(JsonFileLogEntryTextBuilder.Default, Options.Options.DefaultName);
-            builder.Services.Configure(configure);
-            return builder;
+            return builder.AddJsonFile(context: null, JsonFileLogEntryTextBuilder.Default, configure);
+        }
+
+        public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, JsonFileLogFormatOptions formatOptions, Action<FileLoggerOptions> configure)
+        {
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            return builder.AddJsonFile(context: null, new JsonFileLogEntryTextBuilder(formatOptions), configure);
         }
 
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,

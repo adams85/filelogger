@@ -15,13 +15,22 @@ namespace Karambolo.Extensions.Logging.File.Json
         public static readonly JsonFileLogEntryTextBuilder Default = new JsonFileLogEntryTextBuilder();
 
         private readonly JsonWriterOptions _jsonWriterOptions;
+        private readonly string _entrySeparator;
 
         protected JsonFileLogEntryTextBuilder()
-            : this(new JsonWriterOptions { Indented = true }) { }
+            : this(jsonWriterOptions: null, entrySeparator: null) { }
 
+        [Obsolete("This constructor will be removed in a future major version. Please use the other overload which accepts an instance of " + nameof(JsonFileLogFormatOptions) + ".")]
         public JsonFileLogEntryTextBuilder(JsonWriterOptions jsonWriterOptions)
+            : this(jsonWriterOptions, entrySeparator: null) { }
+
+        public JsonFileLogEntryTextBuilder(JsonFileLogFormatOptions formatOptions)
+            : this((formatOptions ?? throw new ArgumentNullException(nameof(formatOptions))).JsonWriterOptions, formatOptions.EntrySeparator) { }
+
+        private JsonFileLogEntryTextBuilder(JsonWriterOptions? jsonWriterOptions, string entrySeparator)
         {
-            _jsonWriterOptions = jsonWriterOptions;
+            _jsonWriterOptions = jsonWriterOptions ?? new JsonWriterOptions { Indented = true };
+            _entrySeparator = entrySeparator ?? ",";
         }
 
         protected virtual string GetLogLevelString(LogLevel logLevel)
@@ -215,6 +224,11 @@ namespace Karambolo.Extensions.Logging.File.Json
             writer.WriteEndObject();
         }
 
+        protected virtual void AppendEntrySeparator(StringBuilder sb)
+        {
+            sb.Append(_entrySeparator).Append(Environment.NewLine);
+        }
+
         public override void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, TState state, Exception exception,
             IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
         {
@@ -234,7 +248,7 @@ namespace Karambolo.Extensions.Logging.File.Json
 #endif
             }
 
-            sb.Append(',').Append(Environment.NewLine);
+            AppendEntrySeparator(sb);
         }
     }
 }
