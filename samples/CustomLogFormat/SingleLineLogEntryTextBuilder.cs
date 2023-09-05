@@ -4,7 +4,7 @@ using System.Text;
 using Karambolo.Extensions.Logging.File;
 using Microsoft.Extensions.Logging;
 
-namespace CustomFormat
+namespace CustomLogFormat
 {
     internal class SingleLineLogEntryTextBuilder : FileLogEntryTextBuilder
     {

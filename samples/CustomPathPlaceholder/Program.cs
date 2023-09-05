@@ -1,16 +1,19 @@
 ﻿using System;
+using System.Globalization;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace CustomBehavior
+namespace CustomPathPlaceholder
 {
-    // This sample demonstrates how to customize the behavior of log message processing by
-    // subclassing FileLoggerProcessor and overriding its virtual methods.
+    // This sample demonstrates how to customize the resolving of placeholders in log file paths.
     internal class Program
     {
+        private static readonly string s_appName = Assembly.GetEntryAssembly().GetName().Name;
+
         private static async Task Main(string[] args)
         {
             var configuration = new ConfigurationBuilder()
@@ -24,7 +27,19 @@ namespace CustomBehavior
                 builder.AddConfiguration(configuration.GetSection("Logging"));
 
                 // register our customized file logger instead of the "standard" one
-                builder.AddFile<CustomFileLoggerProvider>(configure: o => o.RootPath = AppContext.BaseDirectory);
+                builder.AddFile(o =>
+                {
+                    o.RootPath = AppContext.BaseDirectory;
+                    o.PathPlaceholderResolver = (placeholderName, inlineFormat, context) => placeholderName switch
+                    {
+                        // introduce the custom path variable '<appname>'
+                        "appname" => s_appName,
+                        // this will offset the counter by 1 -> the counter will start at 1
+                        "counter" => (context.Counter + 1).ToString(inlineFormat ?? context.CounterFormat, CultureInfo.InvariantCulture),
+                        // in other cases, fallback to the default behavior
+                        _ => null,
+                    };
+                });
             });
 
             await using (ServiceProvider sp = services.BuildServiceProvider())

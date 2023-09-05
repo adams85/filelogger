@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace CustomFormat
+namespace CustomLogFormat
 {
     // This sample demonstrates how to customize the output of the logger by
     // subclassing FileLogEntryTextBuilder and overriding its virtual methods.
