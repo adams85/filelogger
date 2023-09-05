@@ -404,7 +404,10 @@ namespace Karambolo.Extensions.Logging.File
 
                     // guard against falling into an infinite loop
                     if (filePath == newFilePath)
+                    {
+                        logFile.Counter--;
                         break;
+                    }
 
                     filePath = newFilePath;
                 }
@@ -415,6 +418,12 @@ namespace Karambolo.Extensions.Logging.File
 
             logFile.CurrentPath = filePath;
             return true;
+        }
+
+        protected virtual void HandleFilePathChange(LogFileInfo logFile, FileLogEntry entry)
+        {
+            if (logFile.IsOpen)
+                logFile.Close();
         }
 
         private async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken forcedCompleteToken)
@@ -432,8 +441,8 @@ namespace Karambolo.Extensions.Logging.File
                 case checkFileState:
                     try
                     {
-                        if (UpdateFilePath(logFile, entry, forcedCompleteToken) && logFile.IsOpen)
-                            logFile.Close();
+                        if (UpdateFilePath(logFile, entry, forcedCompleteToken))
+                            HandleFilePathChange(logFile, entry);
 
                         if (!logFile.IsOpen)
                         {

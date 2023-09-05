@@ -44,7 +44,15 @@ namespace Microsoft.Extensions.Logging
             Action<FileLoggerOptions> configure = null, string optionsName = null)
             where TProvider : FileLoggerProvider
         {
-            builder.AddFile<TProvider>(context, configure: null, optionsName)
+            return builder.AddJsonFile<TProvider, FileLoggerOptions>(context, textBuilder, configure, optionsName);
+        }
+
+        public static ILoggingBuilder AddJsonFile<TProvider, TOptions>(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
+            Action<TOptions> configure = null, string optionsName = null)
+            where TProvider : FileLoggerProvider
+            where TOptions : FileLoggerOptions
+        {
+            builder.AddFile<TProvider, TOptions>(context, configure: null, optionsName)
                 .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName ?? typeof(TProvider).ToString());
 
             if (configure != null)

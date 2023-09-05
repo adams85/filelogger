@@ -9,15 +9,17 @@ using Microsoft.Extensions.Options;
 
 namespace Microsoft.Extensions.Logging
 {
-    internal sealed class FileLoggerOptionsChangeTokenSource<TProvider> : ConfigurationChangeTokenSource<FileLoggerOptions>
+    internal sealed class FileLoggerOptionsChangeTokenSource<TProvider, TOptions> : ConfigurationChangeTokenSource<TOptions>
         where TProvider : FileLoggerProvider
+        where TOptions : FileLoggerOptions
     {
         public FileLoggerOptionsChangeTokenSource(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
             : base(optionsName, providerConfiguration.Configuration) { }
     }
 
-    internal sealed class FileLoggerOptionsSetup<TProvider> : NamedConfigureFromConfigurationOptions<FileLoggerOptions>
+    internal sealed class FileLoggerOptionsSetup<TProvider, TOptions> : NamedConfigureFromConfigurationOptions<TOptions>
         where TProvider : FileLoggerProvider
+        where TOptions : FileLoggerOptions
     {
         public FileLoggerOptionsSetup(string optionsName, ILoggerProviderConfiguration<TProvider> providerConfiguration)
             : base(optionsName, providerConfiguration.Configuration) { }
@@ -25,8 +27,9 @@ namespace Microsoft.Extensions.Logging
 
     public static partial class FileLoggerFactoryExtensions
     {
-        private static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory)
+        private static ILoggingBuilder AddFile<TProvider, TOptions>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory)
             where TProvider : FileLoggerProvider
+            where TOptions : FileLoggerOptions
         {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
@@ -35,18 +38,18 @@ namespace Microsoft.Extensions.Logging
 
             builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, TProvider>(providerFactory));
 
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IOptionsChangeTokenSource<FileLoggerOptions>, FileLoggerOptionsChangeTokenSource<TProvider>>(sp =>
-                new FileLoggerOptionsChangeTokenSource<TProvider>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>())));
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IOptionsChangeTokenSource<TOptions>, FileLoggerOptionsChangeTokenSource<TProvider, TOptions>>(sp =>
+                new FileLoggerOptionsChangeTokenSource<TProvider, TOptions>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>())));
 
-            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<FileLoggerOptions>, FileLoggerOptionsSetup<TProvider>>(sp =>
-                new FileLoggerOptionsSetup<TProvider>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>())));
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IConfigureOptions<TOptions>, FileLoggerOptionsSetup<TProvider, TOptions>>(sp =>
+                new FileLoggerOptionsSetup<TProvider, TOptions>(optionsName, sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>())));
 
             return builder;
         }
 
         public static ILoggingBuilder AddFile(this ILoggingBuilder builder)
         {
-            return builder.AddFile(Options.Options.DefaultName, sp => new FileLoggerProvider(sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
+            return builder.AddFile<FileLoggerProvider, FileLoggerOptions>(Options.Options.DefaultName, sp => new FileLoggerProvider(sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
         }
 
         public static ILoggingBuilder AddFile(this ILoggingBuilder builder, FileLoggerContext context)
@@ -54,7 +57,7 @@ namespace Microsoft.Extensions.Logging
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
-            return builder.AddFile(Options.Options.DefaultName, sp => new FileLoggerProvider(context, sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
+            return builder.AddFile<FileLoggerProvider, FileLoggerOptions>(Options.Options.DefaultName, sp => new FileLoggerProvider(context, sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
         }
 
         public static ILoggingBuilder AddFile(this ILoggingBuilder builder, Action<FileLoggerOptions> configure)
@@ -80,6 +83,13 @@ namespace Microsoft.Extensions.Logging
         public static ILoggingBuilder AddFile<TProvider>(this ILoggingBuilder builder, FileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
             where TProvider : FileLoggerProvider
         {
+            return builder.AddFile<TProvider, FileLoggerOptions>(context, configure, optionsName);
+        }
+
+        public static ILoggingBuilder AddFile<TProvider, TOptions>(this ILoggingBuilder builder, FileLoggerContext context = null, Action<TOptions> configure = null, string optionsName = null)
+            where TProvider : FileLoggerProvider
+            where TOptions : FileLoggerOptions
+        {
             if (builder == null)
                 throw new ArgumentNullException(nameof(builder));
 
@@ -89,7 +99,7 @@ namespace Microsoft.Extensions.Logging
             if (context == null)
                 context = FileLoggerContext.Default;
 
-            builder.AddFile(optionsName, sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context, optionsName));
+            builder.AddFile<TProvider, TOptions>(optionsName, sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context, optionsName));
 
             if (configure != null)
                 builder.Services.Configure(optionsName, configure);

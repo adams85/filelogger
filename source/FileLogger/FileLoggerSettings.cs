@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
+using System.Reflection;
 
 namespace Karambolo.Extensions.Logging.File
 {
@@ -18,7 +20,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public FileLoggerOptions() { }
 
-        protected FileLoggerOptions(FileLoggerOptions other) : base(other)
+        public FileLoggerOptions(FileLoggerOptions other) : base(other)
         {
             FileAppender = other.FileAppender;
             BasePath = other.BasePath;
@@ -43,7 +45,24 @@ namespace Karambolo.Extensions.Logging.File
 
         IFileLoggerSettings IFileLoggerSettings.Freeze()
         {
-            return _isFrozen ? this : new FileLoggerOptions(this) { _isFrozen = true };
+            if (_isFrozen)
+                return this;
+
+            ConstructorInfo copyCtor;
+            Type type = GetType();
+
+            FileLoggerOptions clone =
+                type != typeof(FileLoggerOptions) &&
+                (copyCtor = type.GetTypeInfo().DeclaredConstructors.FirstOrDefault(ci =>
+                {
+                    ParameterInfo[] parameters = ci.GetParameters();
+                    return parameters.Length == 1 && parameters[0].ParameterType == GetType();
+                })) != null ?
+                (FileLoggerOptions)copyCtor.Invoke(new[] { this }) :
+                new FileLoggerOptions(this);
+
+            clone._isFrozen = true;
+            return clone;
         }
     }
 }
