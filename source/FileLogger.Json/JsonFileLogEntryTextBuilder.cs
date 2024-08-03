@@ -86,12 +86,8 @@ namespace Karambolo.Extensions.Logging.File.Json
                 case byte[] byteArray:
                     stringValue = Convert.ToBase64String(byteArray);
                     break;
-                case IConvertible convertible:
-                    stringValue = convertible.ToString(CultureInfo.InvariantCulture);
-                    break;
                 default:
-                    TypeConverter converter = TypeDescriptor.GetConverter(obj.GetType());
-                    stringValue = converter.ConvertToInvariantString(obj);
+                    stringValue = Convert.ToString(obj, CultureInfo.InvariantCulture);
                     break;
             }
 
@@ -194,7 +190,9 @@ namespace Karambolo.Extensions.Logging.File.Json
                     state.WriteEndObject();
                 }
                 else
+                {
                     WriteValue(writer, scope);
+                }
             }, writer);
 
             writer.WriteEndArray();

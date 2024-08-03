@@ -136,7 +136,7 @@ $@"{{
             using (ServiceProvider sp = services.BuildServiceProvider())
             {
                 providers = context.GetProviders(sp).ToArray();
-                Assert.Equal(1, providers.Length);
+                Assert.Single(providers);
 
                 var resetTasks = new List<Task>();
                 foreach (FileLoggerProvider provider in providers)
@@ -167,7 +167,7 @@ $@"{{
     }}
 }}";
 
-                        Assert.Equal(0, resetTasks.Count);
+                        Assert.Empty(resetTasks);
                         fileProvider.WriteContent("config.json", configJson);
 
                         // reload is triggered twice due to a bug in the framework (https://github.com/aspnet/Logging/issues/874)
@@ -283,7 +283,7 @@ $@"{{
                 otherFileFilters[LogFileOptions.DefaultCategoryName] = LogLevel.Warning.ToString();
                 configJson = ((JObject)settings).ToString();
 
-                Assert.Equal(0, resetTasks.Count);
+                Assert.Empty(resetTasks);
                 fileProvider.WriteContent("config.json", configJson);
 
                 // reload is triggered twice due to a bug in the framework (https://github.com/aspnet/Logging/issues/874)

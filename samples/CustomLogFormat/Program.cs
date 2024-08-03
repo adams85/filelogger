@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,9 +8,13 @@ using Microsoft.Extensions.Logging;
 namespace CustomLogFormat
 {
     // This sample demonstrates how to customize the output of the logger by
-    // subclassing FileLogEntryTextBuilder and overriding its virtual methods.
+    // subclassing FileLogEntryTextBuilder and overriding its virtual methods
     internal class Program
     {
+        // If the application is published as self-contained trimmed or Native AOT, we need to use
+        // the DynamicDependency attribute to prevent the custom text builder type from being trimmed
+        // when the text builder type is not specified by code (see below) but in appsettings.json.
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, typeof(SingleLineLogEntryTextBuilder))]
         private static async Task Main(string[] args)
         {
             var configuration = new ConfigurationBuilder()

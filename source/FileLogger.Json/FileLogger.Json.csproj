@@ -1,12 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net8.0</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File.Json</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File.Json</RootNamespace>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\FileLogger\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
-    <LangVersion>8.0</LangVersion>
+    <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">true</IsTrimmable>
+    <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
+    <EnableConfigurationBindingGenerator Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</EnableConfigurationBindingGenerator>
   </PropertyGroup>
 
   <Import Project="Properties\AssemblyInfo.props" />
@@ -32,12 +34,6 @@
     <When Condition="'$(TargetFramework)' == 'netstandard2.1'">
       <ItemGroup>
         <PackageReference Include="System.Text.Json" Version="4.7.2" />
-      </ItemGroup>
-    </When>
-
-    <When Condition="'$(TargetFramework)' == 'net6.0'">
-      <ItemGroup>
-        <PackageReference Include="System.Text.Json" Version="6.0.0" />
       </ItemGroup>
     </When>
   </Choose>

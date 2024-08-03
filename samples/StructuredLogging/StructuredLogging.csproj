@@ -6,7 +6,6 @@
     <PublishAot>true</PublishAot>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <SelfContained>true</SelfContained>
-    <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\source\FileLogger\FileLogger.csproj" />
+    <ProjectReference Include="..\..\source\FileLogger.Json\FileLogger.Json.csproj" />
   </ItemGroup>
 
 </Project>

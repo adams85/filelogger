@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -80,6 +81,9 @@ namespace Karambolo.Extensions.Logging.File
         public string TextBuilderType
         {
             get => TextBuilder?.GetType().AssemblyQualifiedName;
+#if NET5_0_OR_GREATER
+            [RequiresUnreferencedCode($"{nameof(TextBuilderType)} is not compatible with trimming. Use the {nameof(TextBuilder)} property instead.")]
+#endif
             set
             {
                 if (string.IsNullOrEmpty(value))
@@ -108,6 +112,40 @@ namespace Karambolo.Extensions.Logging.File
         public int? MaxQueueSize { get; set; }
 
         public LogFilePathPlaceholderResolver PathPlaceholderResolver { get; set; }
+
+#if NET8_0_OR_GREATER
+        public abstract class BindingWrapperBase<TOptions>
+            where TOptions : LogFileSettingsBase
+        {
+            public readonly TOptions Options;
+
+            protected BindingWrapperBase(TOptions options)
+            {
+                Options = options;
+            }
+
+            public LogFileAccessMode? FileAccessMode { set => Options.FileAccessMode = value; }
+
+            public string FileEncodingName { set => Options.FileEncodingName = value; }
+
+            public string DateFormat { set => Options.DateFormat = value; }
+
+            public string CounterFormat { set => Options.CounterFormat = value; }
+
+            public long? MaxFileSize { set => Options.MaxFileSize = value; }
+
+            public string TextBuilderType
+            {
+                [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
+                    Justification = "For non-trimmed applications, this property must be included in configuration binding. For trimmed applications, the situation is handled by adding a warning to the documentation.")]
+                set => Options.TextBuilderType = value;
+            }
+
+            public bool? IncludeScopes { set => Options.IncludeScopes = value; }
+
+            public int? MaxQueueSize { set => Options.MaxQueueSize = value; }
+        }
+#endif
     }
 
     public class LogFileOptions : LogFileSettingsBase, ILogFileSettings
@@ -158,5 +196,41 @@ namespace Karambolo.Extensions.Logging.File
 
             return LogLevel.None;
         }
+
+        protected internal virtual LogFileOptions Clone()
+        {
+            if (GetType() != typeof(LogFileOptions))
+            {
+                throw new InvalidOperationException($"Inheritors of {nameof(LogFileOptions)} must override the {nameof(Clone)} method and provide an implementation that creates a clone of the subclass instance.");
+            }
+
+            return new LogFileOptions(this);
+        }
+
+#if NET8_0_OR_GREATER
+        // NOTE: Unfortunately, it seems that there is no way to ignore properties from configuration binding at the moment,
+        // so using source generated configuration binding would result in a bunch of warnings.
+        // We can work around the issue by defining a wrapper class for configuration binding.
+        public new abstract class BindingWrapperBase<TOptions> : LogFileSettingsBase.BindingWrapperBase<TOptions>
+            where TOptions : LogFileOptions
+        {
+            protected BindingWrapperBase(TOptions options) : base(options) { }
+
+            public string Path { set => base.Options.Path = value; }
+
+            public Dictionary<string, LogLevel> MinLevel
+            {
+                get => base.Options.MinLevel;
+                set => base.Options.MinLevel = value;
+            }
+        }
+
+        internal sealed class BindingWrapper : BindingWrapperBase<LogFileOptions>
+        {
+            public BindingWrapper() : this(new LogFileOptions()) { }
+
+            public BindingWrapper(LogFileOptions options) : base(options) { }
+        }
+#endif
     }
 }

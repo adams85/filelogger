@@ -63,7 +63,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 using (ServiceProvider sp = services.BuildServiceProvider())
                 {
                     providers = context.GetProviders(sp).ToArray();
-                    Assert.Equal(1, providers.Length);
+                    Assert.Single(providers);
 
                     var resetTasks = new List<Task>();
                     foreach (FileLoggerProvider provider in providers)

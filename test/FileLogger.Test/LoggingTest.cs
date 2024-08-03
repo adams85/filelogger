@@ -203,7 +203,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 using (ServiceProvider sp = services.BuildServiceProvider())
                 {
                     providers = context.GetProviders(sp).ToArray();
-                    Assert.Equal(1, providers.Length);
+                    Assert.Single(providers);
 
                     ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
 
@@ -309,7 +309,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 using (ServiceProvider sp = services.BuildServiceProvider())
                 {
                     providers = context.GetProviders(sp).ToArray();
-                    Assert.Equal(1, providers.Length);
+                    Assert.Single(providers);
 
                     ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
 
@@ -373,7 +373,7 @@ namespace Karambolo.Extensions.Logging.File.Test
             using (ServiceProvider sp = services.BuildServiceProvider())
             {
                 providers = context.GetProviders(sp).ToArray();
-                Assert.Equal(1, providers.Length);
+                Assert.Single(providers);
 
                 ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
 
