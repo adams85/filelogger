@@ -7,14 +7,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File
 {
-    using FileGroupsDictionary = Dictionary<(IFileLogEntryTextBuilder TextBuilder, bool IncludeScopes), (ILogFileSettings Settings, LogLevel MinLevel)[]>;
+    using FileGroup = KeyValuePair<(IFileLogEntryTextBuilder TextBuilder, bool IncludeScopes), (ILogFileSettings Settings, LogLevel MinLevel)[]>;
 
     public class FileLogger : ILogger
     {
         protected class UpdatableState
         {
             public IFileLoggerSettings Settings { get; set; }
-            public FileGroupsDictionary FileGroups { get; set; }
+            public FileGroup[] FileGroups { get; set; }
             public IExternalScopeProvider ScopeProvider { get; set; }
         }
 
@@ -51,22 +51,22 @@ namespace Karambolo.Extensions.Logging.File
 
         public string CategoryName { get; }
 
-        public IEnumerable<string> FilePaths => _state.FileGroups.Values.SelectMany(fileGroup => fileGroup.Select(file => file.Settings.Path));
+        public IEnumerable<string> FilePaths => _state.FileGroups.SelectMany(fileGroup => fileGroup.Value.Select(file => file.Settings.Path));
 
-        private FileGroupsDictionary GetFileGroups(IFileLoggerSettings settings)
+        private FileGroup[] GetFileGroups(IFileLoggerSettings settings)
         {
             return (settings.Files ?? Enumerable.Empty<ILogFileSettings>())
                 .Where(file => file != null && !string.IsNullOrEmpty(file.Path))
-                .Select(file => 
-                    (Settings: file, 
+                .Select(file =>
+                    (Settings: file,
                      MinLevel: file.GetMinLevel(CategoryName)))
                 .Where(file => file.MinLevel != LogLevel.None)
                 .GroupBy(
-                    file => 
-                        (file.Settings.TextBuilder ?? settings.TextBuilder ?? FileLogEntryTextBuilder.Instance, 
+                    file =>
+                        (file.Settings.TextBuilder ?? settings.TextBuilder ?? FileLogEntryTextBuilder.Instance,
                          file.Settings.IncludeScopes ?? settings.IncludeScopes ?? false),
-                    file => file)
-                .ToDictionary(group => group.Key, group => group.ToArray());
+                    (key, group) => new FileGroup(key, group.ToArray()))
+                .ToArray();
         }
 
         protected virtual UpdatableState CreateState(UpdatableState currentState, IFileLoggerSettings settings)
@@ -76,7 +76,7 @@ namespace Karambolo.Extensions.Logging.File
 
         public void Update(IFileLoggerSettings settings)
         {
-            FileGroupsDictionary fileGroups = GetFileGroups(settings);
+            FileGroup[] fileGroups = GetFileGroups(settings);
 
             UpdatableState currentState = _state;
             for (; ; )
@@ -146,13 +146,16 @@ namespace Karambolo.Extensions.Logging.File
             if (sb == null)
                 sb = new StringBuilder();
 
-            foreach (KeyValuePair<(IFileLogEntryTextBuilder, bool), (ILogFileSettings, LogLevel)[]> fileGroup in currentState.FileGroups)
+            var fileGroups = currentState.FileGroups;
+            for (int i = 0; i < fileGroups.Length; i++)
             {
+                FileGroup fileGroup = fileGroups[i];
+                (ILogFileSettings Settings, LogLevel MinLevel)[] files = fileGroup.Value;
                 FileLogEntry entry = null;
 
-                for (int i = 0, n = fileGroup.Value.Length; i < n; i++)
+                for (int j = 0; j < files.Length; j++)
                 {
-                    (ILogFileSettings fileSettings, LogLevel minLevel) = fileGroup.Value[i];
+                    (ILogFileSettings fileSettings, LogLevel minLevel) = files[j];
 
                     if (logLevel < minLevel)
                         continue;

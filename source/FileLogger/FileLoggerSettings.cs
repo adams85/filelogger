@@ -27,7 +27,7 @@ namespace Karambolo.Extensions.Logging.File
             if (other.Files != null)
             {
                 var files = (LogFileOptions[])other._files.Clone();
-                for (var i = 0; i < files.Length; i++)
+                for (int i = 0; i < files.Length; i++)
                     files[i] = files[i].Clone();
                 _files = files;
             }
