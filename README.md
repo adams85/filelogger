@@ -9,7 +9,11 @@ This class library contains a lightweight implementation of the [Microsoft.Exten
 [![NuGet Release](https://img.shields.io/nuget/v/Karambolo.Extensions.Logging.File.svg)](https://www.nuget.org/packages/Karambolo.Extensions.Logging.File/)
 [![Donate](https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/adams85)
 
-The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/master/src/libraries/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage. As of version 3.3.0 **JSON structured logging** (following the format established by [the JSON formatter of the built-in console logger](https://docs.microsoft.com/en-us/dotnet/core/extensions/console-log-formatter#register-formatter)) is also available.
+The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/master/src/libraries/Microsoft.Extensions.Logging.Console) whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**. No I/O blocking occurs as **processing of log messages is done in the background**. File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://docs.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction so it's even possible to use a custom backing storage.
+
+As of version 3.3.0 **JSON structured logging** (following the format established by [the JSON formatter of the built-in console logger](https://docs.microsoft.com/en-us/dotnet/core/extensions/console-log-formatter#register-formatter)) is also available.
+
+As of version 3.6.0 the **self-contained trimmed** and **Native AOT** deployments models are also supported (in applications running on .NET 8 or newer).
 
 ### Additional features:
  - Flexible configuration:
@@ -29,7 +33,7 @@ The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/mast
 
 Thus, **version 3.0 is not backward compatible with previous versions**. If you want to upgrade from older versions, please read up on the new configuration system to be able to make the necessary adjustments.
 
-However, you may stay with version 2.1 as it continues to work on .NET Core 3 according to my tests (but please note that it isn't developed actively any more).
+However, you may stay with version 2.1 as it continues to work on .NET Core 3+ according to my tests (but please note that it isn't developed actively any more).
 
 ### Installation
 
@@ -41,17 +45,16 @@ or, if you want structured logging, add *Karambolo.Extensions.Logging.File.Json*
 
     dotnet add package Karambolo.Extensions.Logging.File.Json
     
-If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web application (e.g. a console application), you should also consider adding explicit references to the following NuGet packages *with the version matching your .NET runtime*. For example, if your project targets .NET 7:
+If you have a .NET Core/.NET 5+ project other than an ASP.NET Core web application (e.g. a console application), you should also consider adding explicit references to the following NuGet packages *with the version matching your .NET runtime*. For example, if your project targets .NET 8:
 
-    dotnet add package Microsoft.Extensions.FileProviders.Physical -v 7.0.*
-    dotnet add package Microsoft.Extensions.Logging.Configuration -v 7.0.*
-    dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions -v 7.0.*
-    dotnet add package System.Threading.Channels -v 7.0.*
+    dotnet add package Microsoft.Extensions.FileProviders.Physical -v 8.0.*
+    dotnet add package Microsoft.Extensions.Logging.Configuration -v 8.0.*
+    dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions -v 8.0.*
 
 <details>
   <summary>Explanation why this is recommended</summary>
   
-  The *Karambolo.Extensions.Logging.File* package depends on some framework libraries and references the lowest possible versions of these depencencies (e.g. the build targeting .NET 6 references *Microsoft.Extensions.Logging.Configuration* 6.0.0). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor or even major version (e.g. .NET 7). Thus, referencing *Karambolo.Extensions.Logging.File* in itself may result in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 6.0.0 instead of 7.0.0).
+  The *Karambolo.Extensions.Logging.File* package depends on some framework libraries and references the lowest possible versions of these dependencies (e.g. the build targeting .NET 8 references *Microsoft.Extensions.Logging.Configuration* 8.0.0). **These versions may not (mostly do not) align with the version of your application's target platform** since that may be a newer patch, minor or even major version (e.g. .NET 9). Thus, referencing *Karambolo.Extensions.Logging.File* in itself may result in referencing outdated framework libraries on that particular platform (sticking to the previous example, *Microsoft.Extensions.Logging.Configuration* 8.0.0 instead of 9.0.0).
 
   Luckily, **in the case of ASP.NET Core this is resolved automatically** as ASP.NET Core projects already reference the correct (newer) versions of the framework libraries in question (by means of the *Microsoft.AspNetCore.App* metapackage).
 
@@ -79,7 +82,7 @@ If you've chosen structured logging, replace calls to `AddFile(...)` with `AddJs
 ``` csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.AddFile(o => o.RootPath = o.RootPath = builder.Environment.ContentRootPath);
+builder.Logging.AddFile(o => o.RootPath = builder.Environment.ContentRootPath);
 
 var app = builder.Build();
 
@@ -115,7 +118,7 @@ public class Program
 
 ``` csharp
 // build configuration
-// var configuration = ...;
+var configuration = /* ... */;
 
 // configure DI
 var services = new ServiceCollection();
@@ -161,7 +164,7 @@ public class Program
 
 ``` csharp
 // build configuration
-// var configuration = ...;
+var configuration = /* ... */;
 
 // configure DI
 var services = new ServiceCollection();
@@ -213,7 +216,7 @@ You may check out [this demo application](https://github.com/adams85/filelogger/
 
 The implementation of the file logger provides many extension points (mostly, in the form of overridable virtual methods), so you can customize its behavior and/or implement features that are not available out of the box.
 
-For example, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/LogRotation), which adds the ability of doing log file rotation to the file logger.
+For example, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/LogRotation), which extends the file logger with the ability to rotate log files.
 
 ### Settings
 
