@@ -22,34 +22,37 @@ namespace Karambolo.Extensions.Logging.File.Test
         public void ParsingOptions()
         {
             var configJson =
-$@"{{
-    ""{nameof(FileLoggerOptions.RootPath)}"": ""{Path.DirectorySeparatorChar.ToString().Replace(@"\", @"\\")}"",
-    ""{nameof(FileLoggerOptions.BasePath)}"": ""Logs"",
-    ""{nameof(FileLoggerOptions.FileAccessMode)}"": ""{LogFileAccessMode.OpenTemporarily}"",
-    ""{nameof(FileLoggerOptions.FileEncodingName)}"": ""utf-8"",
-    ""{nameof(FileLoggerOptions.Files)}"": [
-    {{
-        ""{nameof(LogFileOptions.Path)}"": ""logger.log"",
-        ""{nameof(LogFileOptions.MinLevel)}"": {{
-            ""Karambolo.Extensions.Logging.File"": ""{LogLevel.Warning}"",
-            ""{LogFileOptions.DefaultCategoryName}"": ""{LogLevel.None}"",
-        }},
-    }},
-    {{
-        ""{nameof(LogFileOptions.Path)}"": ""test.log"",
-        ""{nameof(LogFileOptions.MinLevel)}"": {{
-            ""Karambolo.Extensions.Logging.File.Test"": ""{LogLevel.Debug}"",
-            ""{LogFileOptions.DefaultCategoryName}"": ""{LogLevel.None}"",
-        }},
-    }}],
-    ""{nameof(FileLoggerOptions.DateFormat)}"": ""yyyyMMdd"",
-    ""{nameof(FileLoggerOptions.CounterFormat)}"": ""000"",
-    ""{nameof(FileLoggerOptions.MaxFileSize)}"": 10,
-    ""{nameof(FileLoggerOptions.TextBuilderType)}"": ""{typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName}"",
-    ""{nameof(FileLoggerOptions.IncludeScopes)}"": true,
-    ""{nameof(FileLoggerOptions.MaxQueueSize)}"": 100,
-}}";
-            configJson = $"{{ \"{FileLoggerProvider.Alias}\": {configJson} }}";
+                $$"""
+                {
+                    "{{FileLoggerProvider.Alias}}": {
+                        "{{nameof(FileLoggerOptions.RootPath)}}": "{{Path.DirectorySeparatorChar.ToString().Replace(@"\", @"\\")}}",
+                        "{{nameof(FileLoggerOptions.BasePath)}}": "Logs",
+                        "{{nameof(FileLoggerOptions.FileAccessMode)}}": "{{LogFileAccessMode.OpenTemporarily}}",
+                        "{{nameof(FileLoggerOptions.FileEncodingName)}}": "utf-8",
+                        "{{nameof(FileLoggerOptions.Files)}}": [
+                        {
+                            "{{nameof(LogFileOptions.Path)}}": "logger.log",
+                            "{{nameof(LogFileOptions.MinLevel)}}": {
+                                "Karambolo.Extensions.Logging.File": "{{LogLevel.Warning}}",
+                                "{{LogFileOptions.DefaultCategoryName}}": "{{LogLevel.None}}",
+                            },
+                        },
+                        {
+                            "{{nameof(LogFileOptions.Path)}}": "test.log",
+                            "{{nameof(LogFileOptions.MinLevel)}}": {
+                                "Karambolo.Extensions.Logging.File.Test": "{{LogLevel.Debug}}",
+                                "{{LogFileOptions.DefaultCategoryName}}": "{{LogLevel.None}}",
+                            },
+                        }],
+                        "{{nameof(FileLoggerOptions.DateFormat)}}": "yyyyMMdd",
+                        "{{nameof(FileLoggerOptions.CounterFormat)}}": "000",
+                        "{{nameof(FileLoggerOptions.MaxFileSize)}}": 10,
+                        "{{nameof(FileLoggerOptions.TextBuilderType)}}": "{{typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName}}",
+                        "{{nameof(FileLoggerOptions.IncludeScopes)}}": true,
+                        "{{nameof(FileLoggerOptions.MaxQueueSize)}}": 100,
+                    }
+                }
+                """;
 
             var fileProvider = new MemoryFileProvider();
             fileProvider.CreateFile("config.json", configJson);
@@ -100,18 +103,20 @@ $@"{{
         public async Task ReloadOptionsSettings()
         {
             var configJson =
-$@"{{
-    ""{FileLoggerProvider.Alias}"": {{
-        ""{nameof(FileLoggerOptions.IncludeScopes)}"" : true,
-        ""{nameof(FileLoggerOptions.Files)}"": [
-        {{
-            ""{nameof(LogFileOptions.Path)}"": ""test.log"",
-        }}],
-        ""{nameof(LoggerFilterRule.LogLevel)}"": {{ 
-            ""{LogFileOptions.DefaultCategoryName}"": ""{LogLevel.Trace}"" 
-        }}
-    }}
-}}";
+                $$"""
+                {
+                    "{{FileLoggerProvider.Alias}}": {
+                        "{{nameof(FileLoggerOptions.IncludeScopes)}}" : true,
+                        "{{nameof(FileLoggerOptions.Files)}}": [
+                        {
+                            "{{nameof(LogFileOptions.Path)}}": "test.log",
+                        }],
+                        "{{nameof(LoggerFilterRule.LogLevel)}}": { 
+                            "{{LogFileOptions.DefaultCategoryName}}": "{{LogLevel.Trace}}" 
+                        }
+                    }
+                }
+                """;
 
             var fileProvider = new MemoryFileProvider();
             fileProvider.CreateFile("config.json", configJson, Encoding.UTF8);
@@ -159,17 +164,19 @@ $@"{{
 
                         // changing switch and scopes inclusion
                         configJson =
-$@"{{
-    ""{FileLoggerProvider.Alias}"": {{
-        ""{nameof(FileLoggerOptions.Files)}"": [
-        {{
-            ""{nameof(LogFileOptions.Path)}"": ""test.log"",
-        }}],
-        ""{nameof(LoggerFilterRule.LogLevel)}"": {{ 
-            ""{LogFileOptions.DefaultCategoryName}"": ""{LogLevel.Information}"" 
-        }}
-    }}
-}}";
+                            $$"""
+                            {
+                                "{{FileLoggerProvider.Alias}}": {
+                                    "{{nameof(FileLoggerOptions.Files)}}": [
+                                    {
+                                        "{{nameof(LogFileOptions.Path)}}": "test.log",
+                                    }],
+                                    "{{nameof(LoggerFilterRule.LogLevel)}}": { 
+                                        "{{LogFileOptions.DefaultCategoryName}}": "{{LogLevel.Information}}" 
+                                    }
+                                }
+                            }
+                            """;
 
                         Assert.Empty(resetTasks);
                         fileProvider.WriteContent("config.json", configJson);
