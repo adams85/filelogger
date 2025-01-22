@@ -6,7 +6,7 @@
     <Company>Karambolo</Company>
     <Product>Karambolo.Extensions.Logging.File</Product>
     <Description>JSON structured logging features for the Karambolo.Extensions.Logging.File library.</Description>
-    <Copyright>© 2024 Adam Simon</Copyright>
+    <Copyright>© 2025 Adam Simon</Copyright>
     <AssemblyVersion>1.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
     <PackageLicenseUrl>https://github.com/adams85/filelogger/blob/master/LICENSE</PackageLicenseUrl>
