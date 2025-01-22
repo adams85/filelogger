@@ -22,7 +22,7 @@ namespace Karambolo.Extensions.Logging.File.Test
         public void ParsingOptions()
         {
             var configJson =
-$@"{{ 
+$@"{{
     ""{nameof(FileLoggerOptions.RootPath)}"": ""{Path.DirectorySeparatorChar.ToString().Replace(@"\", @"\\")}"",
     ""{nameof(FileLoggerOptions.BasePath)}"": ""Logs"",
     ""{nameof(FileLoggerOptions.FileAccessMode)}"": ""{LogFileAccessMode.OpenTemporarily}"",
@@ -49,6 +49,7 @@ $@"{{
     ""{nameof(FileLoggerOptions.IncludeScopes)}"": true,
     ""{nameof(FileLoggerOptions.MaxQueueSize)}"": 100,
 }}";
+            configJson = $"{{ \"{FileLoggerProvider.Alias}\": {configJson} }}";
 
             var fileProvider = new MemoryFileProvider();
             fileProvider.CreateFile("config.json", configJson);
@@ -58,8 +59,11 @@ $@"{{
             IConfigurationRoot config = cb.Build();
 
             var services = new ServiceCollection();
-            services.AddOptions();
-            services.Configure<FileLoggerOptions>(config);
+            services.AddLogging(lb =>
+            {
+                lb.AddConfiguration(config);
+                lb.AddFile();
+            });
             ServiceProvider serviceProvider = services.BuildServiceProvider();
 
             IFileLoggerSettings settings = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
