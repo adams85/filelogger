@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -152,8 +153,13 @@ namespace Karambolo.Extensions.Logging.File
                 if (_isDisposed)
                     throw new ObjectDisposedException(nameof(FileLoggerProvider));
 
+#if NET6_0_OR_GREATER
+                ref FileLogger loggerRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_loggers, categoryName, out var loggerExists);
+                logger = loggerExists ? loggerRef : (loggerRef = CreateLoggerCore(categoryName));
+#else
                 if (!_loggers.TryGetValue(categoryName, out logger))
                     _loggers.Add(categoryName, logger = CreateLoggerCore(categoryName));
+#endif
             }
 
             return logger;

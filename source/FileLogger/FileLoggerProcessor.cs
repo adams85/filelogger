@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -334,8 +335,13 @@ namespace Karambolo.Extensions.Logging.File
                 if (_status != Status.Running)
                     return;
 
+#if NET6_0_OR_GREATER
+                ref LogFileInfo logFileRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_logFiles, fileSettings, out bool logFileExists);
+                logFile = logFileExists ? logFileRef : (logFileRef = CreateLogFile(fileSettings, settings));
+#else
                 if (!_logFiles.TryGetValue(fileSettings, out logFile))
                     _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
+#endif
             }
 
             if (!logFile.Queue.Writer.TryWrite(entry))
