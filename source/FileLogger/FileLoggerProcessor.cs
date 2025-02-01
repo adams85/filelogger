@@ -432,11 +432,6 @@ namespace Karambolo.Extensions.Logging.File
                 logFile.Close();
         }
 
-        protected virtual string GetEntryText(LogFileInfo logFile, FileLogEntry entry)
-        {
-            return entry.Text;
-        }
-
         protected virtual async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken forcedCompleteToken)
         {
             const int checkFileState = 0;
@@ -512,7 +507,7 @@ namespace Karambolo.Extensions.Logging.File
                             if (logFile.ShouldEnsurePreamble)
                                 await logFile.EnsurePreambleAsync(forcedCompleteToken).ConfigureAwait(false);
 
-                            await logFile.WriteTextAsync(GetEntryText(logFile, entry), logFile.Encoding, forcedCompleteToken).ConfigureAwait(false);
+                            await logFile.WriteTextAsync(entry.Text, logFile.Encoding, forcedCompleteToken).ConfigureAwait(false);
 
                             if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
                                 logFile.Flush();
