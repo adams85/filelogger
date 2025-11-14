@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -153,11 +152,16 @@ namespace Karambolo.Extensions.Logging.File.Json
             }
         }
 
-        protected virtual void WriteState<TState>(Utf8JsonWriter writer, TState state)
+        protected virtual void WriteState<TState>(Utf8JsonWriter writer, TState state, string message)
         {
             writer.WriteStartObject("State");
 
-            writer.WriteString("Message", state.ToString());
+            var stateMessage = state.ToString();
+
+            if (!string.Equals(message, stateMessage)) { 
+                writer.WriteString("Message", stateMessage);
+            }
+
             if (state is IEnumerable<KeyValuePair<string, object>> stateProperties)
             {
                 foreach (KeyValuePair<string, object> item in stateProperties)
@@ -214,7 +218,7 @@ namespace Karambolo.Extensions.Logging.File.Json
                 WriteException(writer, exception);
 
             if (state != null)
-                WriteState(writer, state);
+                WriteState(writer, state, message);
 
             if (scopeProvider != null)
                 WriteLogScopeInfo(writer, scopeProvider);
