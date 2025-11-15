@@ -60,6 +60,20 @@ namespace Microsoft.Extensions.Logging
 #if NET5_0_OR_GREATER && !NET8_0_OR_GREATER
         [RequiresUnreferencedCode(TrimmingRequiresUnreferencedCodeMessage)]
 #endif
+        public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, FileLoggerContext context, JsonFileLogFormatOptions formatOptions, Action<FileLoggerOptions> configure)
+        {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            if (configure == null)
+                throw new ArgumentNullException(nameof(configure));
+
+            return builder.AddJsonFile(context, new JsonFileLogEntryTextBuilder(formatOptions), configure);
+        }
+
+#if NET5_0_OR_GREATER && !NET8_0_OR_GREATER
+        [RequiresUnreferencedCode(TrimmingRequiresUnreferencedCodeMessage)]
+#endif
         public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
             Action<FileLoggerOptions> configure = null)
         {
