@@ -2,13 +2,18 @@
 
   <PropertyGroup>
     <TargetFrameworks>net462;netcoreapp2.1;netcoreapp3.1;net6.0;net8.0</TargetFrameworks>
-    <IsPackable>false</IsPackable>
     <AssemblyName>Karambolo.Extensions.Logging.File.Test</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File.Test</RootNamespace>
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\..\source\FileLogger\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>..\..\source\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
+    <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6px8-22w5-w334" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-g5vf-38cp-4px9" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.3" />

@@ -1,0 +1,93 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32414.318
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{594253E2-53A2-4E22-AF78-7CCE8E44966F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomLogFormat", "samples\CustomLogFormat\CustomLogFormat.csproj", "{F795724D-C7F8-55D9-0529-646BE396636A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomPathPlaceholder", "samples\CustomPathPlaceholder\CustomPathPlaceholder.csproj", "{F6942DA4-A1CB-3092-20C4-23A09638839C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogRotation", "samples\LogRotation\LogRotation.csproj", "{764213DD-854A-D24A-F057-2E15697D1EC2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SplitByLogLevel", "samples\SplitByLogLevel\SplitByLogLevel.csproj", "{C9C1F4C0-31A6-8C27-FAEF-D2BEDEA8E48A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StructuredLogging", "samples\StructuredLogging\StructuredLogging.csproj", "{BCB7EFBB-64D4-7CC5-480E-B7B5E86FD3D1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{197A38EE-13CD-4515-BD7C-F8A1FBE8DDFD}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "source", "source", "{676ABDE1-B118-44EF-A4A6-242CF111AFC4}"
+	ProjectSection(SolutionItems) = preProject
+		source\Directory.Build.props = source\Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{9115B6D8-C097-4B43-B1C5-4E13488B9386}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileLogger.Test", "test\FileLogger.Test\FileLogger.Test.csproj", "{358E9752-BE0A-5027-CFB7-10785CF76E5D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger", "source\FileLogger\FileLogger.csproj", "{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileLogger.Json", "source\FileLogger.Json\FileLogger.Json.csproj", "{C842AFE3-6239-411E-9561-36CCA3705378}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F795724D-C7F8-55D9-0529-646BE396636A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F795724D-C7F8-55D9-0529-646BE396636A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F795724D-C7F8-55D9-0529-646BE396636A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F795724D-C7F8-55D9-0529-646BE396636A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6942DA4-A1CB-3092-20C4-23A09638839C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6942DA4-A1CB-3092-20C4-23A09638839C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6942DA4-A1CB-3092-20C4-23A09638839C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6942DA4-A1CB-3092-20C4-23A09638839C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{764213DD-854A-D24A-F057-2E15697D1EC2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{764213DD-854A-D24A-F057-2E15697D1EC2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{764213DD-854A-D24A-F057-2E15697D1EC2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{764213DD-854A-D24A-F057-2E15697D1EC2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9C1F4C0-31A6-8C27-FAEF-D2BEDEA8E48A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9C1F4C0-31A6-8C27-FAEF-D2BEDEA8E48A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9C1F4C0-31A6-8C27-FAEF-D2BEDEA8E48A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9C1F4C0-31A6-8C27-FAEF-D2BEDEA8E48A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BCB7EFBB-64D4-7CC5-480E-B7B5E86FD3D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BCB7EFBB-64D4-7CC5-480E-B7B5E86FD3D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BCB7EFBB-64D4-7CC5-480E-B7B5E86FD3D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BCB7EFBB-64D4-7CC5-480E-B7B5E86FD3D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{358E9752-BE0A-5027-CFB7-10785CF76E5D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{358E9752-BE0A-5027-CFB7-10785CF76E5D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{358E9752-BE0A-5027-CFB7-10785CF76E5D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{358E9752-BE0A-5027-CFB7-10785CF76E5D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3427EDC-5E34-4CDF-8AB0-B6B4A94045A9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C842AFE3-6239-411E-9561-36CCA3705378}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{F795724D-C7F8-55D9-0529-646BE396636A} = {594253E2-53A2-4E22-AF78-7CCE8E44966F}
+		{F6942DA4-A1CB-3092-20C4-23A09638839C} = {594253E2-53A2-4E22-AF78-7CCE8E44966F}
+		{764213DD-854A-D24A-F057-2E15697D1EC2} = {594253E2-53A2-4E22-AF78-7CCE8E44966F}
+		{C9C1F4C0-31A6-8C27-FAEF-D2BEDEA8E48A} = {594253E2-53A2-4E22-AF78-7CCE8E44966F}
+		{BCB7EFBB-64D4-7CC5-480E-B7B5E86FD3D1} = {594253E2-53A2-4E22-AF78-7CCE8E44966F}
+		{676ABDE1-B118-44EF-A4A6-242CF111AFC4} = {197A38EE-13CD-4515-BD7C-F8A1FBE8DDFD}
+		{358E9752-BE0A-5027-CFB7-10785CF76E5D} = {9115B6D8-C097-4B43-B1C5-4E13488B9386}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C307431B-60C2-4116-8734-0242EB76E5B8}
+	EndGlobalSection
+	GlobalSection(TestCaseManagementSettings) = postSolution
+		CategoryFile = Karambolo.Common.vsmdi
+	EndGlobalSection
+EndGlobal
