@@ -67,8 +67,7 @@ namespace Karambolo.Extensions.Logging.File.Test
                 IncludeScopes = true,
             };
 
-            var completeCts = new CancellationTokenSource();
-            var context = new TestFileLoggerContext(completeCts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+            var context = new TestFileLoggerContext(CancellationToken.None, completionTimeout: Timeout.InfiniteTimeSpan);
 
             context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 

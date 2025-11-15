@@ -7,6 +7,7 @@
     <RootNamespace>Karambolo.Extensions.Logging.File.Test</RootNamespace>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\..\source\FileLogger\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -63,7 +64,7 @@
   </Choose>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\source\FileLogger\FileLogger.csproj" />
+    <ProjectReference Include="..\..\source\FileLogger.Json\FileLogger.Json.csproj" />
   </ItemGroup>
 
 </Project>
