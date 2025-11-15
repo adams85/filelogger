@@ -1,33 +1,32 @@
-﻿using System;
+using System;
 using System.Buffers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Karambolo.Extensions.Logging.File
-{
-    public partial class FileLoggerProcessor : IFileLoggerProcessor
-    {
-        protected internal partial class LogFileInfo
-        {
-            internal async ValueTask WriteTextAsync(string text, Encoding encoding, CancellationToken cancellationToken)
-            {
-                var buffer = ArrayPool<byte>.Shared.Rent(encoding.GetMaxByteCount(text.Length));
-                try
-                {
-                    var byteCount = encoding.GetBytes(text, buffer);
-                    await _appendStream.WriteAsync(new ReadOnlyMemory<byte>(buffer, 0, byteCount), cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(buffer);
-                }
-            }
+namespace Karambolo.Extensions.Logging.File;
 
-            internal ValueTask WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
+public partial class FileLoggerProcessor : IFileLoggerProcessor
+{
+    protected internal partial class LogFileInfo
+    {
+        internal async ValueTask WriteTextAsync(string text, Encoding encoding, CancellationToken cancellationToken)
+        {
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(encoding.GetMaxByteCount(text.Length));
+            try
             {
-                return _appendStream.WriteAsync(new ReadOnlyMemory<byte>(bytes), cancellationToken);
+                int byteCount = encoding.GetBytes(text, buffer);
+                await _appendStream.WriteAsync(new ReadOnlyMemory<byte>(buffer, 0, byteCount), cancellationToken).ConfigureAwait(false);
             }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
+        }
+
+        internal ValueTask WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
+        {
+            return _appendStream.WriteAsync(new ReadOnlyMemory<byte>(bytes), cancellationToken);
         }
     }
 }

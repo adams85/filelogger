@@ -1,37 +1,36 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Text;
 using Karambolo.Extensions.Logging.File;
 using Microsoft.Extensions.Logging;
 
-namespace CustomLogFormat
+namespace CustomLogFormat;
+
+internal class SingleLineLogEntryTextBuilder : FileLogEntryTextBuilder
 {
-    internal class SingleLineLogEntryTextBuilder : FileLogEntryTextBuilder
+    public static readonly SingleLineLogEntryTextBuilder Default = new();
+
+    protected override void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp)
     {
-        public static readonly SingleLineLogEntryTextBuilder Default = new SingleLineLogEntryTextBuilder();
+        sb.Append(" @ ").Append(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
+    }
 
-        protected override void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp)
+    protected override void AppendLogScopeInfo(StringBuilder sb, IExternalScopeProvider scopeProvider)
+    {
+        scopeProvider.ForEachScope((scope, builder) =>
         {
-            sb.Append(" @ ").Append(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
-        }
+            builder.Append(' ');
 
-        protected override void AppendLogScopeInfo(StringBuilder sb, IExternalScopeProvider scopeProvider)
-        {
-            scopeProvider.ForEachScope((scope, builder) =>
-            {
-                builder.Append(' ');
+            AppendLogScope(builder, scope);
+        }, sb);
+    }
 
-                AppendLogScope(builder, scope);
-            }, sb);
-        }
+    protected override void AppendMessage(StringBuilder sb, string message)
+    {
+        sb.Append(" => ");
 
-        protected override void AppendMessage(StringBuilder sb, string message)
-        {
-            sb.Append(" => ");
-
-            var length = sb.Length;
-            sb.AppendLine(message);
-            sb.Replace(Environment.NewLine, " ", length, message.Length);
-        }
+        int length = sb.Length;
+        sb.AppendLine(message);
+        sb.Replace(Environment.NewLine, " ", length, message.Length);
     }
 }

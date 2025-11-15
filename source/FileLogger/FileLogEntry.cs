@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 
-namespace Karambolo.Extensions.Logging.File
+namespace Karambolo.Extensions.Logging.File;
+
+public class FileLogEntry
 {
-    public class FileLogEntry
-    {
-        public string Text { get; set; }
-        public DateTimeOffset Timestamp { get; set; }
-    }
+    public string Text { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
 }

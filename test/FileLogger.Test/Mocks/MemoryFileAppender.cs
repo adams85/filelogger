@@ -1,52 +1,48 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
 
-namespace Karambolo.Extensions.Logging.File.Test.Mocks
+namespace Karambolo.Extensions.Logging.File.Test.Mocks;
+
+internal class MemoryFileAppender : IFileAppender
 {
-    internal class MemoryFileAppender : IFileAppender
+    public MemoryFileAppender()
+        : this(new MemoryFileProvider()) { }
+
+    public MemoryFileAppender(MemoryFileProvider fileProvider)
     {
-        public MemoryFileAppender()
-            : this(new MemoryFileProvider()) { }
+        FileProvider = fileProvider ?? throw new ArgumentNullException(nameof(fileProvider));
+    }
 
-        public MemoryFileAppender(MemoryFileProvider fileProvider)
-        {
-            if (fileProvider == null)
-                throw new ArgumentNullException(nameof(fileProvider));
+    public MemoryFileProvider FileProvider { get; }
 
-            FileProvider = fileProvider;
-        }
+    IFileProvider IFileAppender.FileProvider => FileProvider;
 
-        public MemoryFileProvider FileProvider { get; }
+    public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
+    {
+        var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
-        IFileProvider IFileAppender.FileProvider => FileProvider;
+        var dirPath = (MemoryFileInfo)FileProvider.GetFileInfo(Path.GetDirectoryName(memoryFileInfo.LogicalPath));
+        if (dirPath.Exists)
+            return Task.FromResult(false);
 
-        public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
-        {
-            var memoryFileInfo = (MemoryFileInfo)fileInfo;
+        FileProvider.CreateDir(dirPath.LogicalPath);
 
-            var dirPath = (MemoryFileInfo)FileProvider.GetFileInfo(Path.GetDirectoryName(memoryFileInfo.LogicalPath));
-            if (dirPath.Exists)
-                return Task.FromResult(false);
+        return Task.FromResult(true);
+    }
 
-            FileProvider.CreateDir(dirPath.LogicalPath);
+    public Stream CreateAppendStream(IFileInfo fileInfo)
+    {
+        var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
-            return Task.FromResult(true);
-        }
+        if (!memoryFileInfo.Exists)
+            FileProvider.CreateFile(memoryFileInfo.LogicalPath);
 
-        public Stream CreateAppendStream(IFileInfo fileInfo)
-        {
-            var memoryFileInfo = (MemoryFileInfo)fileInfo;
-
-            if (!memoryFileInfo.Exists)
-                FileProvider.CreateFile(memoryFileInfo.LogicalPath);
-
-            MemoryStream stream = FileProvider.GetStream(memoryFileInfo.LogicalPath);
-            stream.Seek(0, SeekOrigin.End);
-            return stream;
-        }
+        MemoryStream stream = FileProvider.GetStream(memoryFileInfo.LogicalPath);
+        stream.Seek(0, SeekOrigin.End);
+        return stream;
     }
 }

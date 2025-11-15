@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,101 +13,100 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace Karambolo.Extensions.Logging.File.Test
+namespace Karambolo.Extensions.Logging.File.Test;
+
+public class EdgeCasesTest
 {
-    public class EdgeCasesTest
+    [Fact]
+    public async Task FailingEntryDontGetStuck()
     {
-        [Fact]
-        public async Task FailingEntryDontGetStuck()
+        string logsDirName = Guid.NewGuid().ToString("D");
+
+        string tempPath = Path.Combine(Path.GetTempPath());
+        string logPath = Path.Combine(tempPath, logsDirName);
+
+        if (Directory.Exists(logPath))
+            Directory.Delete(logPath, recursive: true);
+
+        var fileProvider = new PhysicalFileProvider(tempPath);
+
+        var options = new FileLoggerOptions
         {
-            var logsDirName = Guid.NewGuid().ToString("D");
-
-            var tempPath = Path.Combine(Path.GetTempPath());
-            var logPath = Path.Combine(tempPath, logsDirName);
-
-            if (Directory.Exists(logPath))
-                Directory.Delete(logPath, recursive: true);
-
-            var fileProvider = new PhysicalFileProvider(tempPath);
-
-            var options = new FileLoggerOptions
-            {
-                FileAppender = new PhysicalFileAppender(fileProvider),
-                BasePath = logsDirName,
-                Files = new[]
+            FileAppender = new PhysicalFileAppender(fileProvider),
+            BasePath = logsDirName,
+            Files =
+            [
+                new LogFileOptions
                 {
-                    new LogFileOptions
-                    {
-                        Path = "default.log",
-                    },
+                    Path = "default.log",
                 },
-            };
-            var optionsMonitor = new DelegatedOptionsMonitor<FileLoggerOptions>(_ => options);
+            ],
+        };
+        var optionsMonitor = new DelegatedOptionsMonitor<FileLoggerOptions>(_ => options);
 
-            var completeCts = new CancellationTokenSource();
-            var completionTimeoutMs = 2000;
-            var context = new TestFileLoggerContext(completeCts.Token, TimeSpan.FromMilliseconds(completionTimeoutMs), writeRetryDelay: TimeSpan.FromMilliseconds(250));
-            context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+        var completeCts = new CancellationTokenSource();
+        int completionTimeoutMs = 2000;
+        var context = new TestFileLoggerContext(completeCts.Token, TimeSpan.FromMilliseconds(completionTimeoutMs), writeRetryDelay: TimeSpan.FromMilliseconds(250));
+        context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
 
-            var services = new ServiceCollection();
-            services.AddOptions();
-            services.AddLogging(b => b.AddFile(context));
-            services.AddSingleton<IOptionsMonitor<FileLoggerOptions>>(optionsMonitor);
+        var services = new ServiceCollection();
+        services.AddOptions();
+        services.AddLogging(b => b.AddFile(context));
+        services.AddSingleton<IOptionsMonitor<FileLoggerOptions>>(optionsMonitor);
 
-            string filePath = Path.Combine(logPath, "default.log");
+        string filePath = Path.Combine(logPath, "default.log");
 
-            try
+        try
+        {
+            FileLoggerProvider[] providers;
+
+            using (ServiceProvider sp = services.BuildServiceProvider())
             {
-                FileLoggerProvider[] providers;
+                providers = context.GetProviders(sp).ToArray();
+                Assert.Single(providers);
 
-                using (ServiceProvider sp = services.BuildServiceProvider())
+                var resetTasks = new List<Task>();
+                foreach (FileLoggerProvider provider in providers)
+                    provider.Reset += (s, e) => resetTasks.Add(e);
+
+                ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                ILogger logger = loggerFactory.CreateLogger("X");
+
+                logger.LogInformation("This should get through.");
+
+                optionsMonitor.Reload();
+                // ensuring that reset has been finished and the new settings are effective
+                await Task.WhenAll(resetTasks);
+
+                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    providers = context.GetProviders(sp).ToArray();
-                    Assert.Single(providers);
+                    logger.LogInformation("This shouldn't get through.");
 
-                    var resetTasks = new List<Task>();
-                    foreach (FileLoggerProvider provider in providers)
-                        provider.Reset += (s, e) => resetTasks.Add(e);
+                    Task completion = context.GetCompletion(sp);
+                    Assert.False(completion.IsCompleted);
 
-                    ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
-                    ILogger logger = loggerFactory.CreateLogger("X");
+                    completeCts.Cancel();
 
-                    logger.LogInformation("This should get through.");
-
-                    optionsMonitor.Reload();
-                    // ensuring that reset has been finished and the new settings are effective
-                    await Task.WhenAll(resetTasks);
-
-                    using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                    {
-                        logger.LogInformation("This shouldn't get through.");
-
-                        Task completion = context.GetCompletion(sp);
-                        Assert.False(completion.IsCompleted);
-
-                        completeCts.Cancel();
-
-                        Assert.Equal(completion, await Task.WhenAny(completion, Task.Delay(TimeSpan.FromMilliseconds(completionTimeoutMs * 2))));
-                        Assert.Equal(TaskStatus.RanToCompletion, completion.Status);
-                    }
+                    Assert.Equal(completion, await Task.WhenAny(completion, Task.Delay(TimeSpan.FromMilliseconds(completionTimeoutMs * 2))));
+                    Assert.Equal(TaskStatus.RanToCompletion, completion.Status);
                 }
-
-                IFileInfo logFile = fileProvider.GetFileInfo($"{logsDirName}/default.log");
-                Assert.True(logFile.Exists && !logFile.IsDirectory);
-
-                var lines = logFile.ReadAllText(out Encoding encoding).Split(new[] { Environment.NewLine }, StringSplitOptions.None);
-                Assert.Equal(Encoding.UTF8, encoding);
-                Assert.Equal(new[]
-                {
-                    $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
-                    $"      This should get through.",
-                    ""
-                }, lines);
             }
-            finally
+
+            IFileInfo logFile = fileProvider.GetFileInfo($"{logsDirName}/default.log");
+            Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+            string[] lines = logFile.ReadAllText(out Encoding encoding).Split([Environment.NewLine], StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
+            Assert.Equal(new[]
             {
-                Directory.Delete(logPath, recursive: true);
-            }
+                $"info: X[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      This should get through.",
+                ""
+            }, lines);
+        }
+        finally
+        {
+            Directory.Delete(logPath, recursive: true);
         }
     }
 }
