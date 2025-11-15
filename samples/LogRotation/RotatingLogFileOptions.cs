@@ -23,7 +23,11 @@ namespace LogRotation
 
             public BindingWrapper(RotatingLogFileOptions options) : base(options) { }
 
-            public int? MaxFiles { set => Options.MaxFiles = value; }
+            public int? MaxFiles
+            {
+                get => Options.MaxFiles;
+                set => Options.MaxFiles = value;
+            }
         }
     }
 }

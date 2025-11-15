@@ -86,9 +86,17 @@ namespace Karambolo.Extensions.Logging.File
         {
             protected BindingWrapper(TOptions options) : base(options) { }
 
-            public string RootPath { set => Options.RootPath = value; }
+            public string RootPath
+            {
+                get => Options.RootPath;
+                set => Options.RootPath = value;
+            }
 
-            public string BasePath { set => Options.BasePath = value; }
+            public string BasePath
+            {
+                get => Options.BasePath;
+                set => Options.BasePath = value;
+            }
         }
 
         internal sealed class BindingWrapper : BindingWrapper<FileLoggerOptions>

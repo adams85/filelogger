@@ -1,8 +1,9 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
   <PropertyGroup>
-    <LangVersion>12</LangVersion>
-    <WarningsAsErrors>true</WarningsAsErrors>
+    <LangVersion>14</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>SYSLIB1104</WarningsNotAsErrors>
   </PropertyGroup>
 
 </Project>

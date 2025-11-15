@@ -44,7 +44,11 @@ namespace LogRotation
                 set => Options.Files = (_files = value)?.Select(file => file.Options).ToArray();
             }
 
-            public int? MaxFiles { set => Options.MaxFiles = value; }
+            public int? MaxFiles
+            {
+                get => Options.MaxFiles;
+                set => Options.MaxFiles = value;
+            }
         }
     }
 }

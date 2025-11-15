@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net462;netcoreapp2.1;netcoreapp3.1;net6.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>net462;netcoreapp2.1;netcoreapp3.1;net6.0;net8.0;net10.0</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File.Test</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File.Test</RootNamespace>
     <SignAssembly>true</SignAssembly>
@@ -11,8 +11,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2xjx-v99w-gqf3" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-3gp9-h8hw-pxpw" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-3w5p-jhp5-c29q" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5633-f33j-c6f7" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5crp-9r3c-p9vr" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-6px8-22w5-w334" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-g5vf-38cp-4px9" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-ghhp-997w-qr28" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-vgwq-hfqc-58wv" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-x5qj-9vmx-7g6g" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,23 +57,11 @@
       </ItemGroup>
     </When>
 
-    <When Condition="'$(TargetFramework)' == 'netcoreapp3.1'">
+    <Otherwise>
       <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" Version="3.1.*" />
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
       </ItemGroup>
-    </When>
-
-    <When Condition="'$(TargetFramework)' == 'net6.0'">
-      <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" Version="6.0.*" />
-      </ItemGroup>
-    </When>
-
-    <When Condition="'$(TargetFramework)' == 'net8.0'">
-      <ItemGroup>
-        <FrameworkReference Include="Microsoft.AspNetCore.App" Version="8.0.*" />
-      </ItemGroup>
-    </When>
+    </Otherwise>
   </Choose>
 
   <ItemGroup>

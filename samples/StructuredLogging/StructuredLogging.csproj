@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <PublishAot>true</PublishAot>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
     <SelfContained>true</SelfContained>
@@ -19,9 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.*" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="8.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.*" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="10.0.*" />
   </ItemGroup>
 
   <ItemGroup>

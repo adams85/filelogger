@@ -163,6 +163,7 @@ namespace Microsoft.Extensions.Logging
             where TProvider : FileLoggerProvider
             where TOptions : FileLoggerOptions
         {
+            // SYSLIB1104 is expected, however found no acceptable way to suppress it.
             return builder.AddFile<TProvider, TOptions>((options, config) => config.Bind(options), context, configure, optionsName);
         }
 

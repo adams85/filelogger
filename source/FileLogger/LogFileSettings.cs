@@ -124,26 +124,55 @@ namespace Karambolo.Extensions.Logging.File
                 Options = options;
             }
 
-            public LogFileAccessMode? FileAccessMode { set => Options.FileAccessMode = value; }
+            public LogFileAccessMode? FileAccessMode
+            {
+                get => Options.FileAccessMode;
+                set => Options.FileAccessMode = value;
+            }
 
-            public string FileEncodingName { set => Options.FileEncodingName = value; }
+            public string FileEncodingName
+            {
+                get => Options.FileEncodingName;
+                set => Options.FileEncodingName = value;
+            }
 
-            public string DateFormat { set => Options.DateFormat = value; }
+            public string DateFormat
+            {
+                get => Options.DateFormat;
+                set => Options.DateFormat = value;
+            }
 
-            public string CounterFormat { set => Options.CounterFormat = value; }
+            public string CounterFormat
+            {
+                get => Options.CounterFormat;
+                set => Options.CounterFormat = value;
+            }
 
-            public long? MaxFileSize { set => Options.MaxFileSize = value; }
+            public long? MaxFileSize
+            {
+                get => Options.MaxFileSize;
+                set => Options.MaxFileSize = value;
+            }
 
             public string TextBuilderType
             {
+                get => Options.TextBuilderType;
                 [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
                     Justification = "For non-trimmed applications, this property must be included in configuration binding. For trimmed applications, the situation is handled by adding a warning to the documentation.")]
                 set => Options.TextBuilderType = value;
             }
 
-            public bool? IncludeScopes { set => Options.IncludeScopes = value; }
+            public bool? IncludeScopes
+            {
+                get => Options.IncludeScopes;
+                set => Options.IncludeScopes = value;
+            }
 
-            public int? MaxQueueSize { set => Options.MaxQueueSize = value; }
+            public int? MaxQueueSize
+            {
+                get => Options.MaxQueueSize;
+                set => Options.MaxQueueSize = value;
+            }
         }
 #endif
     }
@@ -216,12 +245,16 @@ namespace Karambolo.Extensions.Logging.File
         {
             protected BindingWrapperBase(TOptions options) : base(options) { }
 
-            public string Path { set => base.Options.Path = value; }
+            public string Path
+            {
+                get => Options.Path;
+                set => Options.Path = value;
+            }
 
             public Dictionary<string, LogLevel> MinLevel
             {
-                get => base.Options.MinLevel;
-                set => base.Options.MinLevel = value;
+                get => Options.MinLevel;
+                set => Options.MinLevel = value;
             }
         }
 
