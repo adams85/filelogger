@@ -31,8 +31,11 @@ internal class MemoryFileProvider : IFileProvider
         }
 
         public bool IsDirectory { get; set; }
-        public Stream Content { get; set; }
-        public CancellationTokenSource ChangeTokenSource { get; set; }
+        /// <remarks>
+        /// Propertiy is initialized after instantiation.
+        /// </remarks>
+        public Stream Content { get => field!; set; }
+        public CancellationTokenSource? ChangeTokenSource { get; set; }
         public bool IsOpen { get; set; }
     }
 
@@ -60,7 +63,7 @@ internal class MemoryFileProvider : IFileProvider
     {
         path = NormalizePath(path);
         lock (_catalog)
-            return _catalog.TryGetValue(path, out File file) ? file.IsDirectory : false;
+            return _catalog.TryGetValue(path, out File? file) ? file.IsDirectory : false;
     }
 
     public long GetLength(string path)
@@ -68,7 +71,7 @@ internal class MemoryFileProvider : IFileProvider
         path = NormalizePath(path);
         lock (_catalog)
         {
-            if (!_catalog.TryGetValue(path, out File file) || file.IsDirectory)
+            if (!_catalog.TryGetValue(path, out File? file) || file.IsDirectory)
                 return -1;
 
             return file.Content.Length;
@@ -80,7 +83,7 @@ internal class MemoryFileProvider : IFileProvider
         if (Exists(normalizedPath))
             throw new InvalidOperationException($"A {(IsDirectory(normalizedPath) ? "directory" : "name")} with the same name already exists.");
 
-        string dir = Path.GetDirectoryName(normalizedPath);
+        string dir = Path.GetDirectoryName(normalizedPath)!;
         if (!Exists(dir))
             throw new InvalidOperationException("Parent directory does not exist.");
 
@@ -98,7 +101,7 @@ internal class MemoryFileProvider : IFileProvider
             return;
         }
 
-        string parentDir = Path.GetDirectoryName(normalizedPath);
+        string parentDir = Path.GetDirectoryName(normalizedPath)!;
 
         if (!Exists(parentDir))
             CreateDirCore(parentDir);
@@ -113,7 +116,7 @@ internal class MemoryFileProvider : IFileProvider
             CreateDirCore(path);
     }
 
-    public void CreateFile(string path, string content = null, Encoding encoding = null)
+    public void CreateFile(string path, string? content = null, Encoding? encoding = null)
     {
         path = NormalizePath(path);
         lock (_catalog)
@@ -136,7 +139,7 @@ internal class MemoryFileProvider : IFileProvider
 
     private MemoryStream GetStreamCore(string path, out File file)
     {
-        if (!_catalog.TryGetValue(path, out file) || file.IsDirectory)
+        if (!_catalog.TryGetValue(path, out file!) || file.IsDirectory)
             throw new InvalidOperationException("File does not exist.");
 
         if (file.IsOpen)
@@ -167,11 +170,11 @@ internal class MemoryFileProvider : IFileProvider
             return new StreamReader(stream).ReadToEnd();
     }
 
-    public void WriteContent(string path, string content, Encoding encoding = null, bool append = false)
+    public void WriteContent(string path, string content, Encoding? encoding = null, bool append = false)
     {
         path = NormalizePath(path);
 
-        CancellationTokenSource changeTokenSource = null;
+        CancellationTokenSource? changeTokenSource = null;
         lock (_catalog)
         {
             using (MemoryStream stream = GetStreamCore(path, out File file))
@@ -216,7 +219,7 @@ internal class MemoryFileProvider : IFileProvider
 
         lock (_catalog)
         {
-            if (!_catalog.TryGetValue(filter, out File file))
+            if (!_catalog.TryGetValue(filter, out File? file))
                 return new CancellationChangeToken(CancellationToken.None);
 
             file.ChangeTokenSource ??= new CancellationTokenSource();

@@ -5,7 +5,7 @@ namespace Karambolo.Extensions.Logging.File.Json;
 
 public class JsonFileLogFormatOptions
 {
-    public static JsonFileLogFormatOptions ForJsonLines(JavaScriptEncoder encoder = null)
+    public static JsonFileLogFormatOptions ForJsonLines(JavaScriptEncoder? encoder = null)
     {
         return new JsonFileLogFormatOptions
         {
@@ -15,5 +15,5 @@ public class JsonFileLogFormatOptions
     }
 
     public JsonWriterOptions? JsonWriterOptions { get; set; }
-    public string EntrySeparator { get; set; }
+    public string? EntrySeparator { get; set; }
 }

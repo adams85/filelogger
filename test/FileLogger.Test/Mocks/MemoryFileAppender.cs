@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.FileProviders;
@@ -25,7 +24,7 @@ internal class MemoryFileAppender : IFileAppender
     {
         var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
-        var dirPath = (MemoryFileInfo)FileProvider.GetFileInfo(Path.GetDirectoryName(memoryFileInfo.LogicalPath));
+        var dirPath = (MemoryFileInfo)FileProvider.GetFileInfo(Path.GetDirectoryName(memoryFileInfo.LogicalPath)!);
         if (dirPath.Exists)
             return Task.FromResult(false);
 

@@ -21,7 +21,7 @@ internal class MemoryFileInfo : IFileInfo
 
     public string LogicalPath { get; }
 
-    public string PhysicalPath => null;
+    public string? PhysicalPath => null;
 
     public string Name { get; }
 

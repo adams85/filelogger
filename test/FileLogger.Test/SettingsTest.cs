@@ -69,7 +69,7 @@ public class SettingsTest
         });
         ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-        IFileLoggerSettings settings = serviceProvider.GetService<IOptions<FileLoggerOptions>>().Value;
+        IFileLoggerSettings settings = serviceProvider.GetRequiredService<IOptions<FileLoggerOptions>>().Value;
 
         Assert.True(settings.FileAppender is PhysicalFileAppender);
         Assert.Equal(Path.GetPathRoot(Environment.CurrentDirectory), ((PhysicalFileAppender)settings.FileAppender).FileProvider.Root);
@@ -77,9 +77,10 @@ public class SettingsTest
         Assert.Equal(LogFileAccessMode.OpenTemporarily, settings.FileAccessMode);
         Assert.Equal(Encoding.UTF8, settings.FileEncoding);
 
+        Assert.NotNull(settings.Files);
         Assert.Equal(2, settings.Files.Length);
 
-        ILogFileSettings fileSettings = Array.Find(settings.Files, f => f.Path == "logger.log");
+        ILogFileSettings? fileSettings = Array.Find(settings.Files, f => f.Path == "logger.log");
         Assert.NotNull(fileSettings);
         Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).ToString()));
         Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(FileLogger).ToString()));
@@ -94,6 +95,7 @@ public class SettingsTest
         Assert.Equal("yyyyMMdd", settings.DateFormat);
         Assert.Equal("000", settings.CounterFormat);
         Assert.Equal(10, settings.MaxFileSize);
+        Assert.NotNull(settings.TextBuilder);
         Assert.Equal(typeof(CustomLogEntryTextBuilder), settings.TextBuilder.GetType());
         Assert.True(settings.IncludeScopes);
         Assert.Equal(100, settings.MaxQueueSize);
@@ -151,7 +153,7 @@ public class SettingsTest
             foreach (FileLoggerProvider provider in providers)
                 provider.Reset += (s, e) => resetTasks.Add(e);
 
-            ILoggerFactory loggerFactory = sp.GetService<ILoggerFactory>();
+            ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             ILogger<SettingsTest> logger1 = loggerFactory.CreateLogger<SettingsTest>();
 
             using (logger1.BeginScope("SCOPE"))

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -19,7 +21,7 @@ public interface IFileLoggerProcessor : IDisposable
 
     void Enqueue(FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
 
-    Task ResetAsync(Action onQueuesCompleted = null);
+    Task ResetAsync(Action? onQueuesCompleted = null);
     Task CompleteAsync();
 }
 
@@ -34,17 +36,19 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
     protected internal partial class LogFileInfo
     {
-        private Stream _appendStream;
+        private Stream? _appendStream;
 
         public LogFileInfo(FileLoggerProcessor processor, ILogFileSettings fileSettings, IFileLoggerSettings settings)
         {
+            Debug.Assert(fileSettings.Path is not null);
+
             BasePath = settings.BasePath ?? string.Empty;
-            PathFormat = fileSettings.Path;
-            PathPlaceholderResolver = GetActualPathPlaceholderResolver(fileSettings.PathPlaceholderResolver ?? settings.PathPlaceholderResolver);
+            PathFormat = fileSettings.Path!;
+            PathPlaceholderResolver = GetEffectivePathPlaceholderResolver(fileSettings.PathPlaceholderResolver ?? settings.PathPlaceholderResolver);
             FileAppender = settings.FileAppender ?? processor._fallbackFileAppender.Value;
             AccessMode = fileSettings.FileAccessMode ?? settings.FileAccessMode ?? LogFileAccessMode.Default;
             Encoding = fileSettings.FileEncoding ?? settings.FileEncoding ?? Encoding.UTF8;
-            DateFormat = fileSettings.DateFormat ?? settings.DateFormat ?? "yyyyMMdd";
+            DateFormat = fileSettings.DateFormat ?? settings.DateFormat;
             CounterFormat = fileSettings.CounterFormat ?? settings.CounterFormat;
             MaxSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
 
@@ -54,7 +58,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             CancellationToken forcedCompleteToken = processor._forcedCompleteTokenSource.Token;
             WriteFileTask = Task.Run(() => processor.WriteFileAsync(this, forcedCompleteToken));
 
-            static LogFilePathPlaceholderResolver GetActualPathPlaceholderResolver(LogFilePathPlaceholderResolver resolver) =>
+            static LogFilePathPlaceholderResolver GetEffectivePathPlaceholderResolver(LogFilePathPlaceholderResolver? resolver) =>
                 resolver is null
                 ? s_defaultPathPlaceholderResolver
                 : (placeholderName, inlineFormat, context) =>
@@ -67,16 +71,17 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         public IFileAppender FileAppender { get; }
         public LogFileAccessMode AccessMode { get; }
         public Encoding Encoding { get; }
-        public string DateFormat { get; }
-        public string CounterFormat { get; }
+        public string? DateFormat { get; }
+        public string? CounterFormat { get; }
         public long MaxSize { get; }
 
         public Channel<FileLogEntry> Queue { get; }
         public Task WriteFileTask { get; }
 
         public int Counter { get; set; }
-        public string CurrentPath { get; set; }
+        public string? CurrentPath { get; set; }
 
+        [MemberNotNullWhen(true, [nameof(_appendStream), nameof(Size)])]
         public bool IsOpen => _appendStream is not null;
         public long? Size => _appendStream?.Length;
 
@@ -91,7 +96,9 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         internal async ValueTask EnsurePreambleAsync(CancellationToken cancellationToken)
         {
-            if (_appendStream.Length == 0)
+            Debug.Assert(IsOpen);
+
+            if (_appendStream!.Length == 0)
                 await WriteBytesAsync(Encoding.GetPreamble(), cancellationToken).ConfigureAwait(false);
 
             ShouldEnsurePreamble = false;
@@ -99,14 +106,18 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         internal void Flush()
         {
+            Debug.Assert(IsOpen);
+
             // FlushAsync is extremely slow currently
             // https://github.com/dotnet/corefx/issues/32837
-            _appendStream.Flush();
+            _appendStream!.Flush();
         }
 
         internal void Close()
         {
-            Stream appendStream = _appendStream;
+            Debug.Assert(IsOpen);
+
+            Stream appendStream = _appendStream!;
             _appendStream = null;
             appendStream.Dispose();
         }
@@ -127,12 +138,12 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         FileLogEntry ILogFilePathFormatContext.LogEntry => _logEntry;
 
-        string ILogFilePathFormatContext.DateFormat => _logFile.DateFormat;
-        string ILogFilePathFormatContext.CounterFormat => _logFile.CounterFormat;
+        string? ILogFilePathFormatContext.DateFormat => _logFile.DateFormat;
+        string? ILogFilePathFormatContext.CounterFormat => _logFile.CounterFormat;
         int ILogFilePathFormatContext.Counter => _logFile.Counter;
 
-        string ILogFilePathFormatContext.FormatDate(string inlineFormat) => _processor.GetDate(inlineFormat, _logFile, _logEntry);
-        string ILogFilePathFormatContext.FormatCounter(string inlineFormat) => _processor.GetCounter(inlineFormat, _logFile, _logEntry);
+        string ILogFilePathFormatContext.FormatDate(string? inlineFormat) => _processor.GetDate(inlineFormat, _logFile, _logEntry);
+        string ILogFilePathFormatContext.FormatCounter(string? inlineFormat) => _processor.GetCounter(inlineFormat, _logFile, _logEntry);
 
         public string ResolvePlaceholder(Match match)
         {
@@ -165,11 +176,11 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
     private static char[] InvalidPathChars => LazyInitializer.EnsureInitialized(ref field, () => Path.GetInvalidPathChars()
         .Concat(Path.GetInvalidFileNameChars())
         .Except(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar })
-        .ToArray());
+        .ToArray())!;
 
     private readonly Lazy<PhysicalFileAppender> _fallbackFileAppender;
     private readonly Dictionary<ILogFileSettings, LogFileInfo> _logFiles;
-    private readonly TaskCompletionSource<object> _completeTaskCompletionSource;
+    private readonly TaskCompletionSource<object?> _completeTaskCompletionSource;
     private readonly CancellationTokenRegistration _completeTokenRegistration;
     private CancellationTokenSource _forcedCompleteTokenSource;
     private Status _status;
@@ -182,7 +193,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         _logFiles = new Dictionary<ILogFileSettings, LogFileInfo>();
 
-        _completeTaskCompletionSource = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _completeTaskCompletionSource = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _forcedCompleteTokenSource = new CancellationTokenSource();
 
@@ -218,7 +229,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
     public Task Completion => _completeTaskCompletionSource.Task;
 
-    private async Task ResetCoreAsync(Action onQueuesCompleted, bool complete)
+    private async Task ResetCoreAsync(Action? onQueuesCompleted, bool complete)
     {
         CancellationTokenSource forcedCompleteTokenSource;
         Task[] completionTasks;
@@ -267,7 +278,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             {
                 var completionTimeoutTask = Task.Delay(Context.CompletionTimeout, delayCancellationTokenSource.Token);
                 Task completedTask = await Task.WhenAny(Task.WhenAll(completionTasks), completionTimeoutTask).ConfigureAwait(false);
-                if (completedTask != completionTimeoutTask)
+                if (!ReferenceEquals(completedTask, completionTimeoutTask))
                     delayCancellationTokenSource.Cancel();
                 else
                     hasCompletionTimedOut = true;
@@ -287,14 +298,14 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         }
     }
 
-    public Task ResetAsync(Action onQueuesCompleted = null)
+    public Task ResetAsync(Action? onQueuesCompleted = null)
     {
         return ResetCoreAsync(onQueuesCompleted, complete: false);
     }
 
     public Task CompleteAsync()
     {
-        return ResetCoreAsync(null, complete: true);
+        return ResetCoreAsync(onQueuesCompleted: null, complete: true);
     }
 
     private async void Complete()
@@ -340,8 +351,8 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                 return;
 
 #if NET6_0_OR_GREATER
-            ref LogFileInfo logFileRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_logFiles, fileSettings, out bool logFileExists);
-            logFile = logFileExists ? logFileRef : (logFileRef = CreateLogFile(fileSettings, settings));
+            ref LogFileInfo? logFileRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_logFiles, fileSettings, out bool logFileExists);
+            logFile = logFileExists ? logFileRef! : (logFileRef = CreateLogFile(fileSettings, settings));
 #else
             if (!_logFiles.TryGetValue(fileSettings, out logFile))
                 _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
@@ -352,12 +363,12 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
     }
 
-    protected virtual string GetDate(string inlineFormat, LogFileInfo logFile, FileLogEntry entry)
+    protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, FileLogEntry entry)
     {
-        return entry.Timestamp.ToLocalTime().ToString(inlineFormat ?? logFile.DateFormat, CultureInfo.InvariantCulture);
+        return entry.Timestamp.ToLocalTime().ToString(inlineFormat ?? logFile.DateFormat ?? "yyyyMMdd", CultureInfo.InvariantCulture);
     }
 
-    protected virtual string GetCounter(string inlineFormat, LogFileInfo logFile, FileLogEntry entry)
+    protected virtual string GetCounter(string? inlineFormat, LogFileInfo logFile, FileLogEntry entry)
     {
         return logFile.Counter.ToString(inlineFormat ?? logFile.CounterFormat, CultureInfo.InvariantCulture);
     }
@@ -446,7 +457,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         const int writeState = 3;
         const int idleState = 4;
 
-        IFileInfo fileInfo = null;
+        IFileInfo? fileInfo = null;
 
         switch (checkFileState)
         {
@@ -455,6 +466,8 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                 {
                     if (UpdateFilePath(logFile, entry, forcedCompleteToken))
                         HandleFilePathChange(logFile, entry);
+
+                    Debug.Assert(logFile.CurrentPath is not null);
 
                     if (!logFile.IsOpen)
                     {
@@ -473,7 +486,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                     ReportFailure(logFile, entry, ex);
 
                     // discarding entry when file path is invalid
-                    if (logFile.CurrentPath.IndexOfAny(InvalidPathChars) >= 0)
+                    if (logFile.CurrentPath!.IndexOfAny(InvalidPathChars) >= 0)
                         return;
 
                     goto case idleState;
@@ -502,7 +515,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                     ReportFailure(logFile, entry, ex);
 
                     // discarding entry when file path is invalid
-                    if (logFile.CurrentPath.IndexOfAny(InvalidPathChars) >= 0)
+                    if (logFile.CurrentPath!.IndexOfAny(InvalidPathChars) >= 0)
                         return;
 
                     goto case idleState;
@@ -555,7 +568,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         ChannelReader<FileLogEntry> queue = logFile.Queue.Reader;
         while (await queue.WaitToReadAsync(forcedCompleteToken).ConfigureAwait(false))
         {
-            while (queue.TryRead(out FileLogEntry entry))
+            while (queue.TryRead(out FileLogEntry? entry))
                 await WriteEntryAsync(logFile, entry, forcedCompleteToken).ConfigureAwait(false);
         }
     }

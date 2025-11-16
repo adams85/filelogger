@@ -5,10 +5,10 @@ namespace Karambolo.Extensions.Logging.File;
 
 public interface IFileLoggerSettings : ILogFileSettingsBase
 {
-    IFileAppender FileAppender { get; }
-    string BasePath { get; }
+    IFileAppender? FileAppender { get; }
+    string? BasePath { get; }
 
-    ILogFileSettings[] Files { get; }
+    ILogFileSettings[]? Files { get; }
 
     IFileLoggerSettings Freeze();
 }
@@ -21,10 +21,13 @@ public class FileLoggerOptions : LogFileSettingsBase, IFileLoggerSettings
 
     public FileLoggerOptions(FileLoggerOptions other) : base(other)
     {
+        if (other is null)
+            throw new ArgumentNullException(nameof(other));
+
         FileAppender = other.FileAppender;
         BasePath = other.BasePath;
 
-        if (other.Files is not null)
+        if (other._files is not null)
         {
             var files = (LogFileOptions[])other._files.Clone();
             for (int i = 0; i < files.Length; i++)
@@ -33,29 +36,29 @@ public class FileLoggerOptions : LogFileSettingsBase, IFileLoggerSettings
         }
     }
 
-    public IFileAppender FileAppender { get; set; }
+    public IFileAppender? FileAppender { get; set; }
 
-    public string RootPath
+    public string? RootPath
     {
         get => (FileAppender as PhysicalFileAppender)?.FileProvider.Root;
-        set => FileAppender = new PhysicalFileAppender(value);
+        set => FileAppender = value is not null ? new PhysicalFileAppender(value) : null;
     }
 
-    public string BasePath { get; set; }
+    public string? BasePath { get; set; }
 
-    private LogFileOptions[] _files;
-    public LogFileOptions[] Files
+    private LogFileOptions[]? _files;
+    public LogFileOptions[]? Files
     {
         get => _files;
         set => SetFiles(value);
     }
 
-    protected virtual void SetFiles(LogFileOptions[] value)
+    protected virtual void SetFiles(LogFileOptions[]? value)
     {
         _files = value;
     }
 
-    ILogFileSettings[] IFileLoggerSettings.Files => _files;
+    ILogFileSettings[]? IFileLoggerSettings.Files => _files;
 
     IFileLoggerSettings IFileLoggerSettings.Freeze()
     {
@@ -86,13 +89,13 @@ public class FileLoggerOptions : LogFileSettingsBase, IFileLoggerSettings
     {
         protected BindingWrapper(TOptions options) : base(options) { }
 
-        public string RootPath
+        public string? RootPath
         {
             get => Options.RootPath;
             set => Options.RootPath = value;
         }
 
-        public string BasePath
+        public string? BasePath
         {
             get => Options.BasePath;
             set => Options.BasePath = value;
@@ -105,7 +108,7 @@ public class FileLoggerOptions : LogFileSettingsBase, IFileLoggerSettings
 
         public BindingWrapper(FileLoggerOptions options) : base(options) { }
 
-        public LogFileOptions.BindingWrapper[] Files
+        public LogFileOptions.BindingWrapper[]? Files
         {
             get;
             set => Options.Files = (field = value)?.Select(file => file.Options).ToArray();

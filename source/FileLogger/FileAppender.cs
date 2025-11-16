@@ -46,7 +46,7 @@ public class PhysicalFileAppender : IFileAppender, IDisposable
 
     public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
     {
-        string dirPath = Path.GetDirectoryName(fileInfo.PhysicalPath);
+        string dirPath = Path.GetDirectoryName(fileInfo.PhysicalPath)!;
         if (Directory.Exists(dirPath))
             return Task.FromResult(false);
 
@@ -56,6 +56,6 @@ public class PhysicalFileAppender : IFileAppender, IDisposable
 
     public Stream CreateAppendStream(IFileInfo fileInfo)
     {
-        return new FileStream(fileInfo.PhysicalPath, FileMode.Append, FileAccess.Write, FileShare.Read, _appendStreamBufferSize, _appendStreamFileOptions);
+        return new FileStream(fileInfo.PhysicalPath!, FileMode.Append, FileAccess.Write, FileShare.Read, _appendStreamBufferSize, _appendStreamFileOptions);
     }
 }

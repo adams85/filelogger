@@ -7,8 +7,8 @@ namespace Karambolo.Extensions.Logging.File;
 
 public interface IFileLogEntryTextBuilder
 {
-    void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, Exception exception,
-        IExternalScopeProvider scopeProvider, DateTimeOffset timestamp);
+    void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp);
 }
 
 public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
@@ -36,7 +36,7 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
             LogLevel.Warning => "warn",
             LogLevel.Error => "fail",
             LogLevel.Critical => "crit",
-            _ => throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null),
+            _ => throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, message: null),
         };
     }
 
@@ -60,7 +60,7 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
         sb.Append(" @ ").AppendLine(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
     }
 
-    protected virtual void AppendLogScope(StringBuilder sb, object scope)
+    protected virtual void AppendLogScope(StringBuilder sb, object? scope)
     {
         sb.Append("=> ").Append(scope);
     }
@@ -101,8 +101,8 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
         sb.AppendLine(exception.ToString());
     }
 
-    public virtual void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, Exception exception,
-        IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
+    public virtual void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
     {
         AppendLogLevel(sb, logLevel);
 
@@ -116,7 +116,7 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
             AppendLogScopeInfo(sb, scopeProvider);
 
         if (!string.IsNullOrEmpty(message))
-            AppendMessage(sb, message);
+            AppendMessage(sb, message!);
 
         if (exception is not null)
             AppendException(sb, exception);
@@ -125,12 +125,12 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
 
 public abstract class StructuredFileLogEntryTextBuilder : IFileLogEntryTextBuilder
 {
-    public abstract void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, TState state, Exception exception,
-        IExternalScopeProvider scopeProvider, DateTimeOffset timestamp);
+    public abstract void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, TState state, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp);
 
-    void IFileLogEntryTextBuilder.BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, Exception exception,
-        IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
+    void IFileLogEntryTextBuilder.BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
     {
-        BuildEntryText<object>(sb, categoryName, logLevel, eventId, message, null, exception, scopeProvider, timestamp);
+        BuildEntryText<object?>(sb, categoryName, logLevel, eventId, message, state: null, exception, scopeProvider, timestamp);
     }
 }

@@ -45,7 +45,7 @@ public class JsonLoggingTest
 #endif
         using (ServiceProvider sp = services.BuildServiceProvider())
         {
-            ILogger<LoggingTest> logger = sp.GetService<ILogger<LoggingTest>>();
+            ILogger<LoggingTest> logger = sp.GetRequiredService<ILogger<LoggingTest>>();
 
             logger.LogInformation("This is a nice logger.");
 
@@ -101,7 +101,7 @@ public class JsonLoggingTest
 #endif
         using (ServiceProvider sp = services.BuildServiceProvider())
         {
-            ILogger<LoggingTest> logger = sp.GetService<ILogger<LoggingTest>>();
+            ILogger<LoggingTest> logger = sp.GetRequiredService<ILogger<LoggingTest>>();
 
             logger.LogInformation("This is a nice logger.");
 

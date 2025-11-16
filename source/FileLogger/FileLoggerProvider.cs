@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -12,13 +13,13 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
 {
     public const string Alias = "File";
     private readonly Dictionary<string, FileLogger> _loggers;
-    private readonly string _optionsName;
-    private readonly IDisposable _settingsChangeToken;
-    private IExternalScopeProvider _scopeProvider;
+    private readonly string? _optionsName;
+    private readonly IDisposable? _settingsChangeToken;
+    private IExternalScopeProvider? _scopeProvider;
     private Task _resetTask;
     private bool _isDisposed;
 
-    protected FileLoggerProvider(FileLoggerContext context, IFileLoggerSettings settings)
+    protected FileLoggerProvider(FileLoggerContext? context, IFileLoggerSettings settings)
     {
         _loggers = new Dictionary<string, FileLogger>();
         _resetTask = Task.CompletedTask;
@@ -29,18 +30,18 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
     }
 
     public FileLoggerProvider(IOptions<FileLoggerOptions> options)
-        : this(null, options) { }
+        : this(context: null, options) { }
 
-    public FileLoggerProvider(FileLoggerContext context, IOptions<FileLoggerOptions> options)
+    public FileLoggerProvider(FileLoggerContext? context, IOptions<FileLoggerOptions> options)
         : this(context, options is not null ? options.Value : throw new ArgumentNullException(nameof(options))) { }
 
     public FileLoggerProvider(IOptionsMonitor<FileLoggerOptions> options)
-        : this(null, options) { }
+        : this(context: null, options) { }
 
-    public FileLoggerProvider(FileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options)
-        : this(context, options, null) { }
+    public FileLoggerProvider(FileLoggerContext? context, IOptionsMonitor<FileLoggerOptions> options)
+        : this(context, options, optionsName: null) { }
 
-    public FileLoggerProvider(FileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName)
+    public FileLoggerProvider(FileLoggerContext? context, IOptionsMonitor<FileLoggerOptions> options, string? optionsName)
         : this(context, options is not null ? options.Get(optionsName ?? Options.DefaultName) : throw new ArgumentNullException(nameof(options)))
     {
         _optionsName = optionsName ?? Options.DefaultName;
@@ -49,7 +50,7 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
 
     public void Dispose()
     {
-        if (TryDisposeAsync(completeProcessorOnThreadPool: true, out Task completeProcessorTask))
+        if (TryDisposeAsync(completeProcessorOnThreadPool: true, out Task? completeProcessorTask))
         {
             completeProcessorTask.ConfigureAwait(false).GetAwaiter().GetResult();
             Processor.Dispose();
@@ -58,14 +59,14 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
 
     public async ValueTask DisposeAsync()
     {
-        if (TryDisposeAsync(completeProcessorOnThreadPool: false, out Task completeProcessorTask))
+        if (TryDisposeAsync(completeProcessorOnThreadPool: false, out Task? completeProcessorTask))
         {
             await completeProcessorTask.ConfigureAwait(false);
             Processor.Dispose();
         }
     }
 
-    private bool TryDisposeAsync(bool completeProcessorOnThreadPool, out Task completeProcessorTask)
+    private bool TryDisposeAsync(bool completeProcessorOnThreadPool, [MaybeNullWhen(false)] out Task completeProcessorTask)
     {
         lock (_loggers)
         {
@@ -94,7 +95,7 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
     protected IFileLoggerSettings Settings { get; private set; }
     protected IFileLoggerProcessor Processor { get; }
 
-    internal event Action<FileLoggerProvider, Task> Reset;
+    internal event Action<FileLoggerProvider, Task>? Reset;
 
     public Task Completion => Processor.Completion;
 
@@ -110,7 +111,7 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
         await Processor.ResetAsync(updateSettings).ConfigureAwait(false);
     }
 
-    private void HandleOptionsChanged(IFileLoggerSettings options, string optionsName)
+    private void HandleOptionsChanged(IFileLoggerSettings options, string? optionsName)
     {
         if (optionsName != _optionsName)
             return;
@@ -155,8 +156,8 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
                 throw new ObjectDisposedException(nameof(FileLoggerProvider));
 
 #if NET6_0_OR_GREATER
-            ref FileLogger loggerRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_loggers, categoryName, out bool loggerExists);
-            logger = loggerExists ? loggerRef : (loggerRef = CreateLoggerCore(categoryName));
+            ref FileLogger? loggerRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_loggers, categoryName, out bool loggerExists);
+            logger = loggerExists ? loggerRef! : (loggerRef = CreateLoggerCore(categoryName));
 #else
             if (!_loggers.TryGetValue(categoryName, out logger))
                 _loggers.Add(categoryName, logger = CreateLoggerCore(categoryName));
@@ -166,7 +167,7 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
         return logger;
     }
 
-    protected IExternalScopeProvider GetScopeProvider()
+    protected IExternalScopeProvider? GetScopeProvider()
     {
         return _scopeProvider;
     }

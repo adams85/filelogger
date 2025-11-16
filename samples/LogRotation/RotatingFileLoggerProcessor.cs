@@ -23,7 +23,7 @@ public class RotatingFileLoggerProcessor : FileLoggerProcessor
         {
             logFile.Counter = extendedLogFile.MaxFiles - 1;
             string filePath = FormatFilePath(logFile, entry);
-            string fileFullPath = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, filePath)).PhysicalPath;
+            string fileFullPath = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, filePath)).PhysicalPath!;
             if (File.Exists(fileFullPath))
                 File.Delete(fileFullPath);
 
@@ -36,7 +36,7 @@ public class RotatingFileLoggerProcessor : FileLoggerProcessor
                 if (previousFilePath == filePath)
                     break;
 
-                previousFileFullPath = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, previousFilePath)).PhysicalPath;
+                previousFileFullPath = logFile.FileAppender.FileProvider.GetFileInfo(Path.Combine(logFile.BasePath, previousFilePath)).PhysicalPath!;
                 if (File.Exists(previousFileFullPath))
                     File.Move(previousFileFullPath, fileFullPath);
 

@@ -129,7 +129,7 @@ public static partial class FileLoggerFactoryExtensions
 #else
         TProvider
 #endif
-    >(this ILoggingBuilder builder, FileLoggerContext context = null, Action<FileLoggerOptions> configure = null, string optionsName = null)
+    >(this ILoggingBuilder builder, FileLoggerContext? context = null, Action<FileLoggerOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
     {
         if (builder is null)
@@ -159,11 +159,11 @@ public static partial class FileLoggerFactoryExtensions
 #else
         TProvider, TOptions
 #endif
-    >(this ILoggingBuilder builder, FileLoggerContext context = null, Action<TOptions> configure = null, string optionsName = null)
+    >(this ILoggingBuilder builder, FileLoggerContext? context = null, Action<TOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
         where TOptions : FileLoggerOptions
     {
-        // SYSLIB1104 is expected here, however found no way to suppress it for the next line only.
+        // SYSLIB1104 is expected here, however there seems to be no way to suppress it for the next line only.
         return builder.AddFile<TProvider, TOptions>((options, config) => config.Bind(options), context, configure, optionsName);
     }
 
@@ -173,7 +173,7 @@ public static partial class FileLoggerFactoryExtensions
 #else
         TProvider, TOptions
 #endif
-    >(this ILoggingBuilder builder, Action<TOptions, IConfiguration> bindOptions, FileLoggerContext context = null, Action<TOptions> configure = null, string optionsName = null)
+    >(this ILoggingBuilder builder, Action<TOptions, IConfiguration> bindOptions, FileLoggerContext? context = null, Action<TOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
         where TOptions : FileLoggerOptions
     {

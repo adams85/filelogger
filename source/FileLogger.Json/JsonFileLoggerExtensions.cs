@@ -74,8 +74,8 @@ public static partial class JsonFileLoggerExtensions
 #if NET5_0_OR_GREATER && !NET8_0_OR_GREATER
     [RequiresUnreferencedCode(TrimmingRequiresUnreferencedCodeMessage)]
 #endif
-    public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
-        Action<FileLoggerOptions> configure = null)
+    public static ILoggingBuilder AddJsonFile(this ILoggingBuilder builder, FileLoggerContext? context = null, JsonFileLogEntryTextBuilder? textBuilder = null,
+        Action<FileLoggerOptions>? configure = null)
     {
         (context is null ? builder.AddFile() : builder.AddFile(context))
             .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, Options.Options.DefaultName);
@@ -95,8 +95,8 @@ public static partial class JsonFileLoggerExtensions
 #else
         TProvider
 #endif
-    >(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
-        Action<FileLoggerOptions> configure = null, string optionsName = null)
+    >(this ILoggingBuilder builder, FileLoggerContext? context = null, JsonFileLogEntryTextBuilder? textBuilder = null,
+        Action<FileLoggerOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
     {
         builder.AddFile<TProvider>(context, configure: null, optionsName)
@@ -120,8 +120,8 @@ public static partial class JsonFileLoggerExtensions
 #else
         TProvider, TOptions
 #endif
-    >(this ILoggingBuilder builder, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
-        Action<TOptions> configure = null, string optionsName = null)
+    >(this ILoggingBuilder builder, FileLoggerContext? context = null, JsonFileLogEntryTextBuilder? textBuilder = null,
+        Action<TOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
         where TOptions : FileLoggerOptions
     {
@@ -140,8 +140,8 @@ public static partial class JsonFileLoggerExtensions
 #else
         TProvider, TOptions
 #endif
-    >(this ILoggingBuilder builder, Action<TOptions, IConfiguration> bindOptions, FileLoggerContext context = null, JsonFileLogEntryTextBuilder textBuilder = null,
-        Action<TOptions> configure = null, string optionsName = null)
+    >(this ILoggingBuilder builder, Action<TOptions, IConfiguration> bindOptions, FileLoggerContext? context = null, JsonFileLogEntryTextBuilder? textBuilder = null,
+        Action<TOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
         where TOptions : FileLoggerOptions
     {

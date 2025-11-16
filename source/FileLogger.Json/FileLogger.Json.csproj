@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net8.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File.Json</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File.Json</RootNamespace>
     <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">true</IsTrimmable>
@@ -35,11 +35,32 @@
       <ItemGroup>
         <PackageReference Include="System.Text.Json" Version="4.6.0" />
       </ItemGroup>
+
+      <ItemGroup>
+        <Compile Include="PooledByteBufferWriter.netstandard2.0.cs" />
+      </ItemGroup>
+    </When>
+
+    <When Condition="'$(TargetFramework)' == 'net6.0' OR '$(TargetFramework)' == 'net8.0'">
+      <ItemGroup>
+        <Compile Include="PooledByteBufferWriter.netstandard2.0.cs" />
+      </ItemGroup>
+    </When>
+
+    <When Condition="'$(TargetFramework)' == 'net10.0'">
+      <ItemGroup>
+        <Compile Include="ArrayBuffer.net9.0.cs" />
+        <Compile Include="PooledByteBufferWriter.net9.0.cs" />
+      </ItemGroup>
     </When>
   </Choose>
 
   <ItemGroup>
     <PackageReference Include="ConfigureAwaitChecker.Analyzer" Version="5.0.0.1">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="PolySharp" Version="1.15.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
@@ -52,5 +73,15 @@
   <ItemGroup>
     <InternalsVisibleTo Include="$(AssemblyName).Test, PublicKey=00240000048000009400000006020000002400005253413100040000010001009386e741f80212b92e6324bd2d5d89871d081fa41cce46ba30a3d3cae4be4935a92cf6c76a55e5192adad2235139d550816388bdad8a972a7a4eace42838c7694a0124c56174ff27690ba4d470c423ee72efac06decef995b89b6e936b59fe4c6ba88d3c2d3a34216221e1bf455faf1c3e88d93f37b0891b2fbbad9bf606d9ce" />
   </ItemGroup>
+
+  <!-- Configure polyfills -->
+
+  <PropertyGroup>
+    <PolySharpIncludeGeneratedTypes Condition="!$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.1'))">
+      $(PolySharpIncludeGeneratedTypes);
+      System.Diagnostics.CodeAnalysis.DisallowNullAttribute;
+      System.Diagnostics.CodeAnalysis.DoesNotReturnAttribute;
+    </PolySharpIncludeGeneratedTypes>
+  </PropertyGroup>
 
 </Project>

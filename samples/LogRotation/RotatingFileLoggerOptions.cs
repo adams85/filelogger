@@ -12,13 +12,13 @@ public class RotatingFileLoggerOptions : FileLoggerOptions
         MaxFiles = other.MaxFiles;
     }
 
-    public new RotatingLogFileOptions[] Files
+    public new RotatingLogFileOptions[]? Files
     {
-        get => (RotatingLogFileOptions[])base.Files;
+        get => (RotatingLogFileOptions[]?)base.Files;
         set => base.SetFiles(value);
     }
 
-    protected override void SetFiles(LogFileOptions[] value)
+    protected override void SetFiles(LogFileOptions[]? value)
     {
         // NOTE: Reflection-based configuration binding calls the setter of the Files property
         // in the base class even though it's shadowed by this subclass. So, we make it a no-op
@@ -37,7 +37,7 @@ public class RotatingFileLoggerOptions : FileLoggerOptions
 
         public BindingWrapper(RotatingFileLoggerOptions options) : base(options) { }
 
-        public RotatingLogFileOptions.BindingWrapper[] Files
+        public RotatingLogFileOptions.BindingWrapper[]? Files
         {
             get;
             set => Options.Files = (field = value)?.Select(file => file.Options).ToArray();

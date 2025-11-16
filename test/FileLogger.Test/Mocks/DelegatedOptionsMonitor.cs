@@ -6,7 +6,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Mocks;
 internal class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
 {
     private readonly Func<string, TOptions> _getCurrentValue;
-    private Action<TOptions, string> _listeners;
+    private Action<TOptions, string>? _listeners;
     private readonly object _gate;
 
     public DelegatedOptionsMonitor(Func<string, TOptions> getCurrentValue)
@@ -17,9 +17,9 @@ internal class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
 
     public TOptions CurrentValue => _getCurrentValue(Options.DefaultName);
 
-    public TOptions Get(string name) => _getCurrentValue(name ?? Options.DefaultName);
+    public TOptions Get(string? name) => _getCurrentValue(name ?? Options.DefaultName);
 
-    public void Reload(string name = null)
+    public void Reload(string? name = null)
     {
         name ??= Options.DefaultName;
 
@@ -36,8 +36,8 @@ internal class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
 
     private class ChangeRegistrationToken : IDisposable
     {
-        private DelegatedOptionsMonitor<TOptions> _owner;
-        private Action<TOptions, string> _listener;
+        private DelegatedOptionsMonitor<TOptions>? _owner;
+        private Action<TOptions, string>? _listener;
 
         public ChangeRegistrationToken(DelegatedOptionsMonitor<TOptions> owner, Action<TOptions, string> listener)
         {
@@ -49,7 +49,7 @@ internal class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
         {
             if (_listener is not null)
             {
-                lock (_owner._gate)
+                lock (_owner!._gate)
                     _owner._listeners -= _listener;
 
                 _listener = null;

@@ -13,7 +13,7 @@ public class FileLoggerContext
     public static readonly FileLoggerContext Default = new(completeToken: default);
 
     public FileLoggerContext(CancellationToken completeToken)
-        : this(completeToken, null, null) { }
+        : this(completeToken, completionTimeout: null, writeRetryDelay: null) { }
 
     public FileLoggerContext(CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
     {
@@ -28,7 +28,7 @@ public class FileLoggerContext
 
     public TimeSpan WriteRetryDelay { get; }
 
-    public event Action<IFileLoggerDiagnosticEvent> DiagnosticEvent;
+    public event Action<IFileLoggerDiagnosticEvent>? DiagnosticEvent;
 
     internal void ReportDiagnosticEvent<TEvent>(in TEvent @event)
         where TEvent : struct, IFileLoggerDiagnosticEvent
@@ -42,7 +42,7 @@ public class FileLoggerContext
     {
         return serviceProvider.GetRequiredService<IEnumerable<ILoggerProvider>>()
             .OfType<FileLoggerProvider>()
-            .Where(provider => provider.Context == this);
+            .Where(provider => ReferenceEquals(provider.Context, this));
     }
 
     public Task GetCompletion(IServiceProvider serviceProvider)

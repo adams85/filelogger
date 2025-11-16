@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -8,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File.Json;
 
-// based on: https://github.com/dotnet/runtime/blob/v6.0.4/src/libraries/Microsoft.Extensions.Logging.Console/src/JsonConsoleFormatter.cs
+// based on: https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/Microsoft.Extensions.Logging.Console/src/JsonConsoleFormatter.cs
 public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
 {
     public static readonly JsonFileLogEntryTextBuilder Default = new();
@@ -26,7 +28,7 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
     public JsonFileLogEntryTextBuilder(JsonFileLogFormatOptions formatOptions)
         : this((formatOptions ?? throw new ArgumentNullException(nameof(formatOptions))).JsonWriterOptions, formatOptions.EntrySeparator) { }
 
-    private JsonFileLogEntryTextBuilder(JsonWriterOptions? jsonWriterOptions, string entrySeparator)
+    private JsonFileLogEntryTextBuilder(JsonWriterOptions? jsonWriterOptions, string? entrySeparator)
     {
         _jsonWriterOptions = jsonWriterOptions ?? new JsonWriterOptions { Indented = true };
         _entrySeparator = entrySeparator ?? ",";
@@ -42,7 +44,7 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
             LogLevel.Warning => "Warning",
             LogLevel.Error => "Error",
             LogLevel.Critical => "Critical",
-            _ => throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, null)
+            _ => throw new ArgumentOutOfRangeException(nameof(logLevel), logLevel, message: null)
         };
     }
 
@@ -66,7 +68,7 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         writer.WriteString("Category", categoryName);
     }
 
-    protected virtual void WriteMessage(Utf8JsonWriter writer, string message)
+    protected virtual void WriteMessage(Utf8JsonWriter writer, string? message)
     {
         writer.WriteString("Message", message);
     }
@@ -78,7 +80,7 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
 
     protected virtual void WriteNonPrimitiveValue(Utf8JsonWriter writer, object obj)
     {
-        string stringValue = obj switch
+        string? stringValue = obj switch
         {
             byte[] byteArray => Convert.ToBase64String(byteArray),
             _ => Convert.ToString(obj, CultureInfo.InvariantCulture),
@@ -87,70 +89,74 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         writer.WriteStringValue(stringValue);
     }
 
-    protected virtual void WriteValue(Utf8JsonWriter writer, object value)
+    protected virtual void WriteValue(Utf8JsonWriter writer, object? value)
     {
-        switch (value)
+        if (value is null)
         {
-            case null:
-                writer.WriteNullValue();
+            writer.WriteNullValue();
+            return;
+        }
+
+        switch (Type.GetTypeCode(value.GetType()))
+        {
+            case TypeCode.String:
+                writer.WriteStringValue((string)value!);
                 break;
-            case string stringValue:
-                writer.WriteStringValue(stringValue);
+            case TypeCode.Boolean:
+                writer.WriteBooleanValue((bool)value!);
                 break;
-            case bool boolValue:
-                writer.WriteBooleanValue(boolValue);
+            case TypeCode.Byte:
+                writer.WriteNumberValue((byte)value!);
                 break;
-            case byte byteValue:
-                writer.WriteNumberValue(byteValue);
+            case TypeCode.SByte:
+                writer.WriteNumberValue((sbyte)value!);
                 break;
-            case sbyte sbyteValue:
-                writer.WriteNumberValue(sbyteValue);
-                break;
-            case char charValue:
+            case TypeCode.Char:
+                char charValue = (char)value!;
 #if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
                 writer.WriteStringValue(MemoryMarshal.CreateSpan(ref charValue, 1));
 #else
                 writer.WriteStringValue(charValue.ToString());
 #endif
                 break;
-            case decimal decimalValue:
-                writer.WriteNumberValue(decimalValue);
+            case TypeCode.Decimal:
+                writer.WriteNumberValue((decimal)value!);
                 break;
-            case double doubleValue:
-                writer.WriteNumberValue(doubleValue);
+            case TypeCode.Double:
+                writer.WriteNumberValue((double)value!);
                 break;
-            case float floatValue:
-                writer.WriteNumberValue(floatValue);
+            case TypeCode.Single:
+                writer.WriteNumberValue((float)value!);
                 break;
-            case int intValue:
-                writer.WriteNumberValue(intValue);
+            case TypeCode.Int32:
+                writer.WriteNumberValue((int)value!);
                 break;
-            case uint uintValue:
-                writer.WriteNumberValue(uintValue);
+            case TypeCode.UInt32:
+                writer.WriteNumberValue((uint)value!);
                 break;
-            case long longValue:
-                writer.WriteNumberValue(longValue);
+            case TypeCode.Int64:
+                writer.WriteNumberValue((long)value!);
                 break;
-            case ulong ulongValue:
-                writer.WriteNumberValue(ulongValue);
+            case TypeCode.UInt64:
+                writer.WriteNumberValue((ulong)value!);
                 break;
-            case short shortValue:
-                writer.WriteNumberValue(shortValue);
+            case TypeCode.Int16:
+                writer.WriteNumberValue((short)value!);
                 break;
-            case ushort ushortValue:
-                writer.WriteNumberValue(ushortValue);
+            case TypeCode.UInt16:
+                writer.WriteNumberValue((ushort)value!);
                 break;
             default:
-                WriteNonPrimitiveValue(writer, value);
+                WriteNonPrimitiveValue(writer, value!);
                 break;
         }
     }
 
-    protected virtual void WriteState<TState>(Utf8JsonWriter writer, TState state, string message)
+    protected virtual void WriteState<TState>(Utf8JsonWriter writer, [DisallowNull] TState state, string? message)
     {
         writer.WriteStartObject("State");
 
-        string stateMessage = state.ToString();
+        string? stateMessage = state.ToString();
 
         if (!string.Equals(message, stateMessage))
         {
@@ -197,8 +203,8 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         writer.WriteEndArray();
     }
 
-    protected virtual void WriteEntryObject<TState>(Utf8JsonWriter writer, string categoryName, LogLevel logLevel, EventId eventId, string message, TState state, Exception exception,
-        IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
+    protected virtual void WriteEntryObject<TState>(Utf8JsonWriter writer, string categoryName, LogLevel logLevel, EventId eventId, string? message, TState state, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
     {
         writer.WriteStartObject();
 
@@ -226,8 +232,8 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         sb.Append(_entrySeparator).Append(Environment.NewLine);
     }
 
-    public override void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string message, TState state, Exception exception,
-        IExternalScopeProvider scopeProvider, DateTimeOffset timestamp)
+    public override void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, TState state, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
     {
         using (var output = new PooledByteBufferWriter(initialCapacity: 1024))
         {
@@ -238,7 +244,19 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
                 writer.Flush();
             }
 
-#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
+#if NET9_0_OR_GREATER
+            ReadOnlySpan<byte> messageBytes = output.WrittenSpan;
+            char[] logMessageBuffer = ArrayPool<char>.Shared.Rent(Encoding.UTF8.GetMaxCharCount(messageBytes.Length));
+            try
+            {
+                int charsWritten = Encoding.UTF8.GetChars(messageBytes, logMessageBuffer);
+                sb.Append(logMessageBuffer.AsSpan(0, charsWritten));
+            }
+            finally
+            {
+                ArrayPool<char>.Shared.Return(logMessageBuffer);
+            }
+#elif NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
             sb.Append(Encoding.UTF8.GetString(output.WrittenMemory.AsSpan()));
 #else
             sb.Append(Encoding.UTF8.GetString(output.WrittenMemory.Array, output.WrittenMemory.Offset, output.WrittenMemory.Count));

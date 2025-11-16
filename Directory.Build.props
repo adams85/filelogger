@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <LangVersion>14</LangVersion>
+    <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsNotAsErrors>SYSLIB1104</WarningsNotAsErrors>
   </PropertyGroup>

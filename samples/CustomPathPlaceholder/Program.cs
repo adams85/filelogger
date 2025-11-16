@@ -12,7 +12,7 @@ namespace CustomPathPlaceholder;
 // This sample demonstrates how to customize the resolving of placeholders in log file paths.
 internal class Program
 {
-    private static readonly string s_appName = Assembly.GetEntryAssembly().GetName().Name;
+    private static readonly string s_appName = Assembly.GetEntryAssembly()!.GetName().Name!;
 
     private static async Task Main(string[] args)
     {

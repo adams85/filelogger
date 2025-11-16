@@ -22,35 +22,35 @@ public enum LogFileAccessMode
 public interface ILogFileSettingsBase
 {
     LogFileAccessMode? FileAccessMode { get; }
-    Encoding FileEncoding { get; }
-    string DateFormat { get; }
-    string CounterFormat { get; }
+    Encoding? FileEncoding { get; }
+    string? DateFormat { get; }
+    string? CounterFormat { get; }
     long? MaxFileSize { get; }
-    IFileLogEntryTextBuilder TextBuilder { get; }
+    IFileLogEntryTextBuilder? TextBuilder { get; }
     bool? IncludeScopes { get; }
     int? MaxQueueSize { get; }
-    LogFilePathPlaceholderResolver PathPlaceholderResolver { get; }
+    LogFilePathPlaceholderResolver? PathPlaceholderResolver { get; }
 }
 
 public interface ILogFileSettings : ILogFileSettingsBase
 {
-    string Path { get; }
+    string? Path { get; }
 
     LogLevel GetMinLevel(string categoryName);
 }
 
 public abstract class LogFileSettingsBase : ILogFileSettingsBase
 {
-    private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> TextBuilderCache
-    {
-        get => LazyInitializer.EnsureInitialized(ref field, () => new ConcurrentDictionary<Type, IFileLogEntryTextBuilder>());
-        set;
-    }
+    private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> TextBuilderCache =>
+        LazyInitializer.EnsureInitialized(ref field, () => new ConcurrentDictionary<Type, IFileLogEntryTextBuilder>())!;
 
     public LogFileSettingsBase() { }
 
     protected LogFileSettingsBase(LogFileSettingsBase other)
     {
+        if (other is null)
+            throw new ArgumentNullException(nameof(other));
+
         FileAccessMode = other.FileAccessMode;
         FileEncoding = other.FileEncoding;
         DateFormat = other.DateFormat;
@@ -64,23 +64,23 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
 
     public LogFileAccessMode? FileAccessMode { get; set; }
 
-    public Encoding FileEncoding { get; set; }
+    public Encoding? FileEncoding { get; set; }
 
-    public string FileEncodingName
+    public string? FileEncodingName
     {
         get => FileEncoding?.WebName;
         set => FileEncoding = !string.IsNullOrEmpty(value) ? Encoding.GetEncoding(value) : null;
     }
 
-    public string DateFormat { get; set; }
+    public string? DateFormat { get; set; }
 
-    public string CounterFormat { get; set; }
+    public string? CounterFormat { get; set; }
 
     public long? MaxFileSize { get; set; }
 
-    public IFileLogEntryTextBuilder TextBuilder { get; set; }
+    public IFileLogEntryTextBuilder? TextBuilder { get; set; }
 
-    public string TextBuilderType
+    public string? TextBuilderType
     {
         get => TextBuilder?.GetType().AssemblyQualifiedName;
 #if NET5_0_OR_GREATER
@@ -89,9 +89,12 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         set
         {
             if (string.IsNullOrEmpty(value))
+            {
                 TextBuilder = null;
+                return;
+            }
 
-            var type = Type.GetType(value, throwOnError: true);
+            var type = Type.GetType(value, throwOnError: true)!;
 
             // it's important to return the same instance of a given text builder type
             // because FileLogger use the instance in its internal cache (FileGroups) as a part of the key
@@ -112,7 +115,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
 
     public int? MaxQueueSize { get; set; }
 
-    public LogFilePathPlaceholderResolver PathPlaceholderResolver { get; set; }
+    public LogFilePathPlaceholderResolver? PathPlaceholderResolver { get; set; }
 
 #if NET8_0_OR_GREATER
     public abstract class BindingWrapperBase<TOptions>
@@ -122,7 +125,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
 
         protected BindingWrapperBase(TOptions options)
         {
-            Options = options;
+            Options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
         public LogFileAccessMode? FileAccessMode
@@ -131,19 +134,19 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
             set => Options.FileAccessMode = value;
         }
 
-        public string FileEncodingName
+        public string? FileEncodingName
         {
             get => Options.FileEncodingName;
             set => Options.FileEncodingName = value;
         }
 
-        public string DateFormat
+        public string? DateFormat
         {
             get => Options.DateFormat;
             set => Options.DateFormat = value;
         }
 
-        public string CounterFormat
+        public string? CounterFormat
         {
             get => Options.CounterFormat;
             set => Options.CounterFormat = value;
@@ -155,7 +158,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
             set => Options.MaxFileSize = value;
         }
 
-        public string TextBuilderType
+        public string? TextBuilderType
         {
             get => Options.TextBuilderType;
             [UnconditionalSuppressMessage("Trimming", "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
@@ -211,9 +214,9 @@ public class LogFileOptions : LogFileSettingsBase, ILogFileSettings
             MinLevel = new Dictionary<string, LogLevel>(other.MinLevel);
     }
 
-    public string Path { get; set; }
+    public string? Path { get; set; }
 
-    public Dictionary<string, LogLevel> MinLevel { get; set; }
+    public Dictionary<string, LogLevel>? MinLevel { get; set; }
 
     LogLevel ILogFileSettings.GetMinLevel(string categoryName)
     {
@@ -248,13 +251,13 @@ public class LogFileOptions : LogFileSettingsBase, ILogFileSettings
     {
         protected BindingWrapperBase(TOptions options) : base(options) { }
 
-        public string Path
+        public string? Path
         {
             get => Options.Path;
             set => Options.Path = value;
         }
 
-        public Dictionary<string, LogLevel> MinLevel
+        public Dictionary<string, LogLevel>? MinLevel
         {
             get => Options.MinLevel;
             set => Options.MinLevel = value;

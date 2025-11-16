@@ -154,7 +154,7 @@ public class LoggingTest
     {
         string logsDirName = Guid.NewGuid().ToString("D");
 
-        var configData = new Dictionary<string, string>
+        var configData = new Dictionary<string, string?>
         {
             [$"{nameof(FileLoggerOptions.BasePath)}"] = logsDirName,
             [$"{nameof(FileLoggerOptions.FileEncodingName)}"] = "UTF-16",
@@ -204,7 +204,7 @@ public class LoggingTest
                 providers = context.GetProviders(sp).ToArray();
                 Assert.Single(providers);
 
-                ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
+                ILogger<LoggingTest> logger1 = sp.GetRequiredService<ILogger<LoggingTest>>();
 
                 logger1.LogInformation("This is a nice logger.");
                 using (logger1.BeginScope("SCOPE"))
@@ -214,7 +214,7 @@ public class LoggingTest
 
                     using (logger1.BeginScope("NESTED SCOPE"))
                     {
-                        ILoggerFactory loggerFactory = sp.GetService<ILoggerFactory>();
+                        ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                         ILogger logger2 = loggerFactory.CreateLogger("X");
                         logger2.LogError(0, ex, "Some failure!");
                     }
@@ -310,7 +310,7 @@ public class LoggingTest
                 providers = context.GetProviders(sp).ToArray();
                 Assert.Single(providers);
 
-                ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
+                ILogger<LoggingTest> logger1 = sp.GetRequiredService<ILogger<LoggingTest>>();
 
                 logger1.LogInformation("This is a nice logger.");
                 logger1.LogWarning(1, "This is a smart logger.");
@@ -374,7 +374,7 @@ public class LoggingTest
             providers = context.GetProviders(sp).ToArray();
             Assert.Single(providers);
 
-            ILogger<LoggingTest> logger1 = sp.GetService<ILogger<LoggingTest>>();
+            ILogger<LoggingTest> logger1 = sp.GetRequiredService<ILogger<LoggingTest>>();
 
             logger1.LogInformation("This is a nice logger.");
             logger1.LogWarning(1, "This is a smart logger.");

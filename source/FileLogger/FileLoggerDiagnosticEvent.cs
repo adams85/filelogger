@@ -6,7 +6,7 @@ public interface IFileLoggerDiagnosticEvent
 {
     object Source { get; }
     FormattableString FormattableMessage { get; }
-    Exception Exception { get; }
+    Exception? Exception { get; }
 }
 
 internal static class FileLoggerDiagnosticEvent
@@ -20,7 +20,7 @@ internal static class FileLoggerDiagnosticEvent
 
         public object Source { get; }
         public FormattableString FormattableMessage => $"Log file queues were not completed within the allowed time limit. Forcing completion.";
-        public Exception Exception => null;
+        public Exception? Exception => null;
 
         public override string ToString() => FormattableMessage.ToString();
     }
@@ -39,7 +39,7 @@ internal static class FileLoggerDiagnosticEvent
 
         public object Source { get; }
         public FormattableString FormattableMessage => $"Log entry '{_logEntry.Text}' created at {_logEntry.Timestamp} was dropped because the queue of log file \"{_logFile.PathFormat}\" was full.";
-        public Exception Exception => null;
+        public Exception? Exception => null;
 
         public override string ToString() => FormattableMessage.ToString();
     }

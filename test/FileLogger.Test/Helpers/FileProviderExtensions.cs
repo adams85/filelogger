@@ -6,7 +6,7 @@ namespace Karambolo.Extensions.Logging.File.Test.Helpers;
 
 public static class FileProviderExtensions
 {
-    private static string ReadAllText(this IFileInfo fileInfo, Encoding encoding, out Encoding detectedEncoding)
+    private static string ReadAllText(this IFileInfo fileInfo, Encoding? encoding, out Encoding detectedEncoding)
     {
         using (Stream stream = fileInfo.CreateReadStream())
         using (StreamReader reader = encoding is not null ? new StreamReader(stream, encoding) : new StreamReader(stream, detectEncodingFromByteOrderMarks: true))
@@ -17,13 +17,13 @@ public static class FileProviderExtensions
         }
     }
 
-    public static string ReadAllText(this IFileInfo fileInfo, Encoding encoding = null)
+    public static string ReadAllText(this IFileInfo fileInfo, Encoding? encoding = null)
     {
         return ReadAllText(fileInfo, encoding ?? Encoding.UTF8, out _);
     }
 
     public static string ReadAllText(this IFileInfo fileInfo, out Encoding detectedEncoding)
     {
-        return ReadAllText(fileInfo, null, out detectedEncoding);
+        return ReadAllText(fileInfo, encoding: null, out detectedEncoding);
     }
 }
