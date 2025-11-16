@@ -1,5 +1,7 @@
 using System;
 
+#pragma warning disable CA1305 // Specify IFormatProvider
+
 namespace Karambolo.Extensions.Logging.File;
 
 public interface IFileLoggerDiagnosticEvent

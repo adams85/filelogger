@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
+#pragma warning disable CA2201 // Do not raise reserved exception types
+
 namespace Karambolo.Extensions.Logging.File.Json;
 
 // based on: https://github.com/dotnet/runtime/blob/v8.0.22/src/libraries/Common/src/System/Text/Json/PooledByteBufferWriter.cs

@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#pragma warning disable CA2201 // Do not raise reserved exception types
+
 namespace Karambolo.Extensions.Logging.File.Json;
 
 // Warning: Mutable struct!
