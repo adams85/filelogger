@@ -73,6 +73,7 @@
 
       <ItemGroup>
         <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
+        <Compile Include="TimeProviderAwareFileLoggerContext.net8.0.cs" />
       </ItemGroup>
     </When>
 
@@ -85,6 +86,7 @@
 
       <ItemGroup>
         <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
+        <Compile Include="TimeProviderAwareFileLoggerContext.net8.0.cs" />
       </ItemGroup>
     </When>
   </Choose>

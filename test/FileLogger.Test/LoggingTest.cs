@@ -60,7 +60,6 @@ public class LoggingTest
                         ["Karambolo.Extensions.Logging.File"] = LogLevel.Information,
                         [LogFileOptions.DefaultCategoryName] = LogLevel.None,
                     }
-
                 },
             ],
             TextBuilder = new CustomLogEntryTextBuilder(),
@@ -389,4 +388,55 @@ public class LoggingTest
         var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/{appName}-000.log");
         Assert.True(logFile.Exists && !logFile.IsDirectory);
     }
+
+#if NET8_0_OR_GREATER
+    [Fact]
+    public async Task LoggingToMemoryWhenTimeProviderIsRegisteredInDI()
+    {
+        const string appName = "myapp";
+
+        var fileProvider = new MemoryFileProvider();
+
+        var fakeTimeProvider = new TestTimeProvider();
+        fakeTimeProvider.SetUtcNow(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var services = new ServiceCollection();
+        services.AddSingleton<TimeProvider>(fakeTimeProvider);
+        services.AddOptions();
+        services.AddLogging(b => b.AddFile(o =>
+        {
+            o.FileAppender = new MemoryFileAppender(fileProvider);
+            o.Files =
+            [
+                new LogFileOptions
+                {
+                    Path = "test-<date>.log"
+                }
+            ];
+            o.PathPlaceholderResolver = (placeholderName, inlineFormat, context) => placeholderName == "appname" ? appName : null;
+        }));
+
+        await using (ServiceProvider sp = services.BuildServiceProvider())
+        {
+            ILogger<LoggingTest> logger1 = sp.GetRequiredService<ILogger<LoggingTest>>();
+
+            logger1.LogInformation("This is a nice logger.");
+            logger1.LogWarning(1, "This is a smart logger.");
+        }
+
+        var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"test-{fakeTimeProvider.GetUtcNow():yyyyMMdd}.log");
+        Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+        string[] lines = logFile.ReadAllText(out Encoding encoding).Split([Environment.NewLine], StringSplitOptions.None);
+        Assert.Equal(Encoding.UTF8, encoding);
+        Assert.Equal(new[]
+        {
+            $"info: {typeof(LoggingTest)}[0] @ {fakeTimeProvider.GetUtcNow().ToLocalTime():o}",
+            $"      This is a nice logger.",
+            $"warn: {typeof(LoggingTest)}[1] @ {fakeTimeProvider.GetUtcNow().ToLocalTime():o}",
+            $"      This is a smart logger.",
+            ""
+        }, lines);
+    }
+#endif
 }

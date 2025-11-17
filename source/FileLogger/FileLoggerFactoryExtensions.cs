@@ -32,6 +32,18 @@ public static partial class FileLoggerFactoryExtensions
     private const string TrimmingRequiresUnreferencedCodeMessage = $"{nameof(FileLoggerOptions)}'s dependent types may have their members trimmed. Ensure all required members are preserved.";
 #endif
 
+    private static FileLoggerContext GetDefaultContext(IServiceProvider serviceProvider)
+    {
+#if NET8_0_OR_GREATER
+        if (serviceProvider.GetService<TimeProvider>() is { } timeProvider)
+        {
+            return new TimeProviderAwareFileLoggerContext(timeProvider, completeToken: default);
+        }
+#endif
+
+        return FileLoggerContext.Default;
+    }
+
     private static ILoggingBuilder AddFile<TProvider, TOptions>(this ILoggingBuilder builder, string optionsName, Func<IServiceProvider, TProvider> providerFactory,
         Func<IServiceProvider, FileLoggerOptionsSetup<TProvider, TOptions>> optionsSetupFactory)
         where TProvider : FileLoggerProvider
@@ -80,7 +92,8 @@ public static partial class FileLoggerFactoryExtensions
 #endif
     public static ILoggingBuilder AddFile(this ILoggingBuilder builder)
     {
-        return builder.AddFile<FileLoggerProvider>(Options.Options.DefaultName, sp => new FileLoggerProvider(sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
+        return builder.AddFile<FileLoggerProvider>(Options.Options.DefaultName, sp =>
+            new FileLoggerProvider(GetDefaultContext(sp), sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
     }
 
 #if NET5_0_OR_GREATER && !NET8_0_OR_GREATER
@@ -91,7 +104,8 @@ public static partial class FileLoggerFactoryExtensions
         if (context is null)
             throw new ArgumentNullException(nameof(context));
 
-        return builder.AddFile<FileLoggerProvider>(Options.Options.DefaultName, sp => new FileLoggerProvider(context, sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
+        return builder.AddFile<FileLoggerProvider>(Options.Options.DefaultName, sp =>
+            new FileLoggerProvider(context, sp.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>()));
     }
 
 #if NET5_0_OR_GREATER && !NET8_0_OR_GREATER
@@ -137,9 +151,8 @@ public static partial class FileLoggerFactoryExtensions
 
         optionsName ??= typeof(TProvider).ToString();
 
-        context ??= FileLoggerContext.Default;
-
-        builder.AddFile<TProvider>(optionsName, sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context, optionsName));
+        builder.AddFile<TProvider>(optionsName, sp =>
+            ActivatorUtilities.CreateInstance<TProvider>(sp, context ?? GetDefaultContext(sp), optionsName));
 
         if (configure is not null)
             builder.Services.Configure(optionsName, configure);
@@ -185,10 +198,8 @@ public static partial class FileLoggerFactoryExtensions
 
         optionsName ??= typeof(TProvider).ToString();
 
-        context ??= FileLoggerContext.Default;
-
         builder.AddFile<TProvider, TOptions>(optionsName,
-            providerFactory: sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context, optionsName),
+            providerFactory: sp => ActivatorUtilities.CreateInstance<TProvider>(sp, context ?? GetDefaultContext(sp), optionsName),
             optionsSetupFactory: sp =>
             {
                 IConfiguration config = sp.GetRequiredService<ILoggerProviderConfiguration<TProvider>>().Configuration;
