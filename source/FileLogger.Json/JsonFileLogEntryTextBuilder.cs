@@ -21,10 +21,6 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
     protected JsonFileLogEntryTextBuilder()
         : this(jsonWriterOptions: null, entrySeparator: null) { }
 
-    [Obsolete("This constructor will be removed in a future major version. Please use the other overload which accepts an instance of " + nameof(JsonFileLogFormatOptions) + ".")]
-    public JsonFileLogEntryTextBuilder(JsonWriterOptions jsonWriterOptions)
-        : this(jsonWriterOptions, entrySeparator: null) { }
-
     public JsonFileLogEntryTextBuilder(JsonFileLogFormatOptions formatOptions)
         : this((formatOptions ?? throw new ArgumentNullException(nameof(formatOptions))).JsonWriterOptions, formatOptions.EntrySeparator) { }
 
