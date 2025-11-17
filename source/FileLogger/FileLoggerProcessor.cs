@@ -481,7 +481,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                         goto case writeState;
                     }
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
+                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
                 {
                     ReportFailure(logFile, entry, ex);
 
@@ -498,7 +498,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
                     goto case writeState;
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
+                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
                 {
                     goto case retryOpenFileState;
                 }
@@ -510,7 +510,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
                     goto case writeState;
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
+                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
                 {
                     ReportFailure(logFile, entry, ex);
 
@@ -541,7 +541,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
                     return;
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException operationCanceledEx && operationCanceledEx.CancellationToken == forcedCompleteToken))
+                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
                 {
                     ReportFailure(logFile, entry, ex);
 
