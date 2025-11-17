@@ -13,9 +13,9 @@ public interface IFileLoggerDiagnosticEvent
 
 internal static class FileLoggerDiagnosticEvent
 {
-    internal readonly struct QueuesCompletionForced : IFileLoggerDiagnosticEvent
+    internal sealed class QueuesCompletionForced : IFileLoggerDiagnosticEvent
     {
-        internal QueuesCompletionForced(object source)
+        internal QueuesCompletionForced(FileLoggerProcessor source)
         {
             Source = source;
         }
@@ -27,12 +27,12 @@ internal static class FileLoggerDiagnosticEvent
         public override string ToString() => FormattableMessage.ToString();
     }
 
-    internal readonly struct LogEntryDropped : IFileLoggerDiagnosticEvent
+    internal sealed class LogEntryDropped : IFileLoggerDiagnosticEvent
     {
         private readonly FileLoggerProcessor.LogFileInfo _logFile;
         private readonly FileLogEntry _logEntry;
 
-        internal LogEntryDropped(object source, FileLoggerProcessor.LogFileInfo logFile, FileLogEntry logEntry)
+        internal LogEntryDropped(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, FileLogEntry logEntry)
         {
             Source = source;
             _logFile = logFile;
@@ -46,12 +46,12 @@ internal static class FileLoggerDiagnosticEvent
         public override string ToString() => FormattableMessage.ToString();
     }
 
-    internal readonly struct LogEntryWriteFailed : IFileLoggerDiagnosticEvent
+    internal sealed class LogEntryWriteFailed : IFileLoggerDiagnosticEvent
     {
         private readonly FileLoggerProcessor.LogFileInfo _logFile;
         private readonly FileLogEntry _logEntry;
 
-        internal LogEntryWriteFailed(object source, FileLoggerProcessor.LogFileInfo logFile, FileLogEntry logEntry, Exception exception)
+        internal LogEntryWriteFailed(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, FileLogEntry logEntry, Exception exception)
         {
             Source = source;
             _logFile = logFile;

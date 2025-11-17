@@ -286,7 +286,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 #endif
 
             if (hasCompletionTimedOut)
-                Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
+                Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
 
             forcedCompleteTokenSource.Cancel();
             forcedCompleteTokenSource.Dispose();
@@ -308,9 +308,9 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         return ResetCoreAsync(onQueuesCompleted: null, complete: true);
     }
 
-    private async void Complete()
+    private void Complete()
     {
-        await CompleteAsync().ConfigureAwait(false);
+        Task.Run(CompleteAsync);
     }
 
     protected virtual LogFileInfo CreateLogFile(ILogFileSettings fileSettings, IFileLoggerSettings settings)
@@ -360,7 +360,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         }
 
         if (!logFile.Queue.Writer.TryWrite(entry))
-            Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
+            Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
     }
 
     protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, FileLogEntry entry)
@@ -559,7 +559,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         void ReportFailure(LogFileInfo logFile, FileLogEntry entry, Exception exception)
         {
-            Context.ReportDiagnosticEvent(new FileLoggerDiagnosticEvent.LogEntryWriteFailed(this, logFile, entry, exception));
+            Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryWriteFailed(this, logFile, entry, exception));
         }
     }
 

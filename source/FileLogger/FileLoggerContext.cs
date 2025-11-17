@@ -30,11 +30,7 @@ public class FileLoggerContext
 
     public event Action<IFileLoggerDiagnosticEvent>? DiagnosticEvent;
 
-    internal void ReportDiagnosticEvent<TEvent>(in TEvent @event)
-        where TEvent : struct, IFileLoggerDiagnosticEvent
-    {
-        DiagnosticEvent?.Invoke(@event);
-    }
+    internal Action<IFileLoggerDiagnosticEvent>? GetDiagnosticEventReporter() => DiagnosticEvent;
 
     public virtual DateTimeOffset GetTimestamp() => DateTimeOffset.UtcNow;
 
