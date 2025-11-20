@@ -7,6 +7,8 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
 
+    <NeutralLanguage>en-US</NeutralLanguage>
+
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <ArtifactsPath>$(MSBuildThisFileDirectory)..\artifacts</ArtifactsPath>
 
@@ -16,12 +18,14 @@
     <Copyright>© 2025 Adam Simon</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/adams85/filelogger</PackageProjectUrl>
+    <PackageReleaseNotes>https://github.com/adams85/filelogger/releases</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
+    <!-- Enable Source Link (for details, see https://github.com/dotnet/sourcelink/#using-sourcelink) -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
   <ItemGroup>
