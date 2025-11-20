@@ -146,6 +146,6 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     [MethodImpl(MethodImplOptions.NoInlining)]
     internal static void ThrowOutOfMemoryException_BufferMaximumSizeExceeded(uint capacity)
     {
-        throw new OutOfMemoryException($"Cannot allocate a buffer of size {capacity}.");
+        throw new OutOfMemoryException();
     }
 }

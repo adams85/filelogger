@@ -1,4 +1,6 @@
 using System;
+using System.Runtime.CompilerServices;
+using Karambolo.Extensions.Logging.File.Properties;
 
 #pragma warning disable CA1305 // Specify IFormatProvider
 
@@ -21,7 +23,10 @@ internal static class FileLoggerDiagnosticEvent
         }
 
         public object Source { get; }
-        public FormattableString FormattableMessage => $"Log file queues were not completed within the allowed time limit. Forcing completion.";
+
+        public FormattableString FormattableMessage =>
+            FormattableStringFactory.Create(Resources.DiagnosticEvent_QueuesCompletionForced);
+
         public Exception? Exception => null;
 
         public override string ToString() => FormattableMessage.ToString();
@@ -40,7 +45,10 @@ internal static class FileLoggerDiagnosticEvent
         }
 
         public object Source { get; }
-        public FormattableString FormattableMessage => $"Log entry '{_logEntry.Text}' created at {_logEntry.Timestamp} was dropped because the queue of log file \"{_logFile.PathFormat}\" was full.";
+
+        public FormattableString FormattableMessage =>
+            FormattableStringFactory.Create(Resources.DiagnosticEvent_LogEntryDropped, _logEntry.Text, _logEntry.Timestamp, _logFile.PathFormat);
+
         public Exception? Exception => null;
 
         public override string ToString() => FormattableMessage.ToString();
@@ -60,9 +68,11 @@ internal static class FileLoggerDiagnosticEvent
         }
 
         public object Source { get; }
+
         public Exception Exception { get; }
 
-        public FormattableString FormattableMessage => $"Writing log entry '{_logEntry.Text}' created at {_logEntry.Timestamp} to log file \"{_logFile.PathFormat}\" failed. {Exception}";
+        public FormattableString FormattableMessage =>
+            FormattableStringFactory.Create(Resources.DiagnosticEvent_LogEntryWriteFailed, _logEntry.Text, _logEntry.Timestamp, _logFile.PathFormat, Exception);
 
         public override string ToString() => FormattableMessage.ToString();
     }

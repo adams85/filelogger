@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
+using Karambolo.Extensions.Logging.File.Properties;
 using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File;
@@ -84,7 +85,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
     {
         get => TextBuilder?.GetType().AssemblyQualifiedName;
 #if NET5_0_OR_GREATER
-        [RequiresUnreferencedCode($"{nameof(TextBuilderType)} is not compatible with trimming. Use the {nameof(TextBuilder)} property instead.")]
+        [RequiresUnreferencedCode($"{nameof(TextBuilderType)} is not compatible with trimming. Ensure the specified type is preserved or use the {nameof(TextBuilder)} property instead.")]
 #endif
         set
         {
@@ -101,10 +102,10 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
             TextBuilder = TextBuilderCache.GetOrAdd(type, type =>
             {
                 if (!type.GetTypeInfo().ImplementedInterfaces.Contains(typeof(IFileLogEntryTextBuilder)))
-                    throw new ArgumentException($"Type must implement the {typeof(IFileLogEntryTextBuilder).Name} interface.", nameof(value));
+                    throw new ArgumentException(string.Format(provider: null, Resources.InterfaceNotImplemented, typeof(IFileLogEntryTextBuilder)), nameof(value));
 
                 ConstructorInfo ctor = type.GetTypeInfo().DeclaredConstructors.FirstOrDefault(ci => ci.GetParameters().Length == 0)
-                    ?? throw new ArgumentException("Type must provide a parameterless constructor.", nameof(value));
+                    ?? throw new ArgumentException(Resources.ParameterlessCtorNotProvided, nameof(value));
 
                 return (IFileLogEntryTextBuilder)ctor.Invoke(null);
             });
@@ -236,7 +237,7 @@ public class LogFileOptions : LogFileSettingsBase, ILogFileSettings
     {
         if (GetType() != typeof(LogFileOptions))
         {
-            throw new InvalidOperationException($"Inheritors of {nameof(LogFileOptions)} must override the {nameof(Clone)} method and provide an implementation that creates a clone of the subclass instance.");
+            throw new InvalidOperationException(string.Format(provider: null, Resources.ExtendedOptionsCloneNotDefined, typeof(LogFileOptions), nameof(Clone)));
         }
 
         return new LogFileOptions(this);

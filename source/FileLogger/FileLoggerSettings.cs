@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Karambolo.Extensions.Logging.File.Properties;
 
 namespace Karambolo.Extensions.Logging.File;
 
@@ -74,7 +75,7 @@ public class FileLoggerOptions : LogFileSettingsBase, IFileLoggerSettings
     {
         if (GetType() != typeof(FileLoggerOptions))
         {
-            throw new InvalidOperationException($"Inheritors of {nameof(FileLoggerOptions)} must override the {nameof(Clone)} method and provide an implementation that creates a clone of the subclass instance.");
+            throw new InvalidOperationException(string.Format(provider: null, Resources.ExtendedOptionsCloneNotDefined, typeof(FileLoggerOptions), nameof(Clone)));
         }
 
         return new FileLoggerOptions(this);

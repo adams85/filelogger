@@ -4,6 +4,7 @@
     <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File</RootNamespace>
+    <NeutralLanguage>en-US</NeutralLanguage>
     <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">true</IsTrimmable>
     <IsAotCompatible Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">true</IsAotCompatible>
     <EnableConfigurationBindingGenerator Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</EnableConfigurationBindingGenerator>
@@ -12,6 +13,21 @@
     <Description>A lightweight and highly customizable file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
     <PackageTags>filelogger logger logging</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="**\*.net*.cs" />

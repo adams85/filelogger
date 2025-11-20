@@ -9,7 +9,7 @@ public class JsonFileLogFormatOptions
     {
         return new JsonFileLogFormatOptions
         {
-            EntrySeparator = "",
+            EntrySeparator = string.Empty,
             JsonWriterOptions = new JsonWriterOptions { Indented = false, Encoder = encoder }
         };
     }
