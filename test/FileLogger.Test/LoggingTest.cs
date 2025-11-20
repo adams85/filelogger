@@ -263,7 +263,7 @@ public class LoggingTest
         }
     }
 
-    [Fact]
+    [PlatformFact(AssertOn = [OSPlatformEnum.Windows])]
     public async Task LoggingToPhysicalUsingDIAndExpectingDiagnosticEvents()
     {
         string logsDirName = Guid.NewGuid().ToString("D");

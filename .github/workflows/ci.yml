@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+    paths-ignore:
+      - '**.md'
+  pull_request: {}
+  workflow_dispatch:
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test-netfw:
+    strategy:
+      matrix:
+        dotnet-version: [
+          {rt: "4.6.2", tfm: net462},
+          {rt: "4.8.1", tfm: net481},
+        ]
+    name: Build & test on .NET ${{ matrix.dotnet-version.rt }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            10.0.x
+      - name: Build
+        run: |
+          dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }}
+      - name: Test
+        run: |
+          dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build
+
+  build-and-test-netcore:
+    strategy:
+      matrix:
+        dotnet-version: [
+          {rt: "2.1.x", sdk: "2.1.100", tfm: netcoreapp2.1}, # for testing netstandard2.0 build
+          {rt: "3.1.x", sdk: "3.1.100", tfm: netcoreapp3.1}, # for testing netstandard2.1 build
+          {rt: "6.0.x", sdk: "6.0.100", tfm: net6.0},
+          {rt: "8.0.x", sdk: "8.0.100", tfm: net8.0},
+          {rt: "9.0.x", sdk: "9.0.100", tfm: net9.0},
+          {rt: "10.0.x", sdk: "10.0.100", tfm: net10.0}
+        ]
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        exclude:
+          - dotnet-version: {rt: "2.1.x", sdk: "2.1.100", tfm: netcoreapp2.1}
+            os: ubuntu-latest
+          - dotnet-version: {rt: "2.1.x", sdk: "2.1.100", tfm: netcoreapp2.1}
+            os: macOS-latest
+          - dotnet-version: {rt: "3.1.x", sdk: "3.1.100", tfm: netcoreapp3.1}
+            os: ubuntu-latest
+          - dotnet-version: {rt: "3.1.x", sdk: "3.1.100", tfm: netcoreapp3.1}
+            os: macOS-latest
+    name: Build & test on .NET ${{ matrix.dotnet-version.rt }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            ${{ matrix.dotnet-version.rt }}
+            10.0.x
+      - name: Build
+        run: |
+          dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }}
+      - name: Pin dotnet SDK version
+        run: |
+          dotnet new global.json --sdk-version ${{ matrix.dotnet-version.sdk }} --roll-forward latestFeature
+      - name: Test
+        run: |
+          dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build
+
+  publish:
+    needs: [
+      build-and-test-netfw,
+      build-and-test-netcore
+    ]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags')
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Determine version
+      run: |
+        arrTag=(${GITHUB_REF//\// })
+        VERSION="${arrTag[2]}"
+        VERSION="${VERSION//v}"
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    # See also: https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/
+    - name: Build
+      run: |
+        dotnet build FileLogger.sln -c Release /p:ContinuousIntegrationBuild=true /p:Version=$VERSION /p:BuildNumber=$GITHUB_RUN_NUMBER
+
+    - name: Pack
+      run: |
+        dotnet pack FileLogger.sln -c Release --no-build /p:Version=$VERSION /p:BuildNumber=$GITHUB_RUN_NUMBER
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: packages
+        path: artifacts/package/release
+
+    # Symbol packages are auto-pushed, see: https://learn.microsoft.com/en-us/nuget/create-packages/symbol-packages-snupkg#publishing-a-symbol-package
+    # - name: Push to NuGet
+    #   env:
+    #     NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    #   run: |
+    #     dotnet nuget push artifacts/package/release/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json

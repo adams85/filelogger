@@ -59,8 +59,8 @@ public class JsonLoggingTest
         Assert.Equal(Encoding.UTF8, encoding);
         Assert.Equal(new[]
         {
-            "{\"Timestamp\":\"2017-01-01T01:00:00.0000000+01:00\",\"EventId\":0,\"LogLevel\":\"Information\",\"Category\":\"Karambolo.Extensions.Logging.File.Test.LoggingTest\",\"Message\":\"This is a nice logger.\",\"State\":{\"{OriginalFormat}\":\"This is a nice logger.\"}}",
-            "{\"Timestamp\":\"2017-01-01T01:00:00.0000000+01:00\",\"EventId\":1,\"LogLevel\":\"Warning\",\"Category\":\"Karambolo.Extensions.Logging.File.Test.LoggingTest\",\"Message\":\"This is a smart logger.\",\"State\":{\"{OriginalFormat}\":\"This is a smart logger.\"}}",
+            $"{{\"Timestamp\":\"{context.GetTimestamp().ToLocalTime():o}\",\"EventId\":0,\"LogLevel\":\"Information\",\"Category\":\"Karambolo.Extensions.Logging.File.Test.LoggingTest\",\"Message\":\"This is a nice logger.\",\"State\":{{\"{{OriginalFormat}}\":\"This is a nice logger.\"}}}}",
+            $"{{\"Timestamp\":\"{context.GetTimestamp().ToLocalTime():o}\",\"EventId\":1,\"LogLevel\":\"Warning\",\"Category\":\"Karambolo.Extensions.Logging.File.Test.LoggingTest\",\"Message\":\"This is a smart logger.\",\"State\":{{\"{{OriginalFormat}}\":\"This is a smart logger.\"}}}}",
             "",
         }, lines);
     }
@@ -116,7 +116,7 @@ public class JsonLoggingTest
         Assert.Equal(new[]
         {
             "{",
-            "  \"Timestamp\": \"2017-01-01T01:00:00.0000000+01:00\",",
+            $"  \"Timestamp\": \"{context.GetTimestamp().ToLocalTime():o}\",",
             "  \"EventId\": 0,",
             "  \"LogLevel\": \"Information\",",
             "  \"Category\": \"Karambolo.Extensions.Logging.File.Test.LoggingTest\",",
@@ -126,7 +126,7 @@ public class JsonLoggingTest
             "  }",
             "},",
             "{",
-            "  \"Timestamp\": \"2017-01-01T01:00:00.0000000+01:00\",",
+            $"  \"Timestamp\": \"{context.GetTimestamp().ToLocalTime():o}\",",
             "  \"EventId\": 1,",
             "  \"LogLevel\": \"Error\",",
             "  \"Category\": \"Karambolo.Extensions.Logging.File.Test.LoggingTest\",",

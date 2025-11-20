@@ -1,9 +1,16 @@
 <Project>
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
-  <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+  <PropertyGroup Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(Version), '^\d+\.\d+\.\d+(?:[+-]|$)'))">
+    <VersionPrefix Condition="$(Version.Contains('-'))">$(Version.Split('-')[0])</VersionPrefix>
+    <VersionPrefix Condition="!$(Version.Contains('-'))">$(Version)</VersionPrefix>
+    <BuildNumber Condition="$(BuildNumber) == ''">0</BuildNumber>
 
+    <AssemblyVersion>$(VersionPrefix.Split('.')[0]).$(VersionPrefix.Split('.')[1])</AssemblyVersion>
+    <FileVersion>$(VersionPrefix).$(BuildNumber)</FileVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\Karambolo.Public.snk</AssemblyOriginatorKeyFile>
 

@@ -17,7 +17,7 @@ namespace Karambolo.Extensions.Logging.File.Test;
 
 public class EdgeCasesTest
 {
-    [Fact]
+    [PlatformFact(AssertOn = [OSPlatformEnum.Windows])]
     public async Task FailingEntryDontGetStuck()
     {
         string logsDirName = Guid.NewGuid().ToString("D");
