@@ -186,22 +186,22 @@ public class LogFileOptions : LogFileSettingsBase, ILogFileSettings
 {
     protected internal const string DefaultCategoryName = "Default";
 
-    protected internal static IEnumerable<string> GetPrefixes(string categoryName, bool returnDefault = true)
+    protected internal static IEnumerable<ReadOnlyMemory<char>> GetPrefixes(string categoryName)
     {
-        while (!string.IsNullOrEmpty(categoryName))
-        {
-            yield return categoryName;
+        ReadOnlyMemory<char> prefix = categoryName.AsMemory();
 
-            int index = categoryName.LastIndexOf('.');
+        while (!prefix.IsEmpty)
+        {
+            yield return prefix;
+
+            int index = prefix.Span.LastIndexOf('.');
             if (index == -1)
             {
-                if (returnDefault)
-                    yield return DefaultCategoryName;
-
+                yield return DefaultCategoryName.AsMemory();
                 break;
             }
 
-            categoryName = categoryName.Substring(0, index);
+            prefix = prefix.Slice(0, index);
         }
     }
 
@@ -221,16 +221,26 @@ public class LogFileOptions : LogFileSettingsBase, ILogFileSettings
 
     LogLevel ILogFileSettings.GetMinLevel(string categoryName)
     {
-        if (MinLevel is null)
-            return LogLevel.Trace;
-
-        foreach (string prefix in GetPrefixes(categoryName))
+        if (MinLevel is not null)
         {
-            if (MinLevel.TryGetValue(prefix, out LogLevel level))
-                return level;
+#if NET9_0_OR_GREATER
+            var minLevelLookup = MinLevel.GetAlternateLookup<ReadOnlySpan<char>>();
+#endif
+
+            foreach (ReadOnlyMemory<char> prefix in GetPrefixes(categoryName))
+            {
+#if NET9_0_OR_GREATER
+                if (minLevelLookup.TryGetValue(prefix.Span, out LogLevel level))
+#else
+                if (MinLevel.TryGetValue(prefix.ToString(), out LogLevel level))
+#endif
+                {
+                    return level;
+                }
+            }
         }
 
-        return LogLevel.None;
+        return LogLevel.Trace;
     }
 
     protected internal virtual LogFileOptions Clone()

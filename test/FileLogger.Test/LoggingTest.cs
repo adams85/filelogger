@@ -439,4 +439,160 @@ public class LoggingTest
         }, lines);
     }
 #endif
+
+    [Fact]
+    public async Task MinLevelShouldFurtherStrictenFilters()
+    {
+        var fileProvider = new MemoryFileProvider();
+
+        var cts = new CancellationTokenSource();
+        var context = new TestFileLoggerContext(cts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+        context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var services = new ServiceCollection();
+        services.AddOptions();
+        services.AddLogging(b =>
+        {
+            b.SetMinimumLevel(LogLevel.Error);
+            b.AddFilter<FileLoggerProvider>("a", LogLevel.Debug);
+            b.AddFilter<FileLoggerProvider>("a.b", LogLevel.None);
+
+            b.AddFile(context, o =>
+            {
+                o.FileAppender = new MemoryFileAppender(fileProvider);
+                o.Files =
+                [
+                    new LogFileOptions
+                    {
+                        Path = "test.log",
+                        MinLevel = new Dictionary<string, LogLevel>()
+                        {
+                            { "a.b", LogLevel.Debug },
+                            { "Default", LogLevel.Information },
+                        },
+                    }
+                ];
+            });
+        });
+
+        FileLoggerProvider[] providers;
+
+        using (ServiceProvider sp = services.BuildServiceProvider())
+        {
+            providers = context.GetProviders(sp).ToArray();
+            Assert.Single(providers);
+
+            ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+
+            var logger_A = loggerFactory.CreateLogger("a");
+            var logger_A_B = loggerFactory.CreateLogger("a.b");
+
+            logger_A.LogDebug("Debug message");
+            logger_A_B.LogDebug("Debug message");
+
+            logger_A.LogInformation("Info message");
+            logger_A_B.LogInformation("Info message");
+
+            logger_A.LogWarning("Warning message");
+            logger_A_B.LogWarning("Warning message");
+
+            cts.Cancel();
+
+            // ensuring that all entries are processed
+            await context.GetCompletion(sp);
+            Assert.True(providers.All(provider => provider.Completion.IsCompleted));
+        }
+
+        var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"test.log");
+        Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+        string[] lines = logFile.ReadAllText(out Encoding encoding).Split([Environment.NewLine], StringSplitOptions.None);
+        Assert.Equal(Encoding.UTF8, encoding);
+        Assert.Equal(new[]
+        {
+            $"info: a[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"      Info message",
+            $"warn: a[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"      Warning message",
+            ""
+        }, lines);
+    }
+
+    [Fact]
+    public async Task Issue36_MinLevelShouldNotActAsAnInclusionList()
+    {
+        var fileProvider = new MemoryFileProvider();
+
+        var cts = new CancellationTokenSource();
+        var context = new TestFileLoggerContext(cts.Token, completionTimeout: Timeout.InfiniteTimeSpan);
+        context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var services = new ServiceCollection();
+        services.AddOptions();
+        services.AddLogging(b =>
+        {
+            b.SetMinimumLevel(LogLevel.Debug);
+            b.AddFilter("a", LogLevel.Information);
+
+            b.AddFile(context, o =>
+            {
+                o.FileAppender = new MemoryFileAppender(fileProvider);
+                o.Files =
+                [
+                    new LogFileOptions
+                    {
+                        Path = "test.log",
+                        MinLevel = new Dictionary<string, LogLevel>()
+                        {
+                            { "a.b", LogLevel.Warning },
+                        },
+                    }
+                ];
+            });
+        });
+
+        FileLoggerProvider[] providers;
+
+        using (ServiceProvider sp = services.BuildServiceProvider())
+        {
+            providers = context.GetProviders(sp).ToArray();
+            Assert.Single(providers);
+
+            ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+
+            var logger_A = loggerFactory.CreateLogger("a");
+            var logger_A_B = loggerFactory.CreateLogger("a.b");
+
+            logger_A.LogDebug("Debug message");
+            logger_A_B.LogDebug("Debug message");
+
+            logger_A.LogInformation("Info message");
+            logger_A_B.LogInformation("Info message");
+
+            logger_A.LogWarning("Warning message");
+            logger_A_B.LogWarning("Warning message");
+
+            cts.Cancel();
+
+            // ensuring that all entries are processed
+            await context.GetCompletion(sp);
+            Assert.True(providers.All(provider => provider.Completion.IsCompleted));
+        }
+
+        var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"test.log");
+        Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+        string[] lines = logFile.ReadAllText(out Encoding encoding).Split([Environment.NewLine], StringSplitOptions.None);
+        Assert.Equal(Encoding.UTF8, encoding);
+        Assert.Equal(new[]
+        {
+            $"info: a[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"      Info message",
+            $"warn: a[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"      Warning message",
+            $"warn: a.b[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"      Warning message",
+            ""
+        }, lines);
+    }
 }
