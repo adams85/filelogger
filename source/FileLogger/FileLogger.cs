@@ -24,8 +24,7 @@ public class FileLogger : ILogger
     [ThreadStatic]
     private static StringBuilder? s_stringBuilder;
 
-    private readonly IFileLoggerProcessor _processor;
-    private readonly Func<DateTimeOffset> _timestampGetter;
+    private volatile UpdatableState _state;
 
     public FileLogger(string categoryName, IFileLoggerProcessor processor, IFileLoggerSettings settings, IExternalScopeProvider? scopeProvider = null,
         Func<DateTimeOffset>? timestampGetter = null)
@@ -39,7 +38,7 @@ public class FileLogger : ILogger
 
         CategoryName = categoryName;
 
-        _processor = processor;
+        Processor = processor;
 
         UpdatableState state = CreateState(currentState: null, settings, scopeProvider);
         state.Settings = settings;
@@ -47,12 +46,14 @@ public class FileLogger : ILogger
         state.ScopeProvider = scopeProvider;
         _state = state;
 
-        _timestampGetter = timestampGetter ?? (() => DateTimeOffset.UtcNow);
+        TimestampGetter = timestampGetter ?? (() => DateTimeOffset.UtcNow);
     }
 
-    private volatile UpdatableState _state;
-
     public string CategoryName { get; }
+
+    protected IFileLoggerProcessor Processor { get; }
+    protected Func<DateTimeOffset> TimestampGetter { get; }
+    protected UpdatableState State => _state;
 
     public IEnumerable<string> FilePaths => _state.FileGroups.SelectMany(fileGroup => fileGroup.Value.Select(file => file.Settings.Path!));
 
@@ -140,7 +141,7 @@ public class FileLogger : ILogger
 
         UpdatableState currentState = _state;
 
-        DateTimeOffset timestamp = _timestampGetter();
+        DateTimeOffset timestamp = TimestampGetter();
 
         string message = FormatState(state, exception, formatter);
 
@@ -185,7 +186,7 @@ public class FileLogger : ILogger
                     }
                 }
 
-                _processor.Enqueue(entry, fileSettings, currentState.Settings);
+                Processor.Enqueue(entry, fileSettings, currentState.Settings);
             }
         }
 
