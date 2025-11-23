@@ -21,8 +21,10 @@ public class FileLogger : ILogger
         public IExternalScopeProvider? ScopeProvider { get; set; }
     }
 
+#pragma warning disable IDE1006 // Naming Styles
     [ThreadStatic]
-    private static StringBuilder? s_stringBuilder;
+    private static StringBuilder? t_stringBuilder;
+#pragma warning restore IDE1006 // Naming Styles
 
     private volatile UpdatableState _state;
 
@@ -121,9 +123,9 @@ public class FileLogger : ILogger
         return logLevel != LogLevel.None;
     }
 
-    protected virtual FileLogEntry CreateLogEntry()
+    protected virtual FileLogEntry CreateLogEntry(string text, DateTimeOffset timestamp)
     {
-        return new FileLogEntry();
+        return new FileLogEntry(text, timestamp);
     }
 
     protected virtual string FormatState<TState>(TState state, Exception? exception, Func<TState, Exception?, string> formatter)
@@ -145,16 +147,14 @@ public class FileLogger : ILogger
 
         string message = FormatState(state, exception, formatter);
 
-        StringBuilder? sb = s_stringBuilder;
-        s_stringBuilder = null;
-        sb ??= new StringBuilder();
+        var sb = t_stringBuilder ??= new StringBuilder();
 
         var fileGroups = currentState.FileGroups;
         for (int i = 0; i < fileGroups.Length; i++)
         {
             FileGroup fileGroup = fileGroups[i];
             (ILogFileSettings Settings, LogLevel MinLevel)[] files = fileGroup.Value;
-            FileLogEntry? entry = null;
+            FileLogEntry entry = default;
 
             for (int j = 0; j < files.Length; j++)
             {
@@ -163,37 +163,30 @@ public class FileLogger : ILogger
                 if (logLevel < minLevel)
                     continue;
 
-                if (entry is null)
+                if (entry.Data is null)
                 {
                     (IFileLogEntryTextBuilder textBuilder, bool includeScopes) = fileGroup.Key;
                     IExternalScopeProvider? logScope = includeScopes ? currentState.ScopeProvider : null;
 
+                    sb.Clear();
                     if (textBuilder is StructuredFileLogEntryTextBuilder structuredTextBuilder)
                         structuredTextBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, state, exception, logScope, timestamp);
                     else
                         textBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
 
                     if (sb.Length > 0)
-                    {
-                        entry = CreateLogEntry();
-                        entry.Text = sb.ToString();
-                        entry.Timestamp = timestamp;
-                        sb.Clear();
-                    }
+                        entry = CreateLogEntry(sb.ToString(), timestamp);
                     else
-                    {
                         break;
-                    }
                 }
 
                 Processor.Enqueue(entry, fileSettings, currentState.Settings);
             }
         }
 
+        sb.Clear();
         if (sb.Capacity > 1024)
             sb.Capacity = 1024;
-
-        s_stringBuilder = sb;
     }
 
 #pragma warning disable CS8633 // suppress false positive

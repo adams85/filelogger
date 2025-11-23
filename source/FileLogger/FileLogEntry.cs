@@ -2,11 +2,15 @@ using System;
 
 namespace Karambolo.Extensions.Logging.File;
 
-/// <remarks>
-/// Properties are initialized after instantiation.
-/// </remarks>
-public class FileLogEntry
+public readonly struct FileLogEntry
 {
-    public string Text { get => field!; set; }
-    public DateTimeOffset Timestamp { get; set; }
+    public FileLogEntry(object data, DateTimeOffset timestamp)
+    {
+        Data = data;
+        Timestamp = timestamp;
+    }
+
+    public object Data { get; }
+    public string Text { get => Data?.ToString() ?? string.Empty; }
+    public DateTimeOffset Timestamp { get; }
 }

@@ -37,7 +37,7 @@ internal static class FileLoggerDiagnosticEvent
         private readonly FileLoggerProcessor.LogFileInfo _logFile;
         private readonly FileLogEntry _logEntry;
 
-        internal LogEntryDropped(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, FileLogEntry logEntry)
+        internal LogEntryDropped(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, in FileLogEntry logEntry)
         {
             Source = source;
             _logFile = logFile;
@@ -59,7 +59,7 @@ internal static class FileLoggerDiagnosticEvent
         private readonly FileLoggerProcessor.LogFileInfo _logFile;
         private readonly FileLogEntry _logEntry;
 
-        internal LogEntryWriteFailed(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, FileLogEntry logEntry, Exception exception)
+        internal LogEntryWriteFailed(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, in FileLogEntry logEntry, Exception exception)
         {
             Source = source;
             _logFile = logFile;

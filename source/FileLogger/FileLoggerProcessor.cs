@@ -19,7 +19,7 @@ public interface IFileLoggerProcessor : IDisposable
 {
     Task Completion { get; }
 
-    void Enqueue(FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
+    void Enqueue(in FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
 
     Task ResetAsync(Action? onQueuesCompleted = null);
     Task CompleteAsync();
@@ -129,14 +129,14 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         private readonly LogFileInfo _logFile;
         private readonly FileLogEntry _logEntry;
 
-        public LogFilePathFormatContext(FileLoggerProcessor processor, LogFileInfo logFile, FileLogEntry logEntry)
+        public LogFilePathFormatContext(FileLoggerProcessor processor, LogFileInfo logFile, in FileLogEntry logEntry)
         {
             _processor = processor;
             _logFile = logFile;
             _logEntry = logEntry;
         }
 
-        FileLogEntry ILogFilePathFormatContext.LogEntry => _logEntry;
+        ref readonly FileLogEntry ILogFilePathFormatContext.LogEntry => ref _logEntry;
 
         string? ILogFilePathFormatContext.DateFormat => _logFile.DateFormat;
         string? ILogFilePathFormatContext.CounterFormat => _logFile.CounterFormat;
@@ -338,7 +338,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         }
     }
 
-    public void Enqueue(FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings)
+    public void Enqueue(in FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings)
     {
         LogFileInfo logFile;
 
@@ -363,17 +363,17 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
     }
 
-    protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, FileLogEntry entry)
+    protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, in FileLogEntry entry)
     {
         return entry.Timestamp.ToLocalTime().ToString(inlineFormat ?? logFile.DateFormat ?? "yyyyMMdd", CultureInfo.InvariantCulture);
     }
 
-    protected virtual string GetCounter(string? inlineFormat, LogFileInfo logFile, FileLogEntry entry)
+    protected virtual string GetCounter(string? inlineFormat, LogFileInfo logFile, in FileLogEntry entry)
     {
         return logFile.Counter.ToString(inlineFormat ?? logFile.CounterFormat, CultureInfo.InvariantCulture);
     }
 
-    protected virtual bool CheckFileSize(string filePath, LogFileInfo logFile, FileLogEntry entry)
+    protected virtual bool CheckFileSize(string filePath, LogFileInfo logFile, in FileLogEntry entry)
     {
         long currentFileSize;
         if (!logFile.IsOpen || logFile.CurrentPath != filePath)
@@ -399,12 +399,12 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         return expectedFileSize <= logFile.MaxSize;
     }
 
-    protected virtual string FormatFilePath(LogFileInfo logFile, FileLogEntry entry)
+    protected virtual string FormatFilePath(LogFileInfo logFile, in FileLogEntry entry)
     {
         return PathPlaceholderRegex().Replace(logFile.PathFormat, new LogFilePathFormatContext(this, logFile, entry).ResolvePlaceholder);
     }
 
-    protected virtual bool UpdateFilePath(LogFileInfo logFile, FileLogEntry entry, CancellationToken cancellationToken)
+    protected virtual bool UpdateFilePath(LogFileInfo logFile, in FileLogEntry entry, CancellationToken cancellationToken)
     {
         string filePath = FormatFilePath(logFile, entry);
 
@@ -443,7 +443,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         return true;
     }
 
-    protected virtual void HandleFilePathChange(LogFileInfo logFile, FileLogEntry entry)
+    protected virtual void HandleFilePathChange(LogFileInfo logFile, in FileLogEntry entry)
     {
         if (logFile.IsOpen)
             logFile.Close();
@@ -557,7 +557,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                 goto case checkFileState;
         }
 
-        void ReportFailure(LogFileInfo logFile, FileLogEntry entry, Exception exception)
+        void ReportFailure(LogFileInfo logFile, in FileLogEntry entry, Exception exception)
         {
             Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryWriteFailed(this, logFile, entry, exception));
         }
@@ -568,7 +568,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         ChannelReader<FileLogEntry> queue = logFile.Queue.Reader;
         while (await queue.WaitToReadAsync(forcedCompleteToken).ConfigureAwait(false))
         {
-            while (queue.TryRead(out FileLogEntry? entry))
+            while (queue.TryRead(out FileLogEntry entry))
                 await WriteEntryAsync(logFile, entry, forcedCompleteToken).ConfigureAwait(false);
         }
     }

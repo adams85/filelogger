@@ -2,7 +2,7 @@ namespace Karambolo.Extensions.Logging.File;
 
 public interface ILogFilePathFormatContext
 {
-    FileLogEntry LogEntry { get; }
+    ref readonly FileLogEntry LogEntry { get; }
 
     string? DateFormat { get; }
     string? CounterFormat { get; }

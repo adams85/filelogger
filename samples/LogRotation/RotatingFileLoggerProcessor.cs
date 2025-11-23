@@ -11,7 +11,7 @@ public class RotatingFileLoggerProcessor : FileLoggerProcessor
     protected override LogFileInfo CreateLogFile(ILogFileSettings fileSettings, IFileLoggerSettings settings) =>
         new ExtendedLogFileInfo(this, fileSettings, settings);
 
-    protected override void HandleFilePathChange(LogFileInfo logFile, FileLogEntry entry)
+    protected override void HandleFilePathChange(LogFileInfo logFile, in FileLogEntry entry)
     {
         base.HandleFilePathChange(logFile, entry);
 
