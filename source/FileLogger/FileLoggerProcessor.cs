@@ -44,7 +44,11 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
             BasePath = settings.BasePath ?? string.Empty;
             PathFormat = fileSettings.Path!;
-            PathPlaceholderResolver = GetEffectivePathPlaceholderResolver(fileSettings.PathPlaceholderResolver ?? settings.PathPlaceholderResolver);
+            PathPlaceholderResolver =
+                fileSettings.Path!.IndexOf('<') < 0 ? s_noopPathPlaceholderResolver
+                : (fileSettings.PathPlaceholderResolver ?? settings.PathPlaceholderResolver) is not { } resolver ? s_defaultPathPlaceholderResolver
+                : (placeholderName, inlineFormat, context) =>
+                    resolver(placeholderName, inlineFormat, context) ?? s_defaultPathPlaceholderResolver(placeholderName, inlineFormat, context);
             FileAppender = settings.FileAppender ?? processor._fallbackFileAppender.Value;
             AccessMode = fileSettings.FileAccessMode ?? settings.FileAccessMode ?? LogFileAccessMode.Default;
             Encoding = fileSettings.FileEncoding ?? settings.FileEncoding ?? Encoding.UTF8;
@@ -57,12 +61,6 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             // important: closure must pick up the current token!
             CancellationToken forcedCompleteToken = processor._forcedCompleteTokenSource.Token;
             WriteFileTask = Task.Run(() => processor.WriteFileAsync(this, forcedCompleteToken));
-
-            static LogFilePathPlaceholderResolver GetEffectivePathPlaceholderResolver(LogFilePathPlaceholderResolver? resolver) =>
-                resolver is null
-                ? s_defaultPathPlaceholderResolver
-                : (placeholderName, inlineFormat, context) =>
-                    resolver(placeholderName, inlineFormat, context) ?? s_defaultPathPlaceholderResolver(placeholderName, inlineFormat, context);
         }
 
         public string BasePath { get; }
@@ -154,6 +152,8 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                 ?? match.Groups[0].Value;
         }
     }
+
+    private static readonly LogFilePathPlaceholderResolver s_noopPathPlaceholderResolver = delegate { return null; };
 
     private static readonly LogFilePathPlaceholderResolver s_defaultPathPlaceholderResolver = (placeholderName, inlineFormat, context) =>
     {
@@ -401,7 +401,9 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
     protected virtual string FormatFilePath(LogFileInfo logFile, in FileLogEntry entry)
     {
-        return PathPlaceholderRegex().Replace(logFile.PathFormat, new LogFilePathFormatContext(this, logFile, entry).ResolvePlaceholder);
+        return ReferenceEquals(logFile.PathPlaceholderResolver, s_noopPathPlaceholderResolver)
+            ? logFile.PathFormat
+            : PathPlaceholderRegex().Replace(logFile.PathFormat, new LogFilePathFormatContext(this, logFile, entry).ResolvePlaceholder);
     }
 
     protected virtual bool UpdateFilePath(LogFileInfo logFile, in FileLogEntry entry, CancellationToken cancellationToken)
