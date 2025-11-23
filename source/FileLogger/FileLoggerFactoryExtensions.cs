@@ -37,7 +37,7 @@ public static partial class FileLoggerFactoryExtensions
 #if NET8_0_OR_GREATER
         if (serviceProvider.GetService<TimeProvider>() is { } timeProvider)
         {
-            return new TimeProviderAwareFileLoggerContext(timeProvider, completeToken: default);
+            return new FileLoggerContext.WithTimestampProvider(timeProvider.GetUtcNow, completeToken: default);
         }
 #endif
 

@@ -143,7 +143,7 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
 
     protected virtual FileLogger CreateLoggerCore(string categoryName)
     {
-        return new FileLogger(categoryName, Processor, Settings, GetScopeProvider(), Context.GetTimestamp);
+        return new FileLogger(categoryName, Processor, Settings, GetScopeProvider(), Context.TimestampProvider);
     }
 
     public ILogger CreateLogger(string categoryName)

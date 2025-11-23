@@ -10,17 +10,35 @@ namespace Karambolo.Extensions.Logging.File;
 
 public class FileLoggerContext
 {
+    public class WithTimestampProvider : FileLoggerContext
+    {
+        public WithTimestampProvider(Func<DateTimeOffset> timestampProvider, CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
+            : base(timestampProvider ?? throw new ArgumentNullException(nameof(timestampProvider)), completeToken, completionTimeout, writeRetryDelay) { }
+
+        public sealed override DateTimeOffset GetTimestamp() => TimestampProvider();
+    }
+
     public static readonly FileLoggerContext Default = new(completeToken: default);
 
     public FileLoggerContext(CancellationToken completeToken)
         : this(completeToken, completionTimeout: null, writeRetryDelay: null) { }
 
     public FileLoggerContext(CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
+        : this(timestampProvider: null!, completeToken, completionTimeout, writeRetryDelay)
+    {
+        // special-case the default implementation to avoid double virtual calls
+        TimestampProvider = GetType() == typeof(FileLoggerContext) ? (() => DateTimeOffset.UtcNow) : GetTimestamp;
+    }
+
+    private FileLoggerContext(Func<DateTimeOffset> timestampProvider, CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
     {
         CompleteToken = completeToken;
         CompletionTimeout = completionTimeout ?? TimeSpan.FromMilliseconds(1500);
         WriteRetryDelay = writeRetryDelay ?? TimeSpan.FromMilliseconds(500);
+        TimestampProvider = timestampProvider;
     }
+
+    public Func<DateTimeOffset> TimestampProvider { get; }
 
     public CancellationToken CompleteToken { get; }
 

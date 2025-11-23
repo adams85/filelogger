@@ -19,8 +19,8 @@ internal class InfoFileLoggerProvider : FileLoggerProvider
 
 internal class InfoFileLogger : FileLogger
 {
-    public InfoFileLogger(string categoryName, IFileLoggerProcessor processor, IFileLoggerSettings settings, IExternalScopeProvider? scopeProvider = null, Func<DateTimeOffset>? timestampGetter = null)
-        : base(categoryName, processor, settings, scopeProvider, timestampGetter) { }
+    public InfoFileLogger(string categoryName, IFileLoggerProcessor processor, IFileLoggerSettings settings, IExternalScopeProvider? scopeProvider = null, Func<DateTimeOffset>? timestampProvider = null)
+        : base(categoryName, processor, settings, scopeProvider, timestampProvider) { }
 
     public override bool IsEnabled(LogLevel logLevel)
     {
