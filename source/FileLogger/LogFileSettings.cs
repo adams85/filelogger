@@ -42,7 +42,7 @@ public interface ILogFileSettings : ILogFileSettingsBase
 
 public abstract class LogFileSettingsBase : ILogFileSettingsBase
 {
-    private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> TextBuilderCache =>
+    private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> TextBuilderInstances =>
         LazyInitializer.EnsureInitialized(ref field, () => new ConcurrentDictionary<Type, IFileLogEntryTextBuilder>())!;
 
     public LogFileSettingsBase() { }
@@ -99,12 +99,12 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
 
             // it's important to return the same instance of a given text builder type
             // because FileLogger use the instance in its internal cache (FileGroups) as a part of the key
-            TextBuilder = TextBuilderCache.GetOrAdd(type, type =>
+            TextBuilder = TextBuilderInstances.GetOrAdd(type, type =>
             {
-                if (!type.GetTypeInfo().ImplementedInterfaces.Contains(typeof(IFileLogEntryTextBuilder)))
+                if (!typeof(IFileLogEntryTextBuilder).IsAssignableFrom(type))
                     throw new ArgumentException(string.Format(provider: null, Resources.InterfaceNotImplemented, typeof(IFileLogEntryTextBuilder)), nameof(value));
 
-                ConstructorInfo ctor = type.GetTypeInfo().DeclaredConstructors.FirstOrDefault(ci => ci.GetParameters().Length == 0)
+                ConstructorInfo ctor = type.GetTypeInfo().GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, binder: null, Type.EmptyTypes, modifiers: null)
                     ?? throw new ArgumentException(Resources.ParameterlessCtorNotProvided, nameof(value));
 
                 return (IFileLogEntryTextBuilder)ctor.Invoke(null);
