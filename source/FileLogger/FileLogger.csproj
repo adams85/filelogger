@@ -9,7 +9,7 @@
     <EnableConfigurationBindingGenerator Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">true</EnableConfigurationBindingGenerator>
 
     <PackageId>Karambolo.Extensions.Logging.File</PackageId>
-    <Description>A lightweight and highly customizable file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
+    <Description>A lightweight and customizable file logger implementation for the Microsoft.Extensions.Logging framework.</Description>
     <PackageTags>filelogger logger logging</PackageTags>
   </PropertyGroup>
 
