@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net6.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File</RootNamespace>
     <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">true</IsTrimmable>
@@ -32,10 +32,23 @@
     <Compile Remove="**\*.net*.cs" />
     <!-- Workaround https://github.com/dotnet/project-system/issues/935 -->
     <None Include="**\*.net*.cs" Exclude="$(BaseIntermediateOutputPath)**" />
-    <Compile Include="**\*.$(TargetFramework).cs" Exclude="$(BaseIntermediateOutputPath)**" />
   </ItemGroup>
 
   <Choose>
+    <When Condition="'$(TargetFramework)' == 'net462'">
+      <ItemGroup>
+        <!-- Microsoft.Extensions.* v6.0.0 is the oldest, non-deprecated version that properly targets net462. -->
+        <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="6.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="6.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="6.0.0" />
+        <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
+      </ItemGroup>
+
+      <ItemGroup>
+        <Compile Include="FileLoggerProcessor.netstandard2.0.cs" />
+      </ItemGroup>
+    </When>
+
     <When Condition="'$(TargetFramework)' == 'netstandard2.0'">
       <ItemGroup>
         <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="1.1.1" />
@@ -43,6 +56,10 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="2.1.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.1.0" />
         <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
+      </ItemGroup>
+
+      <ItemGroup>
+        <Compile Include="FileLoggerProcessor.netstandard2.0.cs" />
       </ItemGroup>
     </When>
 
@@ -52,6 +69,10 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="3.0.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="3.0.0" />
         <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
+      </ItemGroup>
+
+      <ItemGroup>
+        <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
       </ItemGroup>
     </When>
 

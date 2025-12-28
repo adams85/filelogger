@@ -45,15 +45,18 @@
   </Choose>
 
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net462' OR '$(TargetFramework)' == 'net481' OR '$(TargetFramework)' == 'netcoreapp2.1'">
+    <When Condition="'$(TargetFramework)' == 'net462' OR '$(TargetFramework)' == 'net481'">
       <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Configuration" Version="2.1.0" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="6.0.0" />
+        <Reference Include="Microsoft.CSharp" Condition="'$(TargetFramework)' == 'net462'" />
+      </ItemGroup>
+    </When>
+
+    <When Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
+      <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="2.1.0" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.1.0" />
-        <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="2.1.0" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="2.1.0" />
-        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.1.0" />
-        <Reference Include="Microsoft.CSharp" Condition="'$(TargetFramework)' == 'net462'" />
       </ItemGroup>
     </When>
 

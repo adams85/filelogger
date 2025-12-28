@@ -23,6 +23,9 @@ public sealed class PlatformFactAttribute : FactAttribute
         set
         {
             var currentPlatform =
+#if NETFRAMEWORK && !NET471_OR_GREATER
+                OSPlatformEnum.Windows;
+#else
                 RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? OSPlatformEnum.Windows
                 : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? OSPlatformEnum.Linux
                 : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? OSPlatformEnum.OSX
@@ -30,7 +33,7 @@ public sealed class PlatformFactAttribute : FactAttribute
                 : RuntimeInformation.IsOSPlatform(OSPlatform.FreeBSD) ? OSPlatformEnum.FreeBSD
 #endif
                 : OSPlatformEnum.Unknown;
-
+#endif
             Skip = value is not null && Array.IndexOf(value, currentPlatform) >= 0
                 ? null
                 : $"Skipped on {currentPlatform}";

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Karambolo.Extensions.Logging.File.Test.Helpers;
@@ -11,7 +12,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace Karambolo.Extensions.Logging.File.Test;
@@ -237,25 +237,65 @@ public class SettingsTest
         var fileProvider = new MemoryFileProvider();
         var fileAppender = new MemoryFileAppender(fileProvider);
 
-        dynamic settings = new JObject();
-        dynamic globalFilters = settings[nameof(LoggerFilterRule.LogLevel)] = new JObject();
-        globalFilters[LogFileOptions.DefaultCategoryName] = LogLevel.None.ToString();
+        const string defaultProviderFilePath = "one.log";
+        const string otherProviderFilePath = "other.log";
 
-        settings[FileLoggerProvider.Alias] = new JObject();
-        dynamic fileFilters = settings[FileLoggerProvider.Alias][nameof(LoggerFilterRule.LogLevel)] = new JObject();
-        fileFilters[LogFileOptions.DefaultCategoryName] = LogLevel.Warning.ToString();
-        dynamic oneFile = new JObject();
-        oneFile.Path = "one.log";
-        settings[FileLoggerProvider.Alias][nameof(FileLoggerOptions.Files)] = new JArray(oneFile);
+        static string BuildConfigJson(LogLevel defaultProviderLevel, LogLevel otherProviderLevel)
+        {
+            using var stream = new MemoryStream();
+            var writer = new Utf8JsonWriter(stream);
 
-        settings[OtherFileLoggerProvider.Alias] = new JObject();
-        dynamic otherFileFilters = settings[OtherFileLoggerProvider.Alias][nameof(LoggerFilterRule.LogLevel)] = new JObject();
-        otherFileFilters[LogFileOptions.DefaultCategoryName] = LogLevel.Information.ToString();
-        dynamic otherFile = new JObject();
-        otherFile.Path = "other.log";
-        settings[OtherFileLoggerProvider.Alias][nameof(FileLoggerOptions.Files)] = new JArray(otherFile);
+            writer.WriteStartObject(); // start root object
 
-        string configJson = ((JObject)settings).ToString();
+            // Global filters
+            writer.WritePropertyName(nameof(LoggerFilterRule.LogLevel));
+            writer.WriteStartObject();
+            writer.WriteString(LogFileOptions.DefaultCategoryName, LogLevel.None.ToString());
+            writer.WriteEndObject();
+
+            // Default provider options
+            writer.WritePropertyName(FileLoggerProvider.Alias);
+            writer.WriteStartObject(); // start options object
+
+            writer.WritePropertyName(nameof(LoggerFilterRule.LogLevel));
+            writer.WriteStartObject();
+            writer.WriteString(LogFileOptions.DefaultCategoryName, defaultProviderLevel.ToString());
+            writer.WriteEndObject();
+
+            writer.WritePropertyName(nameof(FileLoggerOptions.Files));
+            writer.WriteStartArray();
+            writer.WriteStartObject();
+            writer.WriteString(nameof(LogFileOptions.Path), defaultProviderFilePath);
+            writer.WriteEndObject();
+            writer.WriteEndArray();
+
+            writer.WriteEndObject(); // end options object
+
+            // Other provider options
+            writer.WritePropertyName(OtherFileLoggerProvider.Alias);
+            writer.WriteStartObject(); // start options object
+
+            writer.WritePropertyName(nameof(LoggerFilterRule.LogLevel));
+            writer.WriteStartObject();
+            writer.WriteString(LogFileOptions.DefaultCategoryName, otherProviderLevel.ToString());
+            writer.WriteEndObject();
+
+            writer.WritePropertyName(nameof(FileLoggerOptions.Files));
+            writer.WriteStartArray();
+            writer.WriteStartObject();
+            writer.WriteString(nameof(LogFileOptions.Path), otherProviderFilePath);
+            writer.WriteEndObject();
+            writer.WriteEndArray();
+
+            writer.WriteEndObject(); // end options object
+
+            writer.WriteEndObject(); // end root object
+
+            writer.Flush();
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+
+        string configJson = BuildConfigJson(LogLevel.Warning, LogLevel.Information);
 
         fileProvider.CreateFile("config.json", configJson);
 
@@ -292,9 +332,7 @@ public class SettingsTest
             logger.LogInformation("This is an info.");
             logger.LogWarning("This is a warning.");
 
-            fileFilters[LogFileOptions.DefaultCategoryName] = LogLevel.Information.ToString();
-            otherFileFilters[LogFileOptions.DefaultCategoryName] = LogLevel.Warning.ToString();
-            configJson = ((JObject)settings).ToString();
+            configJson = BuildConfigJson(LogLevel.Information, LogLevel.Warning);
 
             Assert.Empty(resetTasks);
             fileProvider.WriteContent("config.json", configJson);
@@ -311,7 +349,7 @@ public class SettingsTest
 
         Assert.True(providers.All(provider => provider.Completion.IsCompleted));
 
-        var logFile = (MemoryFileInfo)fileProvider.GetFileInfo((string)oneFile.Path);
+        var logFile = (MemoryFileInfo)fileProvider.GetFileInfo(defaultProviderFilePath);
         Assert.True(logFile.Exists && !logFile.IsDirectory);
 
         string[] lines = logFile.ReadAllText(out Encoding encoding).Split([Environment.NewLine], StringSplitOptions.None);
@@ -327,7 +365,7 @@ public class SettingsTest
             ""
         }, lines);
 
-        logFile = (MemoryFileInfo)fileProvider.GetFileInfo((string)otherFile.Path);
+        logFile = (MemoryFileInfo)fileProvider.GetFileInfo(otherProviderFilePath);
         Assert.True(logFile.Exists && !logFile.IsDirectory);
 
         lines = logFile.ReadAllText(out encoding).Split([Environment.NewLine], StringSplitOptions.None);
