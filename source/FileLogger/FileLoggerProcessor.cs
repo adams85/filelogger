@@ -21,6 +21,11 @@ public interface IFileLoggerProcessor : IDisposable
 
     void Enqueue(in FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
 
+    /// <summary>
+    /// Writes a log entry directly to the file, bypassing the queue. Blocks the calling thread until the write completes.
+    /// </summary>
+    void WriteDirectly(in FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
+
     Task ResetAsync(Action? onQueuesCompleted = null);
     Task CompleteAsync();
 }
@@ -361,6 +366,37 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         if (!logFile.Queue.Writer.TryWrite(entry))
             Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
+    }
+
+    public void WriteDirectly(in FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings)
+    {
+        LogFileInfo logFile;
+
+        lock (_logFiles)
+        {
+            if (_status == Status.Completed)
+                throw new ObjectDisposedException(nameof(FileLoggerProcessor));
+
+            if (_status != Status.Running)
+                return;
+
+#if NET6_0_OR_GREATER
+            ref LogFileInfo? logFileRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_logFiles, fileSettings, out bool logFileExists);
+            logFile = logFileExists ? logFileRef! : (logFileRef = CreateLogFile(fileSettings, settings));
+#else
+            if (!_logFiles.TryGetValue(fileSettings, out logFile))
+                _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
+#endif
+        }
+
+        // Synchronize with the background WriteFileAsync task to avoid concurrent access to LogFileInfo state.
+        lock (logFile)
+        {
+            WriteEntryAsync(logFile, entry, _forcedCompleteTokenSource.Token)
+                .AsTask()
+                .GetAwaiter()
+                .GetResult();
+        }
     }
 
     protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, in FileLogEntry entry)

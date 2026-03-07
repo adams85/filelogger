@@ -30,6 +30,7 @@ public interface ILogFileSettingsBase
     bool? IncludeScopes { get; }
     int? MaxQueueSize { get; }
     LogFilePathPlaceholderResolver? PathPlaceholderResolver { get; }
+    bool? SynchronousWrite { get; }
 }
 
 public interface ILogFileSettings : ILogFileSettingsBase
@@ -60,6 +61,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         IncludeScopes = other.IncludeScopes;
         MaxQueueSize = other.MaxQueueSize;
         PathPlaceholderResolver = other.PathPlaceholderResolver;
+        SynchronousWrite = other.SynchronousWrite;
     }
 
     public LogFileAccessMode? FileAccessMode { get; set; }
@@ -116,6 +118,8 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
     public int? MaxQueueSize { get; set; }
 
     public LogFilePathPlaceholderResolver? PathPlaceholderResolver { get; set; }
+
+    public bool? SynchronousWrite { get; set; }
 
 #if NET8_0_OR_GREATER
     public abstract class BindingWrapperBase<TOptions>
@@ -176,6 +180,12 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         {
             get => Options.MaxQueueSize;
             set => Options.MaxQueueSize = value;
+        }
+
+        public bool? SynchronousWrite
+        {
+            get => Options.SynchronousWrite;
+            set => Options.SynchronousWrite = value;
         }
     }
 #endif

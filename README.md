@@ -269,6 +269,7 @@ The log file settings below can be specified globally (at provider level) and in
 | **IncludeScopes** | Enables log scopes to be included in the output. | `false` | Works the same way as `ConsoleLogger`. |
 | **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | `0` (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
 | **PathPlaceholderResolver** | Provides a way to hook into path template resolution. | | This is a callback that can be used to customize or extend the resolution of path template placeholders. Enables special formatting, custom placeholders, etc.<br/>For an example of usage, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/CustomPathPlaceholder). |
+| **SynchronousWrite** | When enabled, log entries are written directly to the file on the calling thread, bypassing the background queue. | `false` | Guarantees that log entries are persisted before `ILogger.Log` returns, which is useful for crash-critical diagnostics. **Blocks the calling thread** during file I/O, so it reduces throughput. Can be combined with any `FileAccessMode`. |
 
 ### Sample JSON configuration
 ``` json5
@@ -294,6 +295,7 @@ The log file settings below can be specified globally (at provider level) and in
       },
       "IncludeScopes": true,
       "MaxQueueSize": 100,
+      "SynchronousWrite": false,
       "Files": [
         // a simple log file definition, which inherits all settings from the provider (will produce files like "default-000.log")
         {

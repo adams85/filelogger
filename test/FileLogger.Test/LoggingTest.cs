@@ -595,4 +595,144 @@ public class LoggingTest
             ""
         }, lines);
     }
+
+    [Fact]
+    public async Task SynchronousWriteToMemoryWithoutDI()
+    {
+        const string logsDirName = "Logs";
+
+        var fileProvider = new MemoryFileProvider();
+
+        var filterOptions = new LoggerFilterOptions { MinLevel = LogLevel.Trace };
+
+        var options = new FileLoggerOptions
+        {
+            FileAppender = new MemoryFileAppender(fileProvider),
+            BasePath = logsDirName,
+            FileAccessMode = LogFileAccessMode.OpenTemporarily,
+            FileEncoding = Encoding.UTF8,
+            SynchronousWrite = true,
+            Files =
+            [
+                new LogFileOptions
+                {
+                    Path = "sync.log",
+                    MinLevel = new Dictionary<string, LogLevel>
+                    {
+                        [LogFileOptions.DefaultCategoryName] = LogLevel.Information,
+                    }
+                },
+            ],
+        };
+
+        var context = new TestFileLoggerContext(CancellationToken.None, completionTimeout: Timeout.InfiniteTimeSpan);
+        context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        bool diagnosticEventReceived = false;
+        context.DiagnosticEvent += _ => diagnosticEventReceived = true;
+
+        var provider = new FileLoggerProvider(context, Options.Create(options));
+
+        await using (provider)
+        using (var loggerFactory = new LoggerFactory([provider], filterOptions))
+        {
+            ILogger<LoggingTest> logger = loggerFactory.CreateLogger<LoggingTest>();
+
+            logger.LogInformation("Synchronous message 1.");
+            logger.LogWarning(1, "Synchronous message 2.");
+
+            // Because SynchronousWrite is true, the messages should already be written
+            // to the file at this point without needing to complete the provider.
+            var logFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/sync.log");
+            Assert.True(logFile.Exists && !logFile.IsDirectory);
+
+            string[] lines = logFile.ReadAllText(out Encoding encoding).Split([Environment.NewLine], StringSplitOptions.None);
+            Assert.Equal(Encoding.UTF8, encoding);
+            Assert.Equal(new[]
+            {
+                $"info: {typeof(LoggingTest)}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      Synchronous message 1.",
+                $"warn: {typeof(LoggingTest)}[1] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      Synchronous message 2.",
+                ""
+            }, lines);
+        }
+
+        Assert.False(diagnosticEventReceived);
+    }
+
+    [Fact]
+    public async Task SynchronousWritePerFileOverride()
+    {
+        const string logsDirName = "Logs";
+
+        var fileProvider = new MemoryFileProvider();
+
+        var filterOptions = new LoggerFilterOptions { MinLevel = LogLevel.Trace };
+
+        var options = new FileLoggerOptions
+        {
+            FileAppender = new MemoryFileAppender(fileProvider),
+            BasePath = logsDirName,
+            FileAccessMode = LogFileAccessMode.OpenTemporarily,
+            FileEncoding = Encoding.UTF8,
+            Files =
+            [
+                new LogFileOptions
+                {
+                    Path = "sync.log",
+                    SynchronousWrite = true,
+                    MinLevel = new Dictionary<string, LogLevel>
+                    {
+                        [LogFileOptions.DefaultCategoryName] = LogLevel.Information,
+                    }
+                },
+                new LogFileOptions
+                {
+                    Path = "async.log",
+                    MinLevel = new Dictionary<string, LogLevel>
+                    {
+                        [LogFileOptions.DefaultCategoryName] = LogLevel.Information,
+                    }
+                },
+            ],
+        };
+
+        var context = new TestFileLoggerContext(CancellationToken.None, completionTimeout: Timeout.InfiniteTimeSpan);
+        context.SetTimestamp(new DateTime(2017, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+
+        var provider = new FileLoggerProvider(context, Options.Create(options));
+
+        await using (provider)
+        using (var loggerFactory = new LoggerFactory([provider], filterOptions))
+        {
+            ILogger<LoggingTest> logger = loggerFactory.CreateLogger<LoggingTest>();
+
+            logger.LogInformation("Test message.");
+
+            // The synchronous file should have the content immediately.
+            var syncLogFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/sync.log");
+            Assert.True(syncLogFile.Exists && !syncLogFile.IsDirectory);
+
+            string[] syncLines = syncLogFile.ReadAllText(out _).Split([Environment.NewLine], StringSplitOptions.None);
+            Assert.Equal(new[]
+            {
+                $"info: {typeof(LoggingTest)}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+                $"      Test message.",
+                ""
+            }, syncLines);
+        }
+
+        // After provider disposal, the async file should also have the content.
+        var asyncLogFile = (MemoryFileInfo)fileProvider.GetFileInfo($"{logsDirName}/async.log");
+        Assert.True(asyncLogFile.Exists && !asyncLogFile.IsDirectory);
+
+        string[] asyncLines = asyncLogFile.ReadAllText(out _).Split([Environment.NewLine], StringSplitOptions.None);
+        Assert.Equal(new[]
+        {
+            $"info: {typeof(LoggingTest)}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"      Test message.",
+            ""
+        }, asyncLines);
+    }
 }

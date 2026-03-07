@@ -180,7 +180,11 @@ public class FileLogger : ILogger
                         break;
                 }
 
-                Processor.Enqueue(entry, fileSettings, currentState.Settings);
+                bool synchronousWrite = fileSettings.SynchronousWrite ?? currentState.Settings.SynchronousWrite ?? false;
+                if (synchronousWrite)
+                    Processor.WriteDirectly(entry, fileSettings, currentState.Settings);
+                else
+                    Processor.Enqueue(entry, fileSettings, currentState.Settings);
             }
         }
 
