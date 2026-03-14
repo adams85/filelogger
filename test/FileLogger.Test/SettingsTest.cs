@@ -43,6 +43,7 @@ public class SettingsTest
                             "Karambolo.Extensions.Logging.File.Test": "{{LogLevel.Debug}}",
                             "{{LogFileOptions.DefaultCategoryName}}": "{{LogLevel.None}}",
                         },
+                        "{{nameof(FileLoggerOptions.WriteStrategy)}}": "{{LogFileWriteStrategy.QueuedAsyncWrite}}",
                     }],
                     "{{nameof(FileLoggerOptions.DateFormat)}}": "yyyyMMdd",
                     "{{nameof(FileLoggerOptions.CounterFormat)}}": "000",
@@ -50,6 +51,7 @@ public class SettingsTest
                     "{{nameof(FileLoggerOptions.TextBuilderType)}}": "{{typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName}}",
                     "{{nameof(FileLoggerOptions.IncludeScopes)}}": true,
                     "{{nameof(FileLoggerOptions.MaxQueueSize)}}": 100,
+                    "{{nameof(FileLoggerOptions.WriteStrategy)}}": "{{LogFileWriteStrategy.DirectSyncWrite}}",
                 }
             }
             """;
@@ -85,12 +87,14 @@ public class SettingsTest
         Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).ToString()));
         Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(FileLogger).ToString()));
         Assert.Equal(LogLevel.Warning, fileSettings.GetMinLevel(typeof(SettingsTest).ToString()));
+        Assert.Null(fileSettings.WriteStrategy);
 
         fileSettings = Array.Find(settings.Files, f => f.Path == "test.log");
         Assert.NotNull(fileSettings);
         Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(string).ToString()));
         Assert.Equal(LogLevel.None, fileSettings.GetMinLevel(typeof(FileLogger).ToString()));
         Assert.Equal(LogLevel.Debug, fileSettings.GetMinLevel(typeof(SettingsTest).ToString()));
+        Assert.Equal(LogFileWriteStrategy.QueuedAsyncWrite, fileSettings.WriteStrategy);
 
         Assert.Equal("yyyyMMdd", settings.DateFormat);
         Assert.Equal("000", settings.CounterFormat);
@@ -99,15 +103,26 @@ public class SettingsTest
         Assert.Equal(typeof(CustomLogEntryTextBuilder), settings.TextBuilder.GetType());
         Assert.True(settings.IncludeScopes);
         Assert.Equal(100, settings.MaxQueueSize);
+        Assert.Equal(LogFileWriteStrategy.DirectSyncWrite, settings.WriteStrategy);
     }
 
-    [Fact]
-    public async Task ReloadOptionsSettings()
+    [Theory]
+    [InlineData(LogFileWriteStrategy.QueuedAsyncWrite, LogFileWriteStrategy.QueuedAsyncWrite)]
+    [InlineData(LogFileWriteStrategy.QueuedAsyncWrite, LogFileWriteStrategy.QueuedSyncWrite)]
+    [InlineData(LogFileWriteStrategy.QueuedAsyncWrite, LogFileWriteStrategy.DirectSyncWrite)]
+    [InlineData(LogFileWriteStrategy.QueuedSyncWrite, LogFileWriteStrategy.QueuedAsyncWrite)]
+    [InlineData(LogFileWriteStrategy.QueuedSyncWrite, LogFileWriteStrategy.QueuedSyncWrite)]
+    [InlineData(LogFileWriteStrategy.QueuedSyncWrite, LogFileWriteStrategy.DirectSyncWrite)]
+    [InlineData(LogFileWriteStrategy.DirectSyncWrite, LogFileWriteStrategy.QueuedAsyncWrite)]
+    [InlineData(LogFileWriteStrategy.DirectSyncWrite, LogFileWriteStrategy.QueuedSyncWrite)]
+    [InlineData(LogFileWriteStrategy.DirectSyncWrite, LogFileWriteStrategy.DirectSyncWrite)]
+    public async Task ReloadOptionsSettings(LogFileWriteStrategy initialWriteStrategy, LogFileWriteStrategy subsequentWriteStrategy)
     {
         string configJson =
             $$"""
             {
                 "{{FileLoggerProvider.Alias}}": {
+                    "{{nameof(FileLoggerOptions.WriteStrategy)}}" : "{{initialWriteStrategy}}",
                     "{{nameof(FileLoggerOptions.IncludeScopes)}}" : true,
                     "{{nameof(FileLoggerOptions.Files)}}": [
                     {
@@ -168,6 +183,7 @@ public class SettingsTest
                     configJson =
                         $$"""
                         {
+                            "{{nameof(FileLoggerOptions.WriteStrategy)}}" : "{{subsequentWriteStrategy}}",
                             "{{FileLoggerProvider.Alias}}": {
                                 "{{nameof(FileLoggerOptions.Files)}}": [
                                 {

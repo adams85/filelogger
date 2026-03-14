@@ -19,6 +19,15 @@ public enum LogFileAccessMode
     Default = KeepOpenAndAutoFlush
 }
 
+public enum LogFileWriteStrategy
+{
+    DirectSyncWrite = -1,
+    QueuedAsyncWrite,
+    QueuedSyncWrite,
+
+    Default = QueuedAsyncWrite
+}
+
 public interface ILogFileSettingsBase
 {
     LogFileAccessMode? FileAccessMode { get; }
@@ -28,6 +37,7 @@ public interface ILogFileSettingsBase
     long? MaxFileSize { get; }
     IFileLogEntryTextBuilder? TextBuilder { get; }
     bool? IncludeScopes { get; }
+    LogFileWriteStrategy? WriteStrategy { get; }
     int? MaxQueueSize { get; }
     LogFilePathPlaceholderResolver? PathPlaceholderResolver { get; }
 }
@@ -58,6 +68,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         MaxFileSize = other.MaxFileSize;
         TextBuilder = other.TextBuilder;
         IncludeScopes = other.IncludeScopes;
+        WriteStrategy = other.WriteStrategy;
         MaxQueueSize = other.MaxQueueSize;
         PathPlaceholderResolver = other.PathPlaceholderResolver;
     }
@@ -112,6 +123,8 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
     }
 
     public bool? IncludeScopes { get; set; }
+
+    public LogFileWriteStrategy? WriteStrategy { get; set; }
 
     public int? MaxQueueSize { get; set; }
 
@@ -170,6 +183,12 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         {
             get => Options.IncludeScopes;
             set => Options.IncludeScopes = value;
+        }
+
+        public LogFileWriteStrategy? WriteStrategy
+        {
+            get => Options.WriteStrategy;
+            set => Options.WriteStrategy = value;
         }
 
         public int? MaxQueueSize

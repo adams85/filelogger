@@ -104,9 +104,11 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
         return new FileLoggerProcessor(Context);
     }
 
-    private async Task ResetProcessorAsync(Action updateSettings)
+    private async Task ResetProcessorAsync(Task currentResetTask, Action updateSettings)
     {
-        await _resetTask.ConfigureAwait(false);
+        await currentResetTask.ConfigureAwait(false);
+
+        currentResetTask = null!; // allow GC to collect the task
 
         await Processor.ResetAsync(updateSettings).ConfigureAwait(false);
     }
@@ -123,7 +125,7 @@ public partial class FileLoggerProvider : ILoggerProvider, ISupportExternalScope
             if (_isDisposed)
                 return;
 
-            _resetTask = resetTask = ResetProcessorAsync(() =>
+            _resetTask = resetTask = ResetProcessorAsync(_resetTask, () =>
             {
                 lock (_loggers)
                 {

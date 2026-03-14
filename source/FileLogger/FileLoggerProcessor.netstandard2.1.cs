@@ -13,7 +13,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
     {
         internal async ValueTask WriteTextAsync(string text, Encoding encoding, CancellationToken cancellationToken)
         {
-            Debug.Assert(_appendStream is not null);
+            Debug.Assert(IsOpen);
 
             byte[] buffer = ArrayPool<byte>.Shared.Rent(encoding.GetMaxByteCount(text.Length));
             try
@@ -29,7 +29,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         internal ValueTask WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
         {
-            Debug.Assert(_appendStream is not null);
+            Debug.Assert(IsOpen);
 
             return _appendStream.WriteAsync(new ReadOnlyMemory<byte>(bytes), cancellationToken);
         }

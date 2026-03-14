@@ -17,8 +17,11 @@ namespace Karambolo.Extensions.Logging.File.Test;
 
 public class EdgeCasesTest
 {
-    [PlatformFact(AssertOn = [OSPlatformEnum.Windows])]
-    public async Task FailingEntryDontGetStuck()
+    [PlatformTheory(AssertOn = [OSPlatformEnum.Windows])]
+    [InlineData(LogFileWriteStrategy.QueuedAsyncWrite)]
+    [InlineData(LogFileWriteStrategy.QueuedSyncWrite)]
+    [InlineData(LogFileWriteStrategy.DirectSyncWrite)]
+    public async Task FailingEntryDontGetStuck(LogFileWriteStrategy writeStrategy)
     {
         string logsDirName = Guid.NewGuid().ToString("D");
 
@@ -41,6 +44,7 @@ public class EdgeCasesTest
                     Path = "default.log",
                 },
             ],
+            WriteStrategy = writeStrategy
         };
         var optionsMonitor = new DelegatedOptionsMonitor<FileLoggerOptions>(_ => options);
 
@@ -59,6 +63,7 @@ public class EdgeCasesTest
         try
         {
             FileLoggerProvider[] providers;
+            Task? stuckWriteTask = null;
 
             using (ServiceProvider sp = services.BuildServiceProvider())
             {
@@ -80,7 +85,16 @@ public class EdgeCasesTest
 
                 using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    logger.LogInformation("This shouldn't get through.");
+                    if (writeStrategy != LogFileWriteStrategy.DirectSyncWrite)
+                    {
+                        logger.LogInformation("This shouldn't get through.");
+                        stuckWriteTask = Task.CompletedTask;
+                    }
+                    else
+                    {
+                        stuckWriteTask = Task.Run(() => logger.LogInformation("This shouldn't get through."));
+                        await Task.Delay(1500); // allow some time for the thread pool to execute the task
+                    }
 
                     Task completion = context.GetCompletion(sp);
                     Assert.False(completion.IsCompleted);
@@ -89,6 +103,8 @@ public class EdgeCasesTest
 
                     Assert.Equal(completion, await Task.WhenAny(completion, Task.Delay(TimeSpan.FromMilliseconds(completionTimeoutMs * 2))));
                     Assert.Equal(TaskStatus.RanToCompletion, completion.Status);
+
+                    await stuckWriteTask;
                 }
             }
 

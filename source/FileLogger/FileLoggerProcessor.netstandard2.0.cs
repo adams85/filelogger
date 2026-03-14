@@ -11,7 +11,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
     {
         internal Task WriteTextAsync(string text, Encoding encoding, CancellationToken cancellationToken)
         {
-            Debug.Assert(_appendStream is not null);
+            Debug.Assert(IsOpen);
 
             byte[] bytes = encoding.GetBytes(text);
             return _appendStream!.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
@@ -19,7 +19,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         internal Task WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
         {
-            Debug.Assert(_appendStream is not null);
+            Debug.Assert(IsOpen);
 
             return _appendStream!.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
         }
