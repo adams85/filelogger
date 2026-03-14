@@ -20,20 +20,25 @@ internal class MemoryFileAppender : IFileAppender
 
     IFileProvider IFileAppender.FileProvider => FileProvider;
 
-    public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
+    public bool EnsureDir(IFileInfo fileInfo)
     {
         var memoryFileInfo = (MemoryFileInfo)fileInfo;
 
         var dirPath = (MemoryFileInfo)FileProvider.GetFileInfo(Path.GetDirectoryName(memoryFileInfo.LogicalPath)!);
         if (dirPath.Exists)
-            return Task.FromResult(false);
+            return false;
 
         FileProvider.CreateDir(dirPath.LogicalPath);
-
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Stream CreateAppendStream(IFileInfo fileInfo)
+    public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(EnsureDir(fileInfo));
+    }
+
+    public Stream CreateAppendStream(IFileInfo fileInfo, FileAppenderStreamCreationOptions options = default)
     {
         var memoryFileInfo = (MemoryFileInfo)fileInfo;
 

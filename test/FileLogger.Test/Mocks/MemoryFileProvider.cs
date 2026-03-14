@@ -32,7 +32,7 @@ internal class MemoryFileProvider : IFileProvider
 
         public bool IsDirectory { get; set; }
         /// <remarks>
-        /// Propertiy is initialized after instantiation.
+        /// Property is initialized after instantiation.
         /// </remarks>
         public Stream Content { get => field!; set; }
         public CancellationTokenSource? ChangeTokenSource { get; set; }

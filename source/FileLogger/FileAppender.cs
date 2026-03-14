@@ -6,12 +6,28 @@ using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File;
 
+public readonly struct FileAppenderStreamCreationOptions
+{
+    public FileAppenderStreamCreationOptions(bool useAsyncIO, bool disableBuffering)
+    {
+        _useSyncIO = !useAsyncIO;
+        DisableBuffering = disableBuffering;
+    }
+
+    private readonly bool _useSyncIO;
+    public bool UseAsyncIO { get => !_useSyncIO; }
+
+    public bool DisableBuffering { get; }
+}
+
 public interface IFileAppender
 {
     IFileProvider FileProvider { get; }
 
+    bool EnsureDir(IFileInfo fileInfo);
     Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default);
-    Stream CreateAppendStream(IFileInfo fileInfo);
+
+    Stream CreateAppendStream(IFileInfo fileInfo, FileAppenderStreamCreationOptions options = default);
 }
 
 public class PhysicalFileAppender : IFileAppender, IDisposable
@@ -44,18 +60,30 @@ public class PhysicalFileAppender : IFileAppender, IDisposable
 
     IFileProvider IFileAppender.FileProvider => FileProvider;
 
-    public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
+    public bool EnsureDir(IFileInfo fileInfo)
     {
         string dirPath = Path.GetDirectoryName(fileInfo.PhysicalPath)!;
         if (Directory.Exists(dirPath))
-            return Task.FromResult(false);
+            return false;
 
         Directory.CreateDirectory(dirPath);
-        return Task.FromResult(true);
+        return true;
     }
 
-    public Stream CreateAppendStream(IFileInfo fileInfo)
+    public Task<bool> EnsureDirAsync(IFileInfo fileInfo, CancellationToken cancellationToken = default)
     {
-        return new FileStream(fileInfo.PhysicalPath!, FileMode.Append, FileAccess.Write, FileShare.Read, _appendStreamBufferSize, _appendStreamFileOptions);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(EnsureDir(fileInfo));
+    }
+
+    public Stream CreateAppendStream(IFileInfo fileInfo, FileAppenderStreamCreationOptions options = default)
+    {
+        return new FileStream(fileInfo.PhysicalPath!, FileMode.Append, FileAccess.Write, FileShare.Read,
+#if NET6_0_OR_GREATER
+            !options.DisableBuffering ? _appendStreamBufferSize : 0,
+#else
+            _appendStreamBufferSize,
+#endif
+            options.UseAsyncIO ? _appendStreamFileOptions : (_appendStreamFileOptions & ~FileOptions.Asynchronous));
     }
 }

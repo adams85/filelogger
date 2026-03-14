@@ -61,11 +61,29 @@ namespace Karambolo.Extensions.Logging.File.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Log entry &apos;{0}&apos; created at {1} was dropped for log file &quot;{2}&quot; due to disposal of the logger provider..
+        /// </summary>
+        internal static string DiagnosticEvent_LogEntryDropped_Disposing {
+            get {
+                return ResourceManager.GetString("DiagnosticEvent_LogEntryDropped_Disposing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Log entry &apos;{0}&apos; created at {1} was dropped for log file &quot;{2}&quot; due to a non-retryable failure..
+        /// </summary>
+        internal static string DiagnosticEvent_LogEntryDropped_Failure {
+            get {
+                return ResourceManager.GetString("DiagnosticEvent_LogEntryDropped_Failure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Log entry &apos;{0}&apos; created at {1} was dropped because the queue of log file &quot;{2}&quot; was full..
         /// </summary>
-        internal static string DiagnosticEvent_LogEntryDropped {
+        internal static string DiagnosticEvent_LogEntryDropped_QueueFull {
             get {
-                return ResourceManager.GetString("DiagnosticEvent_LogEntryDropped", resourceCulture);
+                return ResourceManager.GetString("DiagnosticEvent_LogEntryDropped_QueueFull", resourceCulture);
             }
         }
         

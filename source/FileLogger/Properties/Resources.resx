@@ -117,14 +117,20 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="DiagnosticEvent_LogEntryDropped" xml:space="preserve">
-    <value>Log entry '{0}' created at {1} was dropped because the queue of log file "{2}" was full.</value>
+  <data name="DiagnosticEvent_LogEntryDropped_Disposing" xml:space="preserve">
+    <value>Log entry '{0}' created at {1} was dropped for log file "{2}" due to disposal of the logger provider.</value>
   </data>
-  <data name="DiagnosticEvent_QueuesCompletionForced" xml:space="preserve">
-    <value>Log file queues were not completed within the allowed time limit. Forcing completion.</value>
+  <data name="DiagnosticEvent_LogEntryDropped_Failure" xml:space="preserve">
+    <value>Log entry '{0}' created at {1} was dropped for log file "{2}" due to a non-retryable failure.</value>
+  </data>
+  <data name="DiagnosticEvent_LogEntryDropped_QueueFull" xml:space="preserve">
+    <value>Log entry '{0}' created at {1} was dropped because the queue of log file "{2}" was full.</value>
   </data>
   <data name="DiagnosticEvent_LogEntryWriteFailed" xml:space="preserve">
     <value>Writing log entry '{0}' created at {1} to log file "{2}" failed. {3}</value>
+  </data>
+  <data name="DiagnosticEvent_QueuesCompletionForced" xml:space="preserve">
+    <value>Log file queues were not completed within the allowed time limit. Forcing completion.</value>
   </data>
   <data name="ExtendedOptionsCloneNotDefined" xml:space="preserve">
     <value>Inheritors of '{0}' must override the '{1}' method and provide an implementation that creates a clone of the subclass instance.</value>

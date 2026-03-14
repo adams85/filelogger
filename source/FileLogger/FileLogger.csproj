@@ -28,12 +28,6 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="**\*.net*.cs" />
-    <!-- Workaround https://github.com/dotnet/project-system/issues/935 -->
-    <None Include="**\*.net*.cs" Exclude="$(BaseIntermediateOutputPath)**" />
-  </ItemGroup>
-
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net462'">
       <ItemGroup>
@@ -43,10 +37,6 @@
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="6.0.0" />
         <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
       </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.0.cs" />
-      </ItemGroup>
     </When>
 
     <When Condition="'$(TargetFramework)' == 'netstandard2.0'">
@@ -55,11 +45,8 @@
         <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="2.1.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="2.1.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="2.1.0" />
+        <PackageReference Include="System.Buffers" Version="4.5.1" />
         <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
-      </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.0.cs" />
       </ItemGroup>
     </When>
 
@@ -70,10 +57,6 @@
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="3.0.0" />
         <PackageReference Include="System.Threading.Channels" Version="4.7.1" />
       </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
-      </ItemGroup>
     </When>
 
     <When Condition="'$(TargetFramework)' == 'net6.0'">
@@ -81,10 +64,6 @@
         <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="6.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="6.0.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="6.0.0" />
-      </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
       </ItemGroup>
     </When>
 
@@ -94,10 +73,6 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="8.0.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
       </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
-      </ItemGroup>
     </When>
 
     <When Condition="'$(TargetFramework)' == 'net9.0'">
@@ -105,10 +80,6 @@
         <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="9.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="9.0.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.0" />
-      </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
       </ItemGroup>
     </When>
 
@@ -118,10 +89,6 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="10.0.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
       </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="FileLoggerProcessor.netstandard2.1.cs" />
-      </ItemGroup>
     </When>
   </Choose>
 
@@ -130,7 +97,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.111" PrivateAssets="all" />
     <PackageReference Include="PolySharp" Version="1.15.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>

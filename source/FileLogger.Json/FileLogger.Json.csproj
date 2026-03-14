@@ -17,44 +17,17 @@
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-ghhp-997w-qr28" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="**\*.net*.cs" />
-    <!-- Workaround https://github.com/dotnet/project-system/issues/935 -->
-    <None Include="**\*.net*.cs" Exclude="$(BaseIntermediateOutputPath)**" />
-  </ItemGroup>
-
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net462'">
       <ItemGroup>
         <!-- System.Text.Json v6.0.10 is the oldest, non-deprecated version that properly targets net462. -->
         <PackageReference Include="System.Text.Json" Version="6.0.10" />
       </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="PooledByteBufferWriter.netstandard2.0.cs" />
-      </ItemGroup>
     </When>
 
     <When Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'netstandard2.1'">
       <ItemGroup>
         <PackageReference Include="System.Text.Json" Version="4.6.0" />
-      </ItemGroup>
-
-      <ItemGroup>
-        <Compile Include="PooledByteBufferWriter.netstandard2.0.cs" />
-      </ItemGroup>
-    </When>
-
-    <When Condition="'$(TargetFramework)' == 'net6.0' OR '$(TargetFramework)' == 'net8.0'">
-      <ItemGroup>
-        <Compile Include="PooledByteBufferWriter.netstandard2.0.cs" />
-      </ItemGroup>
-    </When>
-
-    <When Condition="'$(TargetFramework)' == 'net9.0' OR '$(TargetFramework)' == 'net10.0'">
-      <ItemGroup>
-        <Compile Include="ArrayBuffer.net9.0.cs" />
-        <Compile Include="PooledByteBufferWriter.net9.0.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -64,7 +37,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.111" PrivateAssets="all" />
     <PackageReference Include="PolySharp" Version="1.15.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>

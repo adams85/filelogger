@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <Choose>
-    <When Condition="'$(TargetFramework)' == 'net462' OR '$(TargetFramework)' == 'netcoreapp2.1' OR '$(TargetFramework)' == 'netcoreapp3.1' OR '$(TargetFramework)' == 'net6.0'">
+    <When Condition="'$(TargetFramework)' == 'net462' OR '$(TargetFramework)' == 'netcoreapp2.1' OR '$(TargetFramework)' == 'netcoreapp3.1'">
       <ItemGroup>
         <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3" PrivateAssets="all" />
         <PackageReference Include="xunit.runner.console" Version="2.4.2" PrivateAssets="all" />
@@ -38,7 +38,7 @@
 
     <Otherwise>
       <ItemGroup>
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" PrivateAssets="all" />
         <PackageReference Include="xunit.runner.console" Version="2.9.3" PrivateAssets="all" />
       </ItemGroup>
     </Otherwise>

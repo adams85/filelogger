@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -19,6 +20,12 @@ public interface IFileLoggerProcessor : IDisposable
 {
     Task Completion { get; }
 
+    /// <summary>
+    /// In the case of <see cref="LogFileWriteStrategy.QueuedAsyncWrite"/> or <see cref="LogFileWriteStrategy.QueuedSyncWrite"/>,
+    /// adds the log entry to the file's queue or drops it if the queue is full.<br/>
+    /// In the case of <see cref="LogFileWriteStrategy.DirectSyncWrite"/>, writes the log entry directly to the file, bypassing the queue
+    /// and blocking the calling thread until the write operation completes.
+    /// </summary>
     void Enqueue(in FileLogEntry entry, ILogFileSettings fileSettings, IFileLoggerSettings settings);
 
     Task ResetAsync(Action? onQueuesCompleted = null);
@@ -34,7 +41,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         Completed,
     }
 
-    protected internal partial class LogFileInfo
+    protected internal class LogFileInfo
     {
         private Stream? _appendStream;
 
@@ -55,12 +62,17 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             DateFormat = fileSettings.DateFormat ?? settings.DateFormat;
             CounterFormat = fileSettings.CounterFormat ?? settings.CounterFormat;
             MaxSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
+            WriteStrategy = fileSettings.WriteStrategy ?? settings.WriteStrategy ?? LogFileWriteStrategy.QueuedAsyncWrite;
 
-            Queue = processor.CreateLogFileQueue(fileSettings, settings);
+            if (WriteStrategy != LogFileWriteStrategy.DirectSyncWrite)
+            {
+                Queue = processor.CreateLogFileQueue(fileSettings, settings);
 
-            // important: closure must pick up the current token!
-            CancellationToken forcedCompleteToken = processor._forcedCompleteTokenSource.Token;
-            WriteFileTask = Task.Run(() => processor.WriteFileAsync(this, forcedCompleteToken));
+                // important: closure must pick up the current processor state!
+                Task currentResetTask = processor._resetTask;
+                CancellationToken forcedCompleteToken = processor._forcedCompleteTokenSource.Token;
+                WriteFileTask = Task.Run(() => processor.WriteFileAsync(this, currentResetTask, forcedCompleteToken));
+            }
         }
 
         public string BasePath { get; }
@@ -72,9 +84,13 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         public string? DateFormat { get; }
         public string? CounterFormat { get; }
         public long MaxSize { get; }
+        public LogFileWriteStrategy WriteStrategy { get; }
 
-        public Channel<FileLogEntry> Queue { get; }
-        public Task WriteFileTask { get; }
+        public Channel<FileLogEntry>? Queue { get; }
+        public Task? WriteFileTask { get; }
+
+        internal bool IsSyncWriteInProgress { get; set; }
+        internal int PendingSyncWriteCount { get; set; }
 
         public int Counter { get; set; }
         public string? CurrentPath { get; set; }
@@ -87,9 +103,81 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         internal void Open(IFileInfo fileInfo)
         {
-            _appendStream = FileAppender.CreateAppendStream(fileInfo);
+            _appendStream = FileAppender.CreateAppendStream(fileInfo, new FileAppenderStreamCreationOptions(
+                disableBuffering: AccessMode != LogFileAccessMode.KeepOpen,
+                useAsyncIO: WriteStrategy == LogFileWriteStrategy.QueuedAsyncWrite));
 
             ShouldEnsurePreamble = true;
+        }
+
+        internal void WriteText(string text, Encoding encoding)
+        {
+            Debug.Assert(IsOpen);
+
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(encoding.GetMaxByteCount(text.Length));
+            try
+            {
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+                int byteCount = encoding.GetBytes(text, buffer);
+                _appendStream.Write(new ReadOnlySpan<byte>(buffer, 0, byteCount));
+#else
+                int byteCount = encoding.GetBytes(text, 0, text.Length, buffer, 0);
+                _appendStream!.Write(buffer, 0, byteCount);
+#endif
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
+        }
+
+        internal async ValueTask WriteTextAsync(string text, Encoding encoding, CancellationToken cancellationToken)
+        {
+            Debug.Assert(IsOpen);
+
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(encoding.GetMaxByteCount(text.Length));
+            try
+            {
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+                int byteCount = encoding.GetBytes(text, buffer);
+                await _appendStream.WriteAsync(new ReadOnlyMemory<byte>(buffer, 0, byteCount), cancellationToken).ConfigureAwait(false);
+#else
+                int byteCount = encoding.GetBytes(text, 0, text.Length, buffer, 0);
+                await _appendStream!.WriteAsync(buffer, 0, byteCount, cancellationToken).ConfigureAwait(false);
+#endif
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
+        }
+
+        internal void WriteBytes(byte[] bytes)
+        {
+            Debug.Assert(IsOpen);
+
+            _appendStream!.Write(bytes, 0, bytes.Length);
+        }
+
+        internal ValueTask WriteBytesAsync(byte[] bytes, CancellationToken cancellationToken)
+        {
+            Debug.Assert(IsOpen);
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+            return _appendStream.WriteAsync(bytes, cancellationToken);
+#else
+            return new ValueTask(_appendStream!.WriteAsync(bytes, 0, bytes.Length, cancellationToken));
+#endif
+        }
+
+        internal void EnsurePreamble()
+        {
+            Debug.Assert(IsOpen);
+
+            if (_appendStream!.Length == 0)
+                WriteBytes(Encoding.GetPreamble());
+
+            ShouldEnsurePreamble = false;
         }
 
         internal async ValueTask EnsurePreambleAsync(CancellationToken cancellationToken)
@@ -102,13 +190,35 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             ShouldEnsurePreamble = false;
         }
 
-        internal void Flush()
+        internal void Flush(bool flushToDisk)
         {
             Debug.Assert(IsOpen);
 
-            // FlushAsync is extremely slow currently
-            // https://github.com/dotnet/corefx/issues/32837
+            if (!flushToDisk || _appendStream is not FileStream fileStream)
+            {
+                // NOTE: FileStream.Flush() is a no-op when FileStream buffering is turned off.
+                _appendStream!.Flush();
+            }
+            else
+            {
+                fileStream.Flush(flushToDisk: true);
+            }
+        }
+
+        internal async ValueTask FlushAsync(CancellationToken cancellationToken)
+        {
+            Debug.Assert(IsOpen);
+
+#if NET6_0_OR_GREATER
+            // NOTE: FileStream.FlushAsync() is a no-op when FileStream buffering is turned off.
+            await _appendStream!.FlushAsync(cancellationToken).ConfigureAwait(false);
+#else
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // NOTE: No point in using FlushAsync prior to .NET 6 as it does sync-over-async under the hood anyway,
+            // it just adds significant overhead. See also: https://github.com/dotnet/corefx/issues/32837
             _appendStream!.Flush();
+#endif
         }
 
         internal void Close()
@@ -183,6 +293,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
     private readonly TaskCompletionSource<object?> _completeTaskCompletionSource;
     private readonly CancellationTokenRegistration _completeTokenRegistration;
     private CancellationTokenSource _forcedCompleteTokenSource;
+    private Task _resetTask;
     private Status _status;
 
     public FileLoggerProcessor(FileLoggerContext context)
@@ -192,6 +303,8 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         _fallbackFileAppender = new Lazy<PhysicalFileAppender>(() => new PhysicalFileAppender(Environment.CurrentDirectory));
 
         _logFiles = new Dictionary<ILogFileSettings, LogFileInfo>();
+
+        _resetTask = Task.CompletedTask;
 
         _completeTaskCompletionSource = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -216,6 +329,8 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                 if (_fallbackFileAppender.IsValueCreated)
                     _fallbackFileAppender.Value.Dispose();
 
+                _resetTask.Dispose(); // might allocate a WaitHandle if some files are written in DirectSyncWrite mode
+
                 DisposeCore();
 
                 _status = Status.Completed;
@@ -229,32 +344,154 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
     public Task Completion => _completeTaskCompletionSource.Task;
 
+    private static async Task CompleteQueue(LogFileInfo logFile, CancellationToken forcedCompleteToken)
+    {
+        try
+        {
+            logFile.Queue!.Writer.Complete();
+
+            await logFile.WriteFileTask!.ConfigureAwait(false);
+
+            if (logFile.IsOpen)
+            {
+                if (logFile.AccessMode == LogFileAccessMode.KeepOpen)
+                {
+                    if (logFile.WriteStrategy == LogFileWriteStrategy.QueuedAsyncWrite)
+                    {
+                        await logFile.FlushAsync(forcedCompleteToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        forcedCompleteToken.ThrowIfCancellationRequested();
+                        logFile.Flush(flushToDisk: false);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (logFile.IsOpen)
+            {
+                logFile.Close();
+            }
+        }
+    }
+
+    private static Task CompleteSyncWrite(IReadOnlyList<LogFileInfo> logFiles, CancellationToken forcedCompleteToken) => Task.Factory.StartNew(static state =>
+    {
+        var (logFilesWithSyncWrite, forcedCompleteToken) = ((IReadOnlyList<LogFileInfo>, CancellationToken))state!;
+
+        int i = 0;
+        try
+        {
+            for (int n = logFilesWithSyncWrite.Count; i < n; i++)
+            {
+                LogFileInfo? logFile = logFilesWithSyncWrite[i];
+
+                lock (logFile)
+                {
+                    for (; ; )
+                    {
+                        if (forcedCompleteToken.IsCancellationRequested)
+                            return;
+
+                        if (logFile.PendingSyncWriteCount <= 0)
+                            break;
+
+                        Monitor.Wait(logFile);
+                    }
+                }
+
+                if (logFile.IsOpen)
+                {
+                    if (logFile.AccessMode == LogFileAccessMode.KeepOpen)
+                    {
+                        forcedCompleteToken.ThrowIfCancellationRequested();
+                        logFile.Flush(flushToDisk: true);
+                    }
+
+                    logFile.Close();
+                }
+            }
+        }
+        finally
+        {
+            for (int n = logFilesWithSyncWrite.Count; i < n; i++)
+            {
+                LogFileInfo? logFile = logFilesWithSyncWrite[i];
+
+                if (logFile.IsOpen)
+                {
+                    logFile.Close();
+                }
+            }
+        }
+    }, state: (logFiles, forcedCompleteToken), forcedCompleteToken, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+    private async Task<bool> WaitForQueuesToCompleteAsync(Task currentResetTask, IEnumerable<Task> queueCompletionTasks)
+    {
+        await currentResetTask.ConfigureAwait(false);
+
+        currentResetTask = null!; // allow GC to collect the task
+
+#if NET6_0_OR_GREATER
+        try { await Task.WhenAll(queueCompletionTasks).WaitAsync(Context.CompletionTimeout).ConfigureAwait(false); }
+        catch (TimeoutException) { return false; }
+#else
+        using (var delayCancellationTokenSource = new CancellationTokenSource())
+        {
+            var completionTimeoutTask = Task.Delay(Context.CompletionTimeout, delayCancellationTokenSource.Token);
+            Task completedTask = await Task.WhenAny(Task.WhenAll(queueCompletionTasks), completionTimeoutTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completedTask, completionTimeoutTask))
+                delayCancellationTokenSource.Cancel();
+            else
+                return false;
+        }
+#endif
+
+        return true;
+    }
+
     private async Task ResetCoreAsync(Action? onQueuesCompleted, bool complete)
     {
         CancellationTokenSource forcedCompleteTokenSource;
-        Task[] completionTasks;
+        Task<bool> completionTask;
+        List<LogFileInfo>? logFilesWithSyncWrite = null;
 
         lock (_logFiles)
         {
             if (_status != Status.Running)
                 return;
 
+            var queueCompletionTasks = new List<Task>(capacity: _logFiles.Count);
+
             forcedCompleteTokenSource = _forcedCompleteTokenSource;
             _forcedCompleteTokenSource = new CancellationTokenSource();
 
-            completionTasks = _logFiles.Values.Select(async logFile =>
+            var forcedCompleteToken = forcedCompleteTokenSource.Token;
+
+            foreach (var logFile in _logFiles.Values)
             {
-                logFile.Queue.Writer.Complete();
+                if (logFile.WriteStrategy != LogFileWriteStrategy.DirectSyncWrite)
+                {
+                    queueCompletionTasks.Add(CompleteQueue(logFile, forcedCompleteToken));
+                }
+                else
+                {
+                    (logFilesWithSyncWrite ??= new(capacity: _logFiles.Count)).Add(logFile);
+                }
+            }
 
-                await logFile.WriteFileTask.ConfigureAwait(false);
-
-                if (logFile.IsOpen)
-                    logFile.Close();
-            }).ToArray();
+            if (logFilesWithSyncWrite is not null)
+            {
+                queueCompletionTasks.Add(CompleteSyncWrite(logFilesWithSyncWrite, forcedCompleteToken));
+            }
 
             _logFiles.Clear();
 
             onQueuesCompleted?.Invoke();
+
+            _resetTask = completionTask = WaitForQueuesToCompleteAsync(_resetTask, queueCompletionTasks);
 
             if (complete)
                 _status = Status.Completing;
@@ -262,34 +499,22 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         try
         {
-            bool hasCompletionTimedOut = false;
-
-#if NET6_0_OR_GREATER
-            try
-            {
-                await Task.WhenAll(completionTasks).WaitAsync(Context.CompletionTimeout).ConfigureAwait(false);
-            }
-            catch (TimeoutException)
-            {
-                hasCompletionTimedOut = true;
-            }
-#else
-            using (var delayCancellationTokenSource = new CancellationTokenSource())
-            {
-                var completionTimeoutTask = Task.Delay(Context.CompletionTimeout, delayCancellationTokenSource.Token);
-                Task completedTask = await Task.WhenAny(Task.WhenAll(completionTasks), completionTimeoutTask).ConfigureAwait(false);
-                if (!ReferenceEquals(completedTask, completionTimeoutTask))
-                    delayCancellationTokenSource.Cancel();
-                else
-                    hasCompletionTimedOut = true;
-            }
-#endif
-
+            bool hasCompletionTimedOut = !await completionTask.ConfigureAwait(false);
             if (hasCompletionTimedOut)
                 Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.QueuesCompletionForced(this));
 
             forcedCompleteTokenSource.Cancel();
             forcedCompleteTokenSource.Dispose();
+
+            if (logFilesWithSyncWrite is not null)
+            {
+                // wake up all waiting threads so they can cancel writes and resume execution
+                foreach (var logFile in logFilesWithSyncWrite)
+                {
+                    lock (logFile)
+                        Monitor.PulseAll(logFile);
+                }
+            }
         }
         finally
         {
@@ -342,13 +567,19 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
     {
         LogFileInfo logFile;
 
+        Task currentResetTask;
+        CancellationToken forcedCompleteToken;
+
         lock (_logFiles)
         {
             if (_status == Status.Completed)
                 throw new ObjectDisposedException(nameof(FileLoggerProcessor));
 
             if (_status != Status.Running)
+            {
+                Context.GetDiagnosticEventReporter()?.Invoke(FileLoggerDiagnosticEvent.LogEntryDropped.Disposing(this, fileSettings.Path!, entry));
                 return;
+            }
 
 #if NET6_0_OR_GREATER
             ref LogFileInfo? logFileRef = ref CollectionsMarshal.GetValueRefOrAddDefault(_logFiles, fileSettings, out bool logFileExists);
@@ -357,10 +588,75 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             if (!_logFiles.TryGetValue(fileSettings, out logFile))
                 _logFiles.Add(fileSettings, logFile = CreateLogFile(fileSettings, settings));
 #endif
+
+            currentResetTask = _resetTask;
+            forcedCompleteToken = _forcedCompleteTokenSource.Token;
         }
 
-        if (!logFile.Queue.Writer.TryWrite(entry))
-            Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryDropped(this, logFile, entry));
+        if (logFile.WriteStrategy != LogFileWriteStrategy.DirectSyncWrite)
+        {
+            if (!logFile.Queue!.Writer.TryWrite(entry))
+            {
+                Context.GetDiagnosticEventReporter()?.Invoke(FileLoggerDiagnosticEvent.LogEntryDropped.QueueFull(this, logFile, entry));
+            }
+        }
+        else
+        {
+            var hasStartedSyncWrite = false;
+
+            try
+            {
+                lock (logFile)
+                {
+                    logFile.PendingSyncWriteCount++;
+
+                    // wait until the current thread gets its turn to write, or forced completion is signaled
+                    for (; ; )
+                    {
+                        forcedCompleteToken.ThrowIfCancellationRequested();
+
+                        if (!logFile.IsSyncWriteInProgress)
+                            break;
+
+                        Monitor.Wait(logFile);
+                    }
+
+                    logFile.IsSyncWriteInProgress = hasStartedSyncWrite = true;
+                }
+
+                if (!currentResetTask.IsCompleted)
+                {
+                    // if there's a pending reset, wait for it to complete first (to avoid potential concurrent access to the same files)
+                    currentResetTask.Wait(forcedCompleteToken);
+                }
+
+                var writeEntryTask = WriteEntryAsync(logFile, entry, forcedCompleteToken);
+                Debug.Assert(writeEntryTask.IsCompleted);
+                writeEntryTask.GetAwaiter().GetResult(); // propagate potential cancellation or exception
+
+                return;
+            }
+            catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested)
+            {
+                // swallow the exception (as it shouldn't be propagated)
+            }
+            finally
+            {
+                lock (logFile)
+                {
+                    if (hasStartedSyncWrite)
+                    {
+                        logFile.IsSyncWriteInProgress = false;
+                    }
+                    logFile.PendingSyncWriteCount--;
+
+                    // wake up a waiting thread (if any) so it can reacquire the lock and become the next writer
+                    Monitor.Pulse(logFile);
+                }
+            }
+
+            Context.GetDiagnosticEventReporter()?.Invoke(FileLoggerDiagnosticEvent.LogEntryDropped.Disposing(this, logFile, entry));
+        }
     }
 
     protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, in FileLogEntry entry)
@@ -445,11 +741,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         return true;
     }
 
-    protected virtual void HandleFilePathChange(LogFileInfo logFile, in FileLogEntry entry)
-    {
-        if (logFile.IsOpen)
-            logFile.Close();
-    }
+    protected virtual void HandleFilePathChange(LogFileInfo logFile, in FileLogEntry entry) { }
 
     protected virtual async ValueTask WriteEntryAsync(LogFileInfo logFile, FileLogEntry entry, CancellationToken forcedCompleteToken)
     {
@@ -467,7 +759,27 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                 try
                 {
                     if (UpdateFilePath(logFile, entry, forcedCompleteToken))
+                    {
+                        if (logFile.IsOpen)
+                        {
+                            if (logFile.AccessMode == LogFileAccessMode.KeepOpen)
+                            {
+                                if (logFile.WriteStrategy == LogFileWriteStrategy.QueuedAsyncWrite)
+                                {
+                                    await logFile.FlushAsync(forcedCompleteToken).ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    forcedCompleteToken.ThrowIfCancellationRequested();
+                                    logFile.Flush(flushToDisk: logFile.WriteStrategy == LogFileWriteStrategy.DirectSyncWrite);
+                                }
+                            }
+
+                            logFile.Close();
+                        }
+
                         HandleFilePathChange(logFile, entry);
+                    }
 
                     Debug.Assert(logFile.CurrentPath is not null);
 
@@ -483,57 +795,106 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                         goto case writeState;
                     }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested)
+                {
+                    ReportDroppedEntryDueToDisposalIfQueued(logFile, entry);
+                    throw;
+                }
+                catch (Exception ex)
                 {
                     ReportFailure(logFile, entry, ex);
 
-                    // discarding entry when file path is invalid
+                    // discard entry when file path is invalid
                     if (logFile.CurrentPath!.IndexOfAny(InvalidPathChars) >= 0)
+                    {
+                        ReportDroppedEntryDueToFailure(logFile, entry);
                         return;
+                    }
 
                     goto case idleState;
                 }
+
             case tryOpenFileState:
                 try
                 {
+                    forcedCompleteToken.ThrowIfCancellationRequested();
                     logFile.Open(fileInfo);
 
                     goto case writeState;
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested)
+                {
+                    ReportDroppedEntryDueToDisposalIfQueued(logFile, entry);
+                    throw;
+                }
+                catch
                 {
                     goto case retryOpenFileState;
                 }
+
             case retryOpenFileState:
                 try
                 {
-                    await logFile.FileAppender.EnsureDirAsync(fileInfo, forcedCompleteToken).ConfigureAwait(false);
+                    if (logFile.WriteStrategy == LogFileWriteStrategy.QueuedAsyncWrite)
+                    {
+                        await logFile.FileAppender.EnsureDirAsync(fileInfo, forcedCompleteToken).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        forcedCompleteToken.ThrowIfCancellationRequested();
+                        logFile.FileAppender.EnsureDir(fileInfo);
+                    }
+
                     logFile.Open(fileInfo);
 
                     goto case writeState;
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested)
+                {
+                    ReportDroppedEntryDueToDisposalIfQueued(logFile, entry);
+                    throw;
+                }
+                catch (Exception ex)
                 {
                     ReportFailure(logFile, entry, ex);
 
-                    // discarding entry when file path is invalid
+                    // discard entry when file path is invalid
                     if (logFile.CurrentPath!.IndexOfAny(InvalidPathChars) >= 0)
+                    {
+                        ReportDroppedEntryDueToFailure(logFile, entry);
                         return;
+                    }
 
                     goto case idleState;
                 }
+
             case writeState:
                 try
                 {
                     try
                     {
-                        if (logFile.ShouldEnsurePreamble)
-                            await logFile.EnsurePreambleAsync(forcedCompleteToken).ConfigureAwait(false);
+                        if (logFile.WriteStrategy == LogFileWriteStrategy.QueuedAsyncWrite)
+                        {
+                            if (logFile.ShouldEnsurePreamble)
+                                await logFile.EnsurePreambleAsync(forcedCompleteToken).ConfigureAwait(false);
 
-                        await logFile.WriteTextAsync(entry.Text, logFile.Encoding, forcedCompleteToken).ConfigureAwait(false);
+                            await logFile.WriteTextAsync(entry.Text, logFile.Encoding, forcedCompleteToken).ConfigureAwait(false);
 
-                        if (logFile.AccessMode == LogFileAccessMode.KeepOpenAndAutoFlush)
-                            logFile.Flush();
+                            if (logFile.AccessMode != LogFileAccessMode.KeepOpen)
+                                await logFile.FlushAsync(forcedCompleteToken).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            forcedCompleteToken.ThrowIfCancellationRequested();
+
+                            if (logFile.ShouldEnsurePreamble)
+                                logFile.EnsurePreamble();
+
+                            logFile.WriteText(entry.Text, logFile.Encoding);
+
+                            if (logFile.AccessMode != LogFileAccessMode.KeepOpen)
+                                logFile.Flush(flushToDisk: logFile.WriteStrategy == LogFileWriteStrategy.DirectSyncWrite);
+                        }
                     }
                     finally
                     {
@@ -543,31 +904,90 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
                     return;
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException || !forcedCompleteToken.IsCancellationRequested)
+                catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested)
+                {
+                    ReportDroppedEntryDueToDisposalIfQueued(logFile, entry);
+                    throw;
+                }
+                catch (Exception ex)
                 {
                     ReportFailure(logFile, entry, ex);
 
                     goto case idleState;
                 }
-            case idleState:
-                // discarding failed entry on forced complete
-                if (Context.WriteRetryDelay > TimeSpan.Zero)
-                    await Task.Delay(Context.WriteRetryDelay, forcedCompleteToken).ConfigureAwait(false);
-                else
-                    forcedCompleteToken.ThrowIfCancellationRequested();
 
-                goto case checkFileState;
+            case idleState:
+                if (logFile.WriteStrategy != LogFileWriteStrategy.DirectSyncWrite)
+                {
+                    try
+                    {
+                        // in queued modes, discard failed entry on forced completion, otherwise try again
+                        if (Context.WriteRetryDelay > TimeSpan.Zero)
+                            await Task.Delay(Context.WriteRetryDelay, forcedCompleteToken).ConfigureAwait(false);
+                        else
+                            forcedCompleteToken.ThrowIfCancellationRequested();
+                    }
+                    catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested)
+                    {
+                        ReportDroppedEntryDueToDisposalIfQueued(logFile, entry);
+                        throw;
+                    }
+
+                    goto case checkFileState;
+                }
+                else
+                {
+                    // make no further attempts in non-queued blocking synchronous mode
+                    ReportDroppedEntryDueToFailure(logFile, entry);
+                    return;
+                }
         }
 
         void ReportFailure(LogFileInfo logFile, in FileLogEntry entry, Exception exception)
         {
             Context.GetDiagnosticEventReporter()?.Invoke(new FileLoggerDiagnosticEvent.LogEntryWriteFailed(this, logFile, entry, exception));
         }
+
+        void ReportDroppedEntryDueToFailure(LogFileInfo logFile, in FileLogEntry entry)
+        {
+            Context.GetDiagnosticEventReporter()?.Invoke(FileLoggerDiagnosticEvent.LogEntryDropped.Failure(this, logFile, entry));
+        }
+
+        void ReportDroppedEntryDueToDisposalIfQueued(LogFileInfo logFile, in FileLogEntry entry)
+        {
+            if (logFile.WriteStrategy != LogFileWriteStrategy.DirectSyncWrite)
+            {
+                Context.GetDiagnosticEventReporter()?.Invoke(FileLoggerDiagnosticEvent.LogEntryDropped.Disposing(this, logFile, entry));
+            }
+        }
     }
 
-    private async Task WriteFileAsync(LogFileInfo logFile, CancellationToken forcedCompleteToken)
+    private async Task WriteFileAsync(LogFileInfo logFile, Task currentResetTask, CancellationToken forcedCompleteToken)
     {
-        ChannelReader<FileLogEntry> queue = logFile.Queue.Reader;
+        // if there's a pending reset, wait for it to complete first (to avoid potential concurrent access to the same files)
+
+#if NET6_0_OR_GREATER
+        currentResetTask = currentResetTask.WaitAsync(forcedCompleteToken);
+        try { await currentResetTask.ConfigureAwait(false); }
+        catch (OperationCanceledException) when (forcedCompleteToken.IsCancellationRequested) { throw; }
+        catch { /* swallow the exception (as it would be redundant to propagate it) */ }
+#else
+        var cancellationTcs = new TaskCompletionSource<object>();
+        using (forcedCompleteToken.Register(() => cancellationTcs.TrySetCanceled(forcedCompleteToken), useSynchronizationContext: false))
+        {
+            var completedTask = await Task.WhenAny(currentResetTask, cancellationTcs.Task).ConfigureAwait(false);
+            if (!ReferenceEquals(completedTask, currentResetTask))
+            {
+                completedTask.GetAwaiter().GetResult(); // propagate cancellation
+            }
+        }
+#endif
+
+        currentResetTask = null!; // allow GC to collect the task
+
+        // process the queue
+
+        ChannelReader<FileLogEntry> queue = logFile.Queue!.Reader;
         while (await queue.WaitToReadAsync(forcedCompleteToken).ConfigureAwait(false))
         {
             while (queue.TryRead(out FileLogEntry entry))

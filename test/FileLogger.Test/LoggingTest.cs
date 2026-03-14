@@ -321,13 +321,21 @@ public class LoggingTest
                 Assert.True(providers.All(provider => provider.Completion.IsCompleted));
             }
 
-            Assert.NotEmpty(diagnosticEvents);
+            Assert.Equal(4, diagnosticEvents.Count);
+            Assert.Equal(2, diagnosticEvents.OfType<FileLoggerDiagnosticEvent.LogEntryWriteFailed>().Count());
+            Assert.Equal(2, diagnosticEvents.OfType<FileLoggerDiagnosticEvent.LogEntryDropped>().Count());
             Assert.All(diagnosticEvents, e =>
             {
-                Assert.IsType<FileLoggerDiagnosticEvent.LogEntryWriteFailed>(e);
                 Assert.IsType<FileLoggerProcessor>(e.Source);
                 Assert.NotNull(e.FormattableMessage);
-                Assert.NotNull(e.Exception);
+                if (e is FileLoggerDiagnosticEvent.LogEntryWriteFailed)
+                {
+                    Assert.NotNull(e.Exception);
+                }
+                else
+                {
+                    Assert.Null(e.Exception);
+                }
             });
         }
         finally

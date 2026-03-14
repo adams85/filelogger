@@ -34,20 +34,35 @@ internal static class FileLoggerDiagnosticEvent
 
     internal sealed class LogEntryDropped : IFileLoggerDiagnosticEvent
     {
-        private readonly FileLoggerProcessor.LogFileInfo _logFile;
-        private readonly FileLogEntry _logEntry;
+        public static LogEntryDropped Disposing(FileLoggerProcessor source, string logFile, in FileLogEntry logEntry) =>
+            new LogEntryDropped(source, logFile, logEntry, () => Resources.DiagnosticEvent_LogEntryDropped_Disposing);
 
-        internal LogEntryDropped(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, in FileLogEntry logEntry)
+        public static LogEntryDropped Disposing(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, in FileLogEntry logEntry) =>
+            new LogEntryDropped(source, logFile, logEntry, () => Resources.DiagnosticEvent_LogEntryDropped_Disposing);
+
+        public static LogEntryDropped Failure(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, in FileLogEntry logEntry) =>
+            new LogEntryDropped(source, logFile, logEntry, () => Resources.DiagnosticEvent_LogEntryDropped_Failure);
+
+        public static LogEntryDropped QueueFull(FileLoggerProcessor source, FileLoggerProcessor.LogFileInfo logFile, in FileLogEntry logEntry) =>
+            new LogEntryDropped(source, logFile, logEntry, () => Resources.DiagnosticEvent_LogEntryDropped_QueueFull);
+
+        private readonly object _logFile; // FileLoggerProcessor.LogFileInfo | string
+        private readonly FileLogEntry _logEntry;
+        private readonly Func<string> _messageFormatAccessor;
+
+        private LogEntryDropped(FileLoggerProcessor source, object logFile, in FileLogEntry logEntry, Func<string> messageFormatAccessor)
         {
             Source = source;
-            _logFile = logFile;
             _logEntry = logEntry;
+            _logFile = logFile;
+            _messageFormatAccessor = messageFormatAccessor;
         }
 
         public object Source { get; }
 
         public FormattableString FormattableMessage =>
-            FormattableStringFactory.Create(Resources.DiagnosticEvent_LogEntryDropped, _logEntry.Text, _logEntry.Timestamp, _logFile.PathFormat);
+            FormattableStringFactory.Create(_messageFormatAccessor(), _logEntry.Text, _logEntry.Timestamp,
+                _logFile is FileLoggerProcessor.LogFileInfo logFile ? logFile.PathFormat : _logFile);
 
         public Exception? Exception => null;
 
