@@ -99,11 +99,16 @@ public static partial class JsonFileLoggerExtensions
         Action<FileLoggerOptions>? configure = null, string? optionsName = null)
         where TProvider : FileLoggerProvider
     {
+        if (builder is null)
+            throw new ArgumentNullException(nameof(builder));
+
+        optionsName ??= typeof(TProvider).ToString();
+
         builder.AddFile<TProvider>(context, configure: null, optionsName)
-            .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName ?? typeof(TProvider).ToString());
+            .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName);
 
         if (configure is not null)
-            builder.Services.Configure(configure);
+            builder.Services.Configure(optionsName, configure);
 
         return builder;
     }
@@ -125,11 +130,16 @@ public static partial class JsonFileLoggerExtensions
         where TProvider : FileLoggerProvider
         where TOptions : FileLoggerOptions
     {
+        if (builder is null)
+            throw new ArgumentNullException(nameof(builder));
+
+        optionsName ??= typeof(TProvider).ToString();
+
         builder.AddFile<TProvider, TOptions>(context, configure: null, optionsName)
-            .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName ?? typeof(TProvider).ToString());
+            .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName);
 
         if (configure is not null)
-            builder.Services.Configure(configure);
+            builder.Services.Configure(optionsName, configure);
 
         return builder;
     }
@@ -145,11 +155,16 @@ public static partial class JsonFileLoggerExtensions
         where TProvider : FileLoggerProvider
         where TOptions : FileLoggerOptions
     {
+        if (builder is null)
+            throw new ArgumentNullException(nameof(builder));
+
+        optionsName ??= typeof(TProvider).ToString();
+
         builder.AddFile<TProvider, TOptions>(bindOptions, context, configure: null, optionsName)
-            .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName ?? typeof(TProvider).ToString());
+            .ConfigureTextBuilder(textBuilder ?? JsonFileLogEntryTextBuilder.Default, optionsName);
 
         if (configure is not null)
-            builder.Services.Configure(configure);
+            builder.Services.Configure(optionsName, configure);
 
         return builder;
     }
