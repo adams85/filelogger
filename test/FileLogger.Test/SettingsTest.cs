@@ -382,23 +382,6 @@ public class SettingsTest
         }, lines);
     }
 
-    private static void AssertUserConfigurationAppliesToNamedOptions(
-        Action<ILoggingBuilder> configureLogging, string optionsName, string expectedBasePath)
-    {
-        var services = new ServiceCollection();
-        services.AddLogging(configureLogging);
-
-        using ServiceProvider serviceProvider = services.BuildServiceProvider();
-
-        // The provider resolves its settings via IOptionsMonitor.Get(optionsName), so the user
-        // configuration callback must be applied to the named options instance, not Options.DefaultName.
-        IOptionsMonitor<FileLoggerOptions> optionsMonitor =
-            serviceProvider.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>();
-
-        Assert.Equal(expectedBasePath, optionsMonitor.Get(optionsName).BasePath);
-        Assert.NotEqual(expectedBasePath, optionsMonitor.Get(Options.DefaultName).BasePath);
-    }
-
     [Fact]
     public void Issue39_GenericAddJsonFileAppliesUserConfigurationToNamedOptions()
     {
@@ -430,5 +413,22 @@ public class SettingsTest
         AssertUserConfigurationAppliesToNamedOptions(
             lb => lb.AddJsonFile<OtherFileLoggerProvider, FileLoggerOptions>(bindOptions: (o, c) => { }, configure: o => o.BasePath = basePath, optionsName: optionsName),
             optionsName, basePath);
+    }
+
+    private static void AssertUserConfigurationAppliesToNamedOptions(
+        Action<ILoggingBuilder> configureLogging, string optionsName, string expectedBasePath)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(configureLogging);
+
+        using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+        // The provider resolves its settings via IOptionsMonitor.Get(optionsName), so the user
+        // configuration callback must be applied to the named options instance, not Options.DefaultName.
+        IOptionsMonitor<FileLoggerOptions> optionsMonitor =
+            serviceProvider.GetRequiredService<IOptionsMonitor<FileLoggerOptions>>();
+
+        Assert.Equal(expectedBasePath, optionsMonitor.Get(optionsName).BasePath);
+        Assert.NotEqual(expectedBasePath, optionsMonitor.Get(Options.DefaultName).BasePath);
     }
 }
