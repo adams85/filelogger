@@ -94,7 +94,7 @@ jobs:
       run: |
         arrTag=(${GITHUB_REF//\// })
         VERSION="${arrTag[2]}"
-        VERSION="${VERSION//v}"
+        VERSION="${VERSION#v}"
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
     # See also: https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/
