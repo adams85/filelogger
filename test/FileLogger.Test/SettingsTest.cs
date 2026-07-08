@@ -50,6 +50,7 @@ public class SettingsTest
                     "{{nameof(FileLoggerOptions.TextBuilderType)}}": "{{typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName}}",
                     "{{nameof(FileLoggerOptions.IncludeScopes)}}": true,
                     "{{nameof(FileLoggerOptions.MaxQueueSize)}}": 100,
+                    "{{nameof(FileLoggerOptions.SynchronousWrite)}}": true,
                 }
             }
             """;
@@ -99,6 +100,7 @@ public class SettingsTest
         Assert.Equal(typeof(CustomLogEntryTextBuilder), settings.TextBuilder.GetType());
         Assert.True(settings.IncludeScopes);
         Assert.Equal(100, settings.MaxQueueSize);
+        Assert.True(settings.SynchronousWrite);
     }
 
     [Fact]
