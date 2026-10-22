@@ -241,7 +241,8 @@ There are some settings which can be configured at provider level only (`FileLog
 
 |  | **Description** | **Default value** | **Notes** |
 |---|---|---|---|
-| **FileAppender** | Specifies the object responsible for appending log messages. | `PhysicalFileAppender` instance with root path set to `Environment.CurrentDirectory` | The `RootPath` shortcut property is also available for setting a `PhysicalFileAppender` with a custom root path. (This path must point to an existing directory.) |
+| **FileAppender** | Specifies the object responsible for appending log messages. | `PhysicalFileAppender` instance with root path set to `Environment.CurrentDirectory` | |
+| **RootPath** | Shortcut property for configuring the root path of a `PhysicalFileAppender`. | `null` (the default appender uses `Environment.CurrentDirectory`) | Only applies to `PhysicalFileAppender`; the configured directory must already exist. In configuration files, set `Logging:File:RootPath`. |
 | **BasePath** | Path to the base directory of log files. | `""` (none) | Base path is relative to (but cannot point outside of) the root path of the underlying file provider (`FileAppender.FileProvider`). (If this path does not exist, it will be created automatically.) |
 | **Files** | An array of `LogFileOptions`, which define the settings for the individual log files. | | **You need to explicitly define at least one log file**, otherwise the provider won't log anything. |
 
