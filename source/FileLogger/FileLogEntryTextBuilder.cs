@@ -52,12 +52,40 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
 
     protected virtual void AppendEventId(StringBuilder sb, EventId eventId)
     {
-        sb.Append('[').Append(eventId).Append(']');
+        sb.Append('[');
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+        Span<char> span = stackalloc char[11];
+        if (eventId.Id.TryFormat(span, out int charsWritten, provider: CultureInfo.InvariantCulture))
+        {
+            sb.Append(span.Slice(0, charsWritten));
+        }
+        else
+#endif
+        {
+            sb.Append(eventId.Id.ToString(CultureInfo.InvariantCulture));
+        }
+
+        sb.Append(']');
     }
 
-    protected virtual void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp)
+    protected virtual void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp, bool useUtcTimestamp)
     {
-        sb.Append(" @ ").AppendLine(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
+        var dateTime = useUtcTimestamp ? timestamp.UtcDateTime : timestamp.LocalDateTime;
+
+        sb.Append(" @ ");
+
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1_OR_GREATER
+        Span<char> span = stackalloc char[33];
+        if (dateTime.TryFormat(span, out int charsWritten, "o", CultureInfo.InvariantCulture))
+        {
+            sb.Append(span.Slice(0, charsWritten)).AppendLine();
+        }
+        else
+#endif
+        {
+            sb.AppendLine(dateTime.ToString("o", CultureInfo.InvariantCulture));
+        }
     }
 
     protected virtual void AppendLogScope(StringBuilder sb, object? scope)
@@ -101,36 +129,67 @@ public class FileLogEntryTextBuilder : IFileLogEntryTextBuilder
         sb.AppendLine(exception.ToString());
     }
 
-    public virtual void BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
-        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
+    public virtual void BuildEntryText(StringBuilder sb, in FileLogEntryTextBuildContext context)
     {
-        AppendLogLevel(sb, logLevel);
+        AppendLogLevel(sb, context.LogLevel);
 
-        AppendCategoryName(sb, categoryName);
+        AppendCategoryName(sb, context.CategoryName);
 
-        AppendEventId(sb, eventId);
+        AppendEventId(sb, context.EventId);
 
-        AppendTimestamp(sb, timestamp);
+        AppendTimestamp(sb, context.Timestamp, context.UseUtcTimestamp);
 
-        if (scopeProvider is not null)
+        if (context.ScopeProvider is { } scopeProvider)
             AppendLogScopeInfo(sb, scopeProvider);
 
-        if (!string.IsNullOrEmpty(message))
-            AppendMessage(sb, message!);
+        if (context.Message is { Length: > 0 } message)
+            AppendMessage(sb, message);
 
-        if (exception is not null)
+        if (context.Exception is { } exception)
             AppendException(sb, exception);
+    }
+
+    void IFileLogEntryTextBuilder.BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
+    {
+        var context = new FileLogEntryTextBuildContext(categoryName, logLevel, eventId, message, exception, scopeProvider, timestamp, useUtcTimestamp: false);
+        BuildEntryText(sb, context);
     }
 }
 
 public abstract class StructuredFileLogEntryTextBuilder : IFileLogEntryTextBuilder
 {
-    public abstract void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, TState state, Exception? exception,
-        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp);
+    public abstract void BuildEntryText<TState>(StringBuilder sb, in FileLogEntryTextBuildContext context, TState state);
 
     void IFileLogEntryTextBuilder.BuildEntryText(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
         IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
     {
-        BuildEntryText<object?>(sb, categoryName, logLevel, eventId, message, state: null, exception, scopeProvider, timestamp);
+        var context = new FileLogEntryTextBuildContext(categoryName, logLevel, eventId, message, exception, scopeProvider, timestamp, useUtcTimestamp: false);
+        BuildEntryText(sb, context, state: (object?)null);
     }
+}
+
+public readonly struct FileLogEntryTextBuildContext
+{
+    public FileLogEntryTextBuildContext(string categoryName, LogLevel logLevel, EventId eventId, string? message, Exception? exception,
+        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp, bool useUtcTimestamp)
+    {
+        CategoryName = categoryName;
+        LogLevel = logLevel;
+        EventId = eventId;
+        Message = message;
+        Exception = exception;
+        ScopeProvider = scopeProvider;
+        Timestamp = timestamp;
+        UseUtcTimestamp = useUtcTimestamp;
+    }
+
+    public string CategoryName { get; }
+    public LogLevel LogLevel { get; }
+    public EventId EventId { get; }
+    public string? Message { get; }
+    public Exception? Exception { get; }
+    public IExternalScopeProvider? ScopeProvider { get; }
+    public DateTimeOffset Timestamp { get; }
+    public bool UseUtcTimestamp { get; }
 }

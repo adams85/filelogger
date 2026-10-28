@@ -50,6 +50,7 @@ public class SettingsTest
                     "{{nameof(FileLoggerOptions.MaxFileSize)}}": 10,
                     "{{nameof(FileLoggerOptions.TextBuilderType)}}": "{{typeof(CustomLogEntryTextBuilder).AssemblyQualifiedName}}",
                     "{{nameof(FileLoggerOptions.IncludeScopes)}}": true,
+                    "{{nameof(FileLoggerOptions.UseUtcTimestamp)}}": true,
                     "{{nameof(FileLoggerOptions.MaxQueueSize)}}": 100,
                     "{{nameof(FileLoggerOptions.WriteStrategy)}}": "{{LogFileWriteStrategy.DirectSyncWrite}}",
                 }
@@ -102,6 +103,7 @@ public class SettingsTest
         Assert.NotNull(settings.TextBuilder);
         Assert.Equal(typeof(CustomLogEntryTextBuilder), settings.TextBuilder.GetType());
         Assert.True(settings.IncludeScopes);
+        Assert.True(settings.UseUtcTimestamp);
         Assert.Equal(100, settings.MaxQueueSize);
         Assert.Equal(LogFileWriteStrategy.DirectSyncWrite, settings.WriteStrategy);
     }
@@ -185,6 +187,7 @@ public class SettingsTest
                         {
                             "{{nameof(FileLoggerOptions.WriteStrategy)}}" : "{{subsequentWriteStrategy}}",
                             "{{FileLoggerProvider.Alias}}": {
+                                "{{nameof(FileLoggerOptions.UseUtcTimestamp)}}" : true,
                                 "{{nameof(FileLoggerOptions.Files)}}": [
                                 {
                                     "{{nameof(LogFileOptions.Path)}}": "test.log",
@@ -232,7 +235,7 @@ public class SettingsTest
             $"info: {typeof(SettingsTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
             $"      => SCOPE => NESTED SCOPE",
             $"      This is a smart logger.",
-            $"info: {typeof(SettingsTest).FullName}[0] @ {context.GetTimestamp().ToLocalTime():o}",
+            $"info: {typeof(SettingsTest).FullName}[0] @ {context.GetTimestamp().UtcDateTime:o}",
             $"      This one shouldn't include scopes.",
             ""
         }, lines);

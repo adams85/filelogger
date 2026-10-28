@@ -63,6 +63,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
             CounterFormat = fileSettings.CounterFormat ?? settings.CounterFormat;
             MaxSize = fileSettings.MaxFileSize ?? settings.MaxFileSize ?? 0;
             WriteStrategy = fileSettings.WriteStrategy ?? settings.WriteStrategy ?? LogFileWriteStrategy.QueuedAsyncWrite;
+            UseUtcTimestamp = fileSettings.UseUtcTimestamp ?? settings.UseUtcTimestamp ?? false;
 
             if (WriteStrategy != LogFileWriteStrategy.DirectSyncWrite)
             {
@@ -85,6 +86,7 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
         public string? CounterFormat { get; }
         public long MaxSize { get; }
         public LogFileWriteStrategy WriteStrategy { get; }
+        public bool UseUtcTimestamp { get; }
 
         public Channel<FileLogEntry>? Queue { get; }
         public Task? WriteFileTask { get; }
@@ -658,7 +660,8 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
     protected virtual string GetDate(string? inlineFormat, LogFileInfo logFile, in FileLogEntry entry)
     {
-        return entry.Timestamp.ToLocalTime().ToString(inlineFormat ?? logFile.DateFormat ?? "yyyyMMdd", CultureInfo.InvariantCulture);
+        var dateTime = logFile.UseUtcTimestamp ? entry.Timestamp.UtcDateTime : entry.Timestamp.LocalDateTime;
+        return dateTime.ToString(inlineFormat ?? logFile.DateFormat ?? "yyyyMMdd", CultureInfo.InvariantCulture);
     }
 
     protected virtual string GetCounter(string? inlineFormat, LogFileInfo logFile, in FileLogEntry entry)

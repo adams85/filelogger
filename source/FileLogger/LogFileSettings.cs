@@ -37,6 +37,7 @@ public interface ILogFileSettingsBase
     long? MaxFileSize { get; }
     IFileLogEntryTextBuilder? TextBuilder { get; }
     bool? IncludeScopes { get; }
+    bool? UseUtcTimestamp { get; }
     LogFileWriteStrategy? WriteStrategy { get; }
     int? MaxQueueSize { get; }
     LogFilePathPlaceholderResolver? PathPlaceholderResolver { get; }
@@ -54,7 +55,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
     private static ConcurrentDictionary<Type, IFileLogEntryTextBuilder> TextBuilderInstances =>
         LazyInitializer.EnsureInitialized(ref field, () => new ConcurrentDictionary<Type, IFileLogEntryTextBuilder>())!;
 
-    public LogFileSettingsBase() { }
+    protected LogFileSettingsBase() { }
 
     protected LogFileSettingsBase(LogFileSettingsBase other)
     {
@@ -68,6 +69,7 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         MaxFileSize = other.MaxFileSize;
         TextBuilder = other.TextBuilder;
         IncludeScopes = other.IncludeScopes;
+        UseUtcTimestamp = other.UseUtcTimestamp;
         WriteStrategy = other.WriteStrategy;
         MaxQueueSize = other.MaxQueueSize;
         PathPlaceholderResolver = other.PathPlaceholderResolver;
@@ -123,6 +125,8 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
     }
 
     public bool? IncludeScopes { get; set; }
+
+    public bool? UseUtcTimestamp { get; set; }
 
     public LogFileWriteStrategy? WriteStrategy { get; set; }
 
@@ -183,6 +187,12 @@ public abstract class LogFileSettingsBase : ILogFileSettingsBase
         {
             get => Options.IncludeScopes;
             set => Options.IncludeScopes = value;
+        }
+
+        public bool? UseUtcTimestamp
+        {
+            get => Options.UseUtcTimestamp;
+            set => Options.UseUtcTimestamp = value;
         }
 
         public LogFileWriteStrategy? WriteStrategy

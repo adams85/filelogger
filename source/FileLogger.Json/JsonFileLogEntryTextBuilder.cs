@@ -44,9 +44,10 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         };
     }
 
-    protected virtual void WriteTimestamp(Utf8JsonWriter writer, DateTimeOffset timestamp)
+    protected virtual void WriteTimestamp(Utf8JsonWriter writer, DateTimeOffset timestamp, bool useUtcTimestamp)
     {
-        writer.WriteString("Timestamp", timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
+        var dateTime = useUtcTimestamp ? timestamp.UtcDateTime : timestamp.LocalDateTime;
+        writer.WriteString("Timestamp", dateTime.ToString("o", CultureInfo.InvariantCulture));
     }
 
     protected virtual void WriteEventId(Utf8JsonWriter writer, EventId eventId)
@@ -199,25 +200,24 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         writer.WriteEndArray();
     }
 
-    protected virtual void WriteEntryObject<TState>(Utf8JsonWriter writer, string categoryName, LogLevel logLevel, EventId eventId, string? message, TState state, Exception? exception,
-        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
+    protected virtual void WriteEntryObject<TState>(Utf8JsonWriter writer, in FileLogEntryTextBuildContext context, TState state)
     {
         writer.WriteStartObject();
 
-        WriteTimestamp(writer, timestamp);
-        WriteEventId(writer, eventId);
-        WriteLogLevel(writer, logLevel);
-        WriteCategoryName(writer, categoryName);
+        WriteTimestamp(writer, context.Timestamp, context.UseUtcTimestamp);
+        WriteEventId(writer, context.EventId);
+        WriteLogLevel(writer, context.LogLevel);
+        WriteCategoryName(writer, context.CategoryName);
 
-        WriteMessage(writer, message);
+        WriteMessage(writer, context.Message);
 
-        if (exception is not null)
+        if (context.Exception is { } exception)
             WriteException(writer, exception);
 
         if (state is not null)
-            WriteState(writer, state, message);
+            WriteState(writer, state, context.Message);
 
-        if (scopeProvider is not null)
+        if (context.ScopeProvider is { } scopeProvider)
             WriteLogScopeInfo(writer, scopeProvider);
 
         writer.WriteEndObject();
@@ -228,14 +228,13 @@ public class JsonFileLogEntryTextBuilder : StructuredFileLogEntryTextBuilder
         sb.Append(_entrySeparator).Append(Environment.NewLine);
     }
 
-    public override void BuildEntryText<TState>(StringBuilder sb, string categoryName, LogLevel logLevel, EventId eventId, string? message, TState state, Exception? exception,
-        IExternalScopeProvider? scopeProvider, DateTimeOffset timestamp)
+    public override void BuildEntryText<TState>(StringBuilder sb, in FileLogEntryTextBuildContext context, TState state)
     {
         using (var output = new PooledByteBufferWriter(initialCapacity: 1024))
         {
             using (var writer = new Utf8JsonWriter(output, _jsonWriterOptions))
             {
-                WriteEntryObject(writer, categoryName, logLevel, eventId, message, state, exception, scopeProvider, timestamp);
+                WriteEntryObject(writer, context, state);
 
                 writer.Flush();
             }

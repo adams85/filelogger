@@ -10,9 +10,10 @@ internal class SingleLineLogEntryTextBuilder : FileLogEntryTextBuilder
 {
     public static readonly SingleLineLogEntryTextBuilder Default = new();
 
-    protected override void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp)
+    protected override void AppendTimestamp(StringBuilder sb, DateTimeOffset timestamp, bool useUtcTimestamp)
     {
-        sb.Append(" @ ").Append(timestamp.ToLocalTime().ToString("o", CultureInfo.InvariantCulture));
+        var dateTime = useUtcTimestamp ? timestamp.UtcDateTime : timestamp.LocalDateTime;
+        sb.Append(" @ ").Append(CultureInfo.InvariantCulture, $"{dateTime:o}");
     }
 
     protected override void AppendLogScopeInfo(StringBuilder sb, IExternalScopeProvider scopeProvider)

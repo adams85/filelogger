@@ -7,7 +7,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Karambolo.Extensions.Logging.File;
 
-using FileGroup = KeyValuePair<(IFileLogEntryTextBuilder TextBuilder, bool IncludeScopes), (ILogFileSettings Settings, LogLevel MinLevel)[]>;
+using FileGroup = KeyValuePair<
+    (IFileLogEntryTextBuilder TextBuilder, bool IncludeScopes, bool UseUtcTimestamp),
+    (ILogFileSettings Settings, LogLevel MinLevel)[]>;
 
 public class FileLogger : ILogger
 {
@@ -69,7 +71,8 @@ public class FileLogger : ILogger
                 file =>
                 (
                     file.Settings.TextBuilder ?? settings.TextBuilder ?? FileLogEntryTextBuilder.Instance,
-                    file.Settings.IncludeScopes ?? settings.IncludeScopes ?? false
+                    file.Settings.IncludeScopes ?? settings.IncludeScopes ?? false,
+                    file.Settings.UseUtcTimestamp ?? settings.UseUtcTimestamp ?? false
                 ),
                 (key, group) => new FileGroup(key, group.ToArray()))
             .ToArray();
@@ -143,9 +146,8 @@ public class FileLogger : ILogger
 
         UpdatableState currentState = _state;
 
+        string? message = null;
         DateTimeOffset timestamp = TimestampProvider();
-
-        string message = FormatState(state, exception, formatter);
 
         var sb = t_stringBuilder ??= new StringBuilder();
 
@@ -165,14 +167,28 @@ public class FileLogger : ILogger
 
                 if (entry.Data is null)
                 {
-                    (IFileLogEntryTextBuilder textBuilder, bool includeScopes) = fileGroup.Key;
+                    message ??= FormatState(state, exception, formatter);
+
+                    (IFileLogEntryTextBuilder textBuilder, bool includeScopes, bool useUtcTimestamp) = fileGroup.Key;
                     IExternalScopeProvider? logScope = includeScopes ? currentState.ScopeProvider : null;
 
                     sb.Clear();
-                    if (textBuilder is StructuredFileLogEntryTextBuilder structuredTextBuilder)
-                        structuredTextBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, state, exception, logScope, timestamp);
+
+                    FileLogEntryTextBuildContext context;
+                    if (textBuilder is FileLogEntryTextBuilder logEntryTextBuilder)
+                    {
+                        context = new FileLogEntryTextBuildContext(CategoryName, logLevel, eventId, message, exception, logScope, timestamp, useUtcTimestamp);
+                        logEntryTextBuilder.BuildEntryText(sb, context);
+                    }
+                    else if (textBuilder is StructuredFileLogEntryTextBuilder structuredTextBuilder)
+                    {
+                        context = new FileLogEntryTextBuildContext(CategoryName, logLevel, eventId, message, exception, logScope, timestamp, useUtcTimestamp);
+                        structuredTextBuilder.BuildEntryText(sb, context, state);
+                    }
                     else
+                    {
                         textBuilder.BuildEntryText(sb, CategoryName, logLevel, eventId, message, exception, logScope, timestamp);
+                    }
 
                     if (sb.Length > 0)
                         entry = CreateLogEntry(sb.ToString(), timestamp);
