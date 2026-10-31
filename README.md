@@ -1,6 +1,6 @@
 | :mega: Important notices |
 |--------------------------|
-| If upgrading from v3 to v4, there are some minor breaking changes you may need to be aware of. See the [release notes](https://github.com/adams85/filelogger/releases/tag/v4.0.0) for the details. Documentation of the previous major version (v3) is available [here](https://github.com/adams85/filelogger/tree/3.6). |
+| If upgrading from v4 to v5, there are some minor breaking changes you may need to be aware of. See the [release notes](https://github.com/adams85/filelogger/releases/tag/v5.0.0) for the details. Documentation of the previous major version (v4) is available [here](https://github.com/adams85/filelogger/tree/v4.1.1). |
 
 # Karambolo.Extensions.Logging.File
 
@@ -12,7 +12,7 @@ This class library contains a lightweight implementation of the [Microsoft.Exten
 
 The code is based on [ConsoleLogger](https://github.com/dotnet/runtime/tree/master/src/libraries/Microsoft.Extensions.Logging.Console), whose **full feature set is implemented** (including log scopes and configuration reloading). The library has **no 3rd party dependencies**.
 
-To prevent I/O blocking, **log messages are processed asynchronously in the background**, with a guarantee that [pending messages are written to file on graceful shutdown](https://stackoverflow.com/questions/40073743/how-to-log-to-a-file-without-using-third-party-logger-in-net-core#comment129425711_60515392).
+By default, to prevent I/O blocking, **log messages are processed asynchronously in the background**, with a guarantee that [pending messages are written to file on graceful shutdown](https://stackoverflow.com/questions/40073743/how-to-log-to-a-file-without-using-third-party-logger-in-net-core#comment129425711_60515392). For tracing stack overflow errors and other process or system crashes, an **experimental blocking synchronous write mode** that bypasses the OS cache can also be enabled.
 
 File system access is implemented on top of the [Microsoft.Extensions.FileProviders.IFileProvider](https://learn.microsoft.com/en-us/dotnet/api/microsoft.extensions.fileproviders.ifileprovider) abstraction, so it's even possible to use a custom backing storage.
 
@@ -27,8 +27,9 @@ The **self-contained trimmed** and **Native AOT** deployments models are also su
  - File path templates for including log entry date (or other user-defined tokens) in log file paths/names.
  - Size-limited log files with customizable counter format. (Log rotation is [achievable through customization](https://github.com/adams85/filelogger/tree/master/samples/LogRotation).)
  - Fully customizable log text formatting.
- - Designed with extensibility/customizability in mind.
+ - Extensibility and customizability by design.
  - Support for registering multiple providers with different settings.
+ - Options for tuning performance (file access and buffering behavior, write execution strategy, etc.)
 
 ## Installation
 
@@ -84,11 +85,11 @@ Please note that you need to specify at least one log file to get anything logge
 If you've chosen structured logging, replace calls to `AddFile(...)` with `AddJsonFile(...)` in the following code examples.
 
 <details>
-  <summary>A sidenote regarding structured logging</summary>
+  <summary>A side note on structured logging</summary>
 
   `AddJsonFile` is just a convenience method, which sets the `TextBuilder` setting to the default JSON formatter (`JsonFileLogEntryTextBuilder`) for the logger provider. You can achieve the same effect by using `AddFile` and setting `TextBuilder` (or `TextBuilderType`) to the aforementioned formatter manually. For details, see the [Settings section](#settings).
 
-  It also follows from the above that you can still override this setting in your configuration (`appsettings.json` or configurer callback) and use other formatters regardless the defaults set by `AddJsonFile`.
+  It also follows that you can still override this setting in your configuration (`appsettings.json` or configurer callback) and use other formatters regardless of the defaults set by `AddJsonFile`.
 </details>
 
 ### ASP.NET Core
@@ -241,8 +242,9 @@ There are some settings which can be configured at provider level only (`FileLog
 
 |  | **Description** | **Default value** | **Notes** |
 |---|---|---|---|
-| **FileAppender** | Specifies the object responsible for appending log messages. | `PhysicalFileAppender` instance with root path set to `Environment.CurrentDirectory` | The `RootPath` shortcut property is also available for setting a `PhysicalFileAppender` with a custom root path. (This path must point to an existing directory.) |
-| **BasePath** | Path to the base directory of log files. | `""` (none) | Base path is relative to (but cannot point outside of) the root path of the underlying file provider (`FileAppender.FileProvider`). (If this path does not exist, it will be created automatically.) |
+| **FileAppender** | Specifies the object responsible for appending log messages. | `PhysicalFileAppender` instance with root path set to `Environment.CurrentDirectory` | |
+| **RootPath** | Shortcut property for setting `FileAppender` to a `PhysicalFileAppender` with a custom root path. | | The path must point to an existing directory. |
+| **BasePath** | Path to the base directory of log files. | `""` (none) | Base path is relative to (but cannot point outside of) the root path of the underlying file provider (`FileAppender.FileProvider`). If this path does not exist, it will be created automatically. |
 | **Files** | An array of `LogFileOptions`, which define the settings for the individual log files. | | **You need to explicitly define at least one log file**, otherwise the provider won't log anything. |
 
 ### Log file settings
@@ -260,13 +262,17 @@ The log file settings below can be specified globally (at provider level) and in
 
 |  | **Description** | **Default value** | **Notes** |
 |---|---|---|---|
-| **FileAccessMode** | Strategy for accessing log files. | `LogFileAccessMode.` `KeepOpenAndAutoFlush` | <ul><li>**KeepOpenAndAutoFlush**: Keeps open the log file until completion and flushes each entry into the file immediately.</li><li>**KeepOpen**: Keeps open the log file until completion but entries are flushed only when internal buffer gets full. (Provides the best performance but entries won't appear instantly in the log file.)</li><li>**OpenTemporarily**: Opens the log file only when an entry needs to be written and then closes it immediately. (Provides the worst performance but log files won't be locked by the process.)</li></ul> |
-| **FileEncoding** | Character encoding to use. | `Encoding.UTF8` | The `FileEncodingName` shortcut property is also available for setting this option using an encoding name. |
-| **DateFormat** | Specifies the default date format to use in log file path templates. | `"yyyyMMdd"` | It must be a standard .NET format string which can be passed to [DateTimeOffset.ToString](https://learn.microsoft.com/en-us/dotnet/api/system.datetimeoffset.tostring#System_DateTimeOffset_ToString_System_String_).<br/>Date format can even be specified inline in the path template: e.g. `"<date:yyyy>/app.log"` |
-| **CounterFormat** | Specifies the default counter format to use in log file path templates. | default integer to string conversion | It must be a standard .NET format string which can be passed to [Int32.ToString](https://learn.microsoft.com/en-us/dotnet/api/system.int32.tostring#System_Int32_ToString_System_String_).<br/>Counter format can even be specified inline in the path template: e.g. `"app-<counter:000>.log"` |
+| **FileAccessMode** | Controls log file access and buffering behavior. | `LogFileAccessMode.` `KeepOpenAndAutoFlush` | <ul><li>**KeepOpenAndAutoFlush**: Keeps the log file open until completion and flushes each entry into the file immediately.</li><li>**KeepOpen**: Keeps the log file open until completion but entries are flushed only when the internal buffer gets full. (Provides the best performance but entries won't appear instantly in the log file.)</li><li>**OpenTemporarily**: Opens the log file only when an entry needs to be written and then closes it immediately. (Provides the worst performance but log files won't be locked by the process.)</li></ul> |
+| **FileEncoding** | Character encoding to use. | `Encoding.UTF8` | |
+| **FileEncodingName** | Shortcut property for setting `FileEncoding` using an encoding name. | | |
+| **DateFormat** | Specifies the default date format to use in log file path templates. | `"yyyyMMdd"` | It must be a standard .NET format string which can be passed to [DateTime.ToString](https://learn.microsoft.com/en-us/dotnet/api/system.datetime.tostring#system-datetime-tostring(system-string)).<br/>Date format can even be specified inline in the path template: e.g. `"<date:yyyy>/app.log"` |
+| **CounterFormat** | Specifies the default counter format to use in log file path templates. | default integer to string conversion | It must be a standard .NET format string which can be passed to [Int32.ToString](https://learn.microsoft.com/en-us/dotnet/api/system.int32.tostring#system-int32-tostring(system-string)).<br/>Counter format can even be specified inline in the path template: e.g. `"app-<counter:000>.log"` |
 | **MaxFileSize** | If set, new files will be created when file size limit is reached. | | `Path` must be a template containing a counter placeholder, otherwise the file size limit is not enforced. |
-| **TextBuilder** | Specifies a custom log text formatter. | `FileLogEntryTextBuilder.` `Instance` | For best performance, use a single formatter instance for all files that need the same formatting if possible.<br/>The `TextBuilderType` shortcut property is also available for setting this option using a type name. (However, when [trimming](https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trim-self-contained) is enabled, you need to ensure the referenced type is preserved.)<br/>For an example of usage, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/CustomLogFormat). |
+| **TextBuilder** | Specifies a custom log text formatter. | `FileLogEntryTextBuilder.` `Instance` | For best performance, use a single formatter instance for all files that need the same formatting if possible. |
+| **TextBuilderType** | Shortcut property for setting `TextBuilder` using a type name. | | When [trimming](https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trim-self-contained) is enabled, you need to ensure the referenced type is preserved.<br/>For an example of usage, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/CustomLogFormat). |
 | **IncludeScopes** | Enables log scopes to be included in the output. | `false` | Works the same way as `ConsoleLogger`. |
+| **UseUtcTimestamp** | Specifies whether to use UTC timestamps instead of local-time timestamps. | `false` | When enabled, log file path templates and log entries are formatted using UTC timestamps. |
+| **WriteStrategy** | Controls the execution aspect of writing log entries to file. | `LogFileWriteStrategy.` `QueuedAsyncWrite` | <ul><li>**QueuedAsyncWrite**: Log entries are added to the log processor queue and written to file via asynchronous I/O in a background loop running on the thread pool.</li><li>**QueuedSyncWrite**: Log entries are added to the log processor queue and written to file via synchronous I/O in a background loop running on the thread pool. (This mode can improve performance when the log file is on a local disk. However, **never use it when logging to, e.g., a network share.**)</li><li>**DirectSyncWrite**: Log entries are written directly to file synchronously within the log call, bypassing the OS cache and blocking the calling thread. (This mode is intended for tracing process or system crashes. **Avoid using it in production unless absolutely necessary.**)</li></ul> |
 | **MaxQueueSize** | Defines the maximum capacity of the log processor queue (per file). | `0` (unbounded) | If set to a value greater than 0, log entries will be discarded when the queue is full, that is, when the specified limit is exceeded. |
 | **PathPlaceholderResolver** | Provides a way to hook into path template resolution. | | This is a callback that can be used to customize or extend the resolution of path template placeholders. Enables special formatting, custom placeholders, etc.<br/>For an example of usage, see [this sample application](https://github.com/adams85/filelogger/tree/master/samples/CustomPathPlaceholder). |
 
@@ -293,7 +299,9 @@ The log file settings below can be specified globally (at provider level) and in
         "Default": "Debug" // provider-level filters can loosen the levels specified by the global filters
       },
       "IncludeScopes": true,
+      "UseUtcTimestamp": true,
       "MaxQueueSize": 100,
+      "WriteStrategy": "QueuedAsyncWrite",
       "Files": [
         // a simple log file definition, which inherits all settings from the provider (will produce files like "default-000.log")
         {
@@ -307,7 +315,8 @@ The log file settings below can be specified globally (at provider level) and in
             "MyApp.SomeClass": "Warning",
             "Default": "Trace" // this will have no effect as file-level filters can only be more restrictive than provider-level filters!
           },
-          "CounterFormat": "00"
+          "CounterFormat": "00",
+          "WriteStrategy": "QueuedSyncWrite",
         }
       ]
     }
