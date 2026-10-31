@@ -8,7 +8,7 @@ namespace SplitByLogLevel;
 
 // This sample demonstrates how to use multiple file logger providers with different settings.
 // We set up two provider instances to send messages to different files based on their log levels.
-internal class Program
+internal sealed class Program
 {
     private static async Task Main(string[] args)
     {

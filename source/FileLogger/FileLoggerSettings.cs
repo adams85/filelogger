@@ -85,7 +85,7 @@ public class FileLoggerOptions : LogFileSettingsBase, IFileLoggerSettings
     // NOTE: Unfortunately, it seems that there is no way to ignore properties from configuration binding at the moment,
     // so using source generated configuration binding would result in a bunch of warnings.
     // We can work around the issue by defining a wrapper class for configuration binding.
-    public abstract class BindingWrapper<TOptions> : LogFileSettingsBase.BindingWrapperBase<TOptions>
+    public abstract class BindingWrapper<TOptions> : BindingWrapperBase<TOptions>
         where TOptions : FileLoggerOptions
     {
         protected BindingWrapper(TOptions options) : base(options) { }

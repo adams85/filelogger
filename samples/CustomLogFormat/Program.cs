@@ -9,7 +9,7 @@ namespace CustomLogFormat;
 
 // This sample demonstrates how to customize the output of the logger by
 // subclassing FileLogEntryTextBuilder and overriding its virtual methods
-internal class Program
+internal sealed class Program
 {
     // If the application is published as self-contained trimmed or Native AOT, we need to use
     // the DynamicDependency attribute to prevent the custom text builder type from being trimmed

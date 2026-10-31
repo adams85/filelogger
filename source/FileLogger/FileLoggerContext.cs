@@ -46,7 +46,9 @@ public class FileLoggerContext
 
     public TimeSpan WriteRetryDelay { get; }
 
+#pragma warning disable CA1003 // Use generic event handler instances
     public event Action<IFileLoggerDiagnosticEvent>? DiagnosticEvent;
+#pragma warning restore CA1003 // Use generic event handler instances
 
     internal Action<IFileLoggerDiagnosticEvent>? GetDiagnosticEventReporter() => DiagnosticEvent;
 

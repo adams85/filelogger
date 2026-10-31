@@ -4,6 +4,7 @@
     <LangVersion>14</LangVersion>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>10.0-Recommended</AnalysisLevel>
     <WarningsNotAsErrors>SYSLIB1104</WarningsNotAsErrors>
   </PropertyGroup>
 

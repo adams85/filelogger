@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace Karambolo.Extensions.Logging.File.Test.Mocks;
 
-internal class TestFileLoggerContext : FileLoggerContext
+internal sealed class TestFileLoggerContext : FileLoggerContext
 {
     public TestFileLoggerContext(CancellationToken completeToken, TimeSpan? completionTimeout = null, TimeSpan? writeRetryDelay = null)
         : base(completeToken, completionTimeout, writeRetryDelay) { }

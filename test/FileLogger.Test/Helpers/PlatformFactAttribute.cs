@@ -17,6 +17,7 @@ public enum OSPlatformEnum
 
 public sealed class PlatformFactAttribute : FactAttribute
 {
+#pragma warning disable CA1802 // Use literals where appropriate
     private static readonly OSPlatformEnum s_currentPlatform =
 #if NETFRAMEWORK && !NET471_OR_GREATER
             OSPlatformEnum.Windows;
@@ -29,6 +30,7 @@ public sealed class PlatformFactAttribute : FactAttribute
 #endif
             : OSPlatformEnum.Unknown;
 #endif
+#pragma warning restore CA1802 // Use literals where appropriate
 
     internal static string? ShouldSkipPlatform(OSPlatformEnum[]? value)
     {

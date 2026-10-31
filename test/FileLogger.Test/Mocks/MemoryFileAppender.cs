@@ -6,7 +6,7 @@ using Microsoft.Extensions.FileProviders;
 
 namespace Karambolo.Extensions.Logging.File.Test.Mocks;
 
-internal class MemoryFileAppender : IFileAppender
+internal sealed class MemoryFileAppender : IFileAppender
 {
     public MemoryFileAppender()
         : this(new MemoryFileProvider()) { }
