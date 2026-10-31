@@ -48,7 +48,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     {
         get
         {
-            Debug.Assert(_rentedBuffer != null);
+            Debug.Assert(_rentedBuffer is not null);
             Debug.Assert(_index <= _rentedBuffer!.Length);
             return new ArraySegment<byte>(_rentedBuffer, 0, _index);
         }
@@ -56,7 +56,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     private void ClearHelper()
     {
-        Debug.Assert(_rentedBuffer != null);
+        Debug.Assert(_rentedBuffer is not null);
         Debug.Assert(_index <= _rentedBuffer!.Length);
 
         _rentedBuffer.AsSpan(0, _index).Clear();
@@ -66,7 +66,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
     // Returns the rented buffer back to the pool
     public void Dispose()
     {
-        if (_rentedBuffer == null)
+        if (_rentedBuffer is null)
         {
             return;
         }
@@ -79,7 +79,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     public void Advance(int count)
     {
-        Debug.Assert(_rentedBuffer != null);
+        Debug.Assert(_rentedBuffer is not null);
         Debug.Assert(count >= 0);
         Debug.Assert(_index <= _rentedBuffer!.Length - count);
         _index += count;
@@ -99,7 +99,7 @@ internal sealed class PooledByteBufferWriter : IBufferWriter<byte>, IDisposable
 
     private void CheckAndResizeBuffer(int sizeHint)
     {
-        Debug.Assert(_rentedBuffer != null);
+        Debug.Assert(_rentedBuffer is not null);
         Debug.Assert(sizeHint > 0);
 
         int currentLength = _rentedBuffer!.Length;

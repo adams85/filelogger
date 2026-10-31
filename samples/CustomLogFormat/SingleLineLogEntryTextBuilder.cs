@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace CustomLogFormat;
 
-internal class SingleLineLogEntryTextBuilder : FileLogEntryTextBuilder
+internal sealed class SingleLineLogEntryTextBuilder : FileLogEntryTextBuilder
 {
     public static readonly SingleLineLogEntryTextBuilder Default = new();
 

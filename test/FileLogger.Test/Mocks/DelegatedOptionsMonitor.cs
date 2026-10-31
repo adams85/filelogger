@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 
 namespace Karambolo.Extensions.Logging.File.Test.Mocks;
 
-internal class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
+internal sealed class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
 {
     private readonly Func<string, TOptions> _getCurrentValue;
     private Action<TOptions, string>? _listeners;
@@ -34,7 +34,7 @@ internal class DelegatedOptionsMonitor<TOptions> : IOptionsMonitor<TOptions>
         return new ChangeRegistrationToken(this, listener);
     }
 
-    private class ChangeRegistrationToken : IDisposable
+    private sealed class ChangeRegistrationToken : IDisposable
     {
         private DelegatedOptionsMonitor<TOptions>? _owner;
         private Action<TOptions, string>? _listener;

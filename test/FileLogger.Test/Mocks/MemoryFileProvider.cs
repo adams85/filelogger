@@ -9,11 +9,11 @@ using Microsoft.Extensions.Primitives;
 
 namespace Karambolo.Extensions.Logging.File.Test.Mocks;
 
-internal class MemoryFileProvider : IFileProvider
+internal sealed class MemoryFileProvider : IFileProvider
 {
-    private class File
+    private sealed class File
     {
-        public class Stream : MemoryStream
+        public sealed class Stream : MemoryStream
         {
             private readonly MemoryFileProvider _fileProvider;
             private readonly File _file;
@@ -24,7 +24,9 @@ internal class MemoryFileProvider : IFileProvider
                 _file = file;
             }
 
+#pragma warning disable CA2215 // Dispose methods should call base class dispose
             protected override void Dispose(bool disposing)
+#pragma warning restore CA2215 // Dispose methods should call base class dispose
             {
                 _fileProvider.ReleaseFile(_file);
             }
@@ -137,7 +139,7 @@ internal class MemoryFileProvider : IFileProvider
         }
     }
 
-    private MemoryStream GetStreamCore(string path, out File file)
+    private File.Stream GetStreamCore(string path, out File file)
     {
         if (!_catalog.TryGetValue(path, out file!) || file.IsDirectory)
             throw new InvalidOperationException("File does not exist.");
@@ -214,8 +216,10 @@ internal class MemoryFileProvider : IFileProvider
 
     public IChangeToken Watch(string filter)
     {
-        if (filter.Contains("*"))
+#pragma warning disable CA1847 // Use char literal for a single character lookup
+        if (filter.Contains("*", StringComparison.Ordinal))
             throw new NotImplementedException();
+#pragma warning restore CA1847 // Use char literal for a single character lookup
 
         lock (_catalog)
         {

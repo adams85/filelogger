@@ -16,7 +16,7 @@ namespace LogRotation;
 // * when rotation happens, shift log files:
 //   * log.N.txt is deleted
 //   * log.N-1.txt is renamed to log.N.txt
-internal class Program
+internal sealed class Program
 {
     private static async Task Main(string[] args)
     {

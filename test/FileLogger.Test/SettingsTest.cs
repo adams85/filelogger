@@ -242,7 +242,7 @@ public class SettingsTest
     }
 
     [ProviderAlias(Alias)]
-    private class OtherFileLoggerProvider : FileLoggerProvider
+    private sealed class OtherFileLoggerProvider : FileLoggerProvider
     {
         public new const string Alias = "OtherFile";
 

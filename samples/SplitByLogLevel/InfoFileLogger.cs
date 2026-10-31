@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 namespace SplitByLogLevel;
 
 [ProviderAlias("InfoFile")] // use this alias in appsettings.json to configure this provider
-internal class InfoFileLoggerProvider : FileLoggerProvider
+internal sealed class InfoFileLoggerProvider : FileLoggerProvider
 {
     public InfoFileLoggerProvider(FileLoggerContext context, IOptionsMonitor<FileLoggerOptions> options, string optionsName) : base(context, options, optionsName) { }
 
@@ -17,7 +17,7 @@ internal class InfoFileLoggerProvider : FileLoggerProvider
     }
 }
 
-internal class InfoFileLogger : FileLogger
+internal sealed class InfoFileLogger : FileLogger
 {
     public InfoFileLogger(string categoryName, IFileLoggerProcessor processor, IFileLoggerSettings settings, IExternalScopeProvider? scopeProvider = null, Func<DateTimeOffset>? timestampProvider = null)
         : base(categoryName, processor, settings, scopeProvider, timestampProvider) { }

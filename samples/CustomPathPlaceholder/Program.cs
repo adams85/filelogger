@@ -1,7 +1,6 @@
 using System;
 using System.Globalization;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace CustomPathPlaceholder;
 
 // This sample demonstrates how to customize the resolving of placeholders in log file paths.
-internal class Program
+internal sealed class Program
 {
     private static readonly string s_appName = Assembly.GetEntryAssembly()!.GetName().Name!;
 
@@ -50,7 +49,7 @@ internal class Program
             // generate a larger amount of messages
             Parallel.For(0, 1000, i =>
             {
-                var logger = loggerFactory.CreateLogger("Thread" + Thread.CurrentThread.ManagedThreadId);
+                var logger = loggerFactory.CreateLogger("Thread" + Environment.CurrentManagedThreadId);
                 var logLevel = (LogLevel)(i % (int)(LogLevel.Critical + 1));
                 logger.Log(logLevel, 0, "Msg" + i, null, (s, _) => s);
             });
