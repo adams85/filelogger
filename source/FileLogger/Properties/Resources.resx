@@ -118,7 +118,7 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="DiagnosticEvent_LogEntryDropped_Disposing" xml:space="preserve">
-    <value>Log entry '{0}' created at {1} was dropped for log file "{2}" due to disposal of the logger provider.</value>
+    <value>Log entry '{0}' created at {1} was dropped for log file "{2}" due to the disposal of the logger provider.</value>
   </data>
   <data name="DiagnosticEvent_LogEntryDropped_Failure" xml:space="preserve">
     <value>Log entry '{0}' created at {1} was dropped for log file "{2}" due to a non-retryable failure.</value>

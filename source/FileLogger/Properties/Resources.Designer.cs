@@ -61,7 +61,7 @@ namespace Karambolo.Extensions.Logging.File.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Log entry &apos;{0}&apos; created at {1} was dropped for log file &quot;{2}&quot; due to disposal of the logger provider..
+        ///   Looks up a localized string similar to Log entry &apos;{0}&apos; created at {1} was dropped for log file &quot;{2}&quot; due to the disposal of the logger provider..
         /// </summary>
         internal static string DiagnosticEvent_LogEntryDropped_Disposing {
             get {

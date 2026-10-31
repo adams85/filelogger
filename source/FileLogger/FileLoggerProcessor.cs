@@ -572,9 +572,6 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
 
         lock (_logFiles)
         {
-            if (_status == Status.Completed)
-                throw new ObjectDisposedException(nameof(FileLoggerProcessor));
-
             if (_status != Status.Running)
             {
                 Context.GetDiagnosticEventReporter()?.Invoke(FileLoggerDiagnosticEvent.LogEntryDropped.Disposing(this, fileSettings.Path!, entry));

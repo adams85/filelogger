@@ -135,7 +135,7 @@ public class EdgeCasesTest
 
         var fileProvider = new MemoryFileProvider();
 
-        int expectedCount = 0;
+        long state = 0; // disposed flag (1 bit) + counter (63 bits)
 
         var context = new TestFileLoggerContext(CancellationToken.None, completionTimeout: Timeout.InfiniteTimeSpan);
         context.DiagnosticEvent += e =>
@@ -143,7 +143,14 @@ public class EdgeCasesTest
             if (e is FileLoggerDiagnosticEvent.LogEntryDropped eventArgs
                 && ReferenceEquals(eventArgs.FormattableMessage.Format, Properties.Resources.DiagnosticEvent_LogEntryDropped_Disposing))
             {
-                Interlocked.Decrement(ref expectedCount);
+                long oldState, newState;
+                do
+                {
+                    oldState = Interlocked.Read(ref state);
+                    long counter = oldState & 0x7FFF_FFFF_FFFF_FFFF;
+                    newState = unchecked((long)0x8000_0000_0000_0000) | (counter - 1);
+                }
+                while (Interlocked.CompareExchange(ref state, newState, oldState) != oldState);
             }
         };
 
@@ -182,16 +189,19 @@ public class EdgeCasesTest
                 {
                     for (; ; )
                     {
-                        int number = Interlocked.Increment(ref expectedCount);
-                        try
+                        long oldState, newState;
+                        do
                         {
-                            logger.LogInformation("Message {NUMBER}", number);
+                            oldState = Interlocked.Read(ref state);
+                            if ((oldState & unchecked((long)0x8000_0000_0000_0000)) != 0)
+                            {
+                                return;
+                            }
+                            newState = oldState + 1;
                         }
-                        catch (Exception ex) when ((ex is AggregateException aggregateEx ? aggregateEx.GetBaseException() : ex) is ObjectDisposedException)
-                        {
-                            Interlocked.Decrement(ref expectedCount);
-                            return;
-                        }
+                        while (Interlocked.CompareExchange(ref state, newState, oldState) != oldState);
+
+                        logger.LogInformation("Message {NUMBER}", newState);
                     }
                 }))
                 .ToArray();
@@ -215,7 +225,8 @@ public class EdgeCasesTest
 
         Array.ForEach(threads, t => t.Join());
 
-        int actualCount = 0;
+        long expectedCount = state & 0x7FFF_FFFF_FFFF_FFFF;
+        long actualCount = 0;
 
         foreach (string logFilePath in reloadOptions ? new[] { $"{logsDirName}/default.log", $"{logsDirName}/another.log" } : new[] { $"{logsDirName}/default.log" })
         {
