@@ -100,11 +100,11 @@ jobs:
     # See also: https://andrewlock.net/version-vs-versionsuffix-vs-packageversion-what-do-they-all-mean/
     - name: Build
       run: |
-        dotnet build FileLogger.sln -c Release /p:ContinuousIntegrationBuild=true /p:Version=$VERSION /p:BuildNumber=$GITHUB_RUN_NUMBER
+        dotnet build FileLogger.slnx -c Release /p:ContinuousIntegrationBuild=true /p:Version=$VERSION /p:BuildNumber=$GITHUB_RUN_NUMBER
 
     - name: Pack
       run: |
-        dotnet pack FileLogger.sln -c Release --no-build /p:Version=$VERSION /p:BuildNumber=$GITHUB_RUN_NUMBER
+        dotnet pack FileLogger.slnx -c Release --no-build /p:Version=$VERSION /p:BuildNumber=$GITHUB_RUN_NUMBER
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

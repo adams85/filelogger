@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/Samples/">
+    <Project Path="samples/CustomLogFormat/CustomLogFormat.csproj" />
+    <Project Path="samples/CustomPathPlaceholder/CustomPathPlaceholder.csproj" />
+    <Project Path="samples/LogRotation/LogRotation.csproj" />
+    <Project Path="samples/SplitByLogLevel/SplitByLogLevel.csproj" />
+    <Project Path="samples/StructuredLogging/StructuredLogging.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+  </Folder>
+  <Folder Name="/Solution Items/.github/" />
+  <Folder Name="/Solution Items/.github/workflows/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
+  <Folder Name="/Solution Items/source/">
+    <File Path="source/Directory.Build.props" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="test/FileLogger.Test/FileLogger.Test.csproj" />
+  </Folder>
+  <Project Path="source/FileLogger.Json/FileLogger.Json.csproj" />
+  <Project Path="source/FileLogger/FileLogger.csproj" />
+</Solution>
