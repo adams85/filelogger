@@ -71,7 +71,7 @@ jobs:
           dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }}
       - name: Pin dotnet SDK version
         run: |
-          dotnet new global.json --sdk-version ${{ matrix.dotnet-version.sdk }} --roll-forward latestFeature
+          dotnet new global.json --sdk-version ${{ matrix.dotnet-version.sdk }} --roll-forward latestFeature --force
       - name: Test
         run: |
           dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build
