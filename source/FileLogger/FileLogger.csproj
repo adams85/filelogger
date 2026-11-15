@@ -1,7 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net6.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net462;netstandard2.0;netstandard2.1;net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
+    <!-- NOTE: Runtime async is currently CoreCLR-only, it is not available for Mono-powered platforms such as WebAssembly.
+         We therefore ship a build with legacy async for .NET 11 by default, and include a second build with runtime async
+         enabled that consumers can opt into via the FileLogger_UseRuntimeAsync MSBuild property.
+         See also: ../Directory.Build.props, ../Directory.Build.targets and ./buildTransitive -->
+    <TargetFrameworks Condition="'$(_RuntimeAsyncBuildTarget)' != ''">$(_RuntimeAsyncBuildTarget)</TargetFrameworks>
     <AssemblyName>Karambolo.Extensions.Logging.File</AssemblyName>
     <RootNamespace>Karambolo.Extensions.Logging.File</RootNamespace>
     <IsTrimmable Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net5.0'))">true</IsTrimmable>
@@ -59,14 +64,6 @@
       </ItemGroup>
     </When>
 
-    <When Condition="'$(TargetFramework)' == 'net6.0'">
-      <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="6.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="6.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="6.0.0" />
-      </ItemGroup>
-    </When>
-
     <When Condition="'$(TargetFramework)' == 'net8.0'">
       <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="8.0.0" />
@@ -88,6 +85,14 @@
         <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="10.0.0" />
         <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="10.0.0" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0" />
+      </ItemGroup>
+    </When>
+
+    <When Condition="'$(TargetFramework)' == 'net11.0'">
+      <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.FileProviders.Physical" Version="11.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Configuration" Version="11.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="11.0.0" />
       </ItemGroup>
     </When>
   </Choose>

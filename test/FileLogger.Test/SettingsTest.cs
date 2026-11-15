@@ -141,7 +141,14 @@ public class SettingsTest
         fileProvider.CreateFile("config.json", configJson, Encoding.UTF8);
 
         var cb = new ConfigurationBuilder();
-        cb.AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true);
+        cb.AddJsonFile(source =>
+        {
+            source.FileProvider = fileProvider;
+            source.Path = "config.json";
+            source.Optional = false;
+            source.ReloadOnChange = true;
+            source.ReloadDelay = 0;
+        });
         IConfigurationRoot config = cb.Build();
 
         var completeCts = new CancellationTokenSource();
@@ -319,7 +326,14 @@ public class SettingsTest
         fileProvider.CreateFile("config.json", configJson);
 
         IConfigurationRoot config = new ConfigurationBuilder()
-            .AddJsonFile(fileProvider, "config.json", optional: false, reloadOnChange: true)
+            .AddJsonFile(source =>
+            {
+                source.FileProvider = fileProvider;
+                source.Path = "config.json";
+                source.Optional = false;
+                source.ReloadOnChange = true;
+                source.ReloadDelay = 0;
+            })
             .Build();
 
         var context = new TestFileLoggerContext(completeToken: default, completionTimeout: Timeout.InfiniteTimeSpan);

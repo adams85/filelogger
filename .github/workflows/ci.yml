@@ -12,69 +12,70 @@ on:
 env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  BUILD_SDK_VER: "11.0.x"
+  BUILD_SDK_MIN_VER: "11.0.100"
 
 jobs:
   build-and-test-netfw:
     strategy:
       matrix:
         dotnet-version: [
-          {rt: "4.6.2", tfm: net462},
-          {rt: "4.8.1", tfm: net481},
+          {sdk: "4.6.2", tfm: net462},
+          {sdk: "4.8.1", tfm: net481},
         ]
-    name: Build & test on .NET ${{ matrix.dotnet-version.rt }}
+    name: Build & test on .NET ${{ matrix.dotnet-version.sdk }}
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: |
-            10.0.x
+          dotnet-version: ${{ env.BUILD_SDK_VER }}
       - name: Build
         run: |
-          dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }}
+          dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} /p:CITargetFramework=${{ matrix.dotnet-version.tfm }}
       - name: Test
         run: |
-          dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build
+          dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build /p:CITargetFramework=${{ matrix.dotnet-version.tfm }}
 
   build-and-test-netcore:
     strategy:
       matrix:
         dotnet-version: [
-          {rt: "2.1.x", sdk: "2.1.100", tfm: netcoreapp2.1}, # for testing netstandard2.0 build
-          {rt: "3.1.x", sdk: "3.1.100", tfm: netcoreapp3.1}, # for testing netstandard2.1 build
-          {rt: "6.0.x", sdk: "6.0.100", tfm: net6.0},
-          {rt: "8.0.x", sdk: "8.0.100", tfm: net8.0},
-          {rt: "9.0.x", sdk: "9.0.100", tfm: net9.0},
-          {rt: "10.0.x", sdk: "10.0.100", tfm: net10.0}
+          {sdk: "2.1.x", sdkMin: "2.1.100", tfm: netcoreapp2.1}, # for testing netstandard2.0 build
+          {sdk: "3.1.x", sdkMin: "3.1.100", tfm: netcoreapp3.1}, # for testing netstandard2.1 build
+          {sdk: "8.0.x", sdkMin: "8.0.100", tfm: net8.0},
+          {sdk: "9.0.x", sdkMin: "9.0.100", tfm: net9.0},
+          {sdk: "10.0.x", sdkMin: "10.0.100", tfm: net10.0},
+          {sdk: "11.0.x", sdkMin: "11.0.100", tfm: net11.0}
         ]
         os: [ubuntu-latest, windows-latest, macOS-latest]
         exclude:
-          - dotnet-version: {rt: "2.1.x", sdk: "2.1.100", tfm: netcoreapp2.1}
+          - dotnet-version: {sdk: "2.1.x", sdkMin: "2.1.100", tfm: netcoreapp2.1}
             os: ubuntu-latest
-          - dotnet-version: {rt: "2.1.x", sdk: "2.1.100", tfm: netcoreapp2.1}
+          - dotnet-version: {sdk: "2.1.x", sdkMin: "2.1.100", tfm: netcoreapp2.1}
             os: macOS-latest
-          - dotnet-version: {rt: "3.1.x", sdk: "3.1.100", tfm: netcoreapp3.1}
+          - dotnet-version: {sdk: "3.1.x", sdkMin: "3.1.100", tfm: netcoreapp3.1}
             os: ubuntu-latest
-          - dotnet-version: {rt: "3.1.x", sdk: "3.1.100", tfm: netcoreapp3.1}
+          - dotnet-version: {sdk: "3.1.x", sdkMin: "3.1.100", tfm: netcoreapp3.1}
             os: macOS-latest
-    name: Build & test on .NET ${{ matrix.dotnet-version.rt }} (${{ matrix.os }})
+    name: Build & test on .NET ${{ matrix.dotnet-version.sdk }} (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
-            ${{ matrix.dotnet-version.rt }}
-            10.0.x
+            ${{ env.BUILD_SDK_VER }}
+            ${{ matrix.dotnet-version.sdk }}
       - name: Build
         run: |
-          dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }}
+          dotnet build test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} /p:CITargetFramework=${{ matrix.dotnet-version.tfm }}
       - name: Pin dotnet SDK version
         run: |
-          dotnet new global.json --sdk-version ${{ matrix.dotnet-version.sdk }} --roll-forward latestFeature --force
+          dotnet new global.json --sdk-version ${{ matrix.dotnet-version.sdkMin }} --roll-forward latestFeature --force
       - name: Test
         run: |
-          dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build
+          dotnet test test/FileLogger.Test/FileLogger.Test.csproj -c Release -f ${{ matrix.dotnet-version.tfm }} --no-build /p:CITargetFramework=${{ matrix.dotnet-version.tfm }}
 
   publish:
     needs: [
@@ -86,11 +87,11 @@ jobs:
     permissions:
       id-token: write  # enable GitHub OIDC token issuance for this job
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-dotnet@v5
+    - uses: actions/setup-dotnet@v6
       with:
-        dotnet-version: 10.0.x
+        dotnet-version: ${{ env.BUILD_SDK_VER }}
 
     - name: Determine version
       run: |

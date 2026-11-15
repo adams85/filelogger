@@ -1,0 +1,36 @@
+<Project>
+  <Target Name="_BuildRuntimeAsyncAssembly"
+          AfterTargets="Build"
+          Condition="'$(TargetFramework)' == 'net11.0' AND '$(_RuntimeAsyncBuildTarget)' == ''"
+          Returns="$(TargetPath)">
+    <ItemGroup>
+      <_InnerBuildProperty Include="Configuration=$(Configuration)" />
+      <_InnerBuildProperty Include="Platform=$(Platform)" />
+      <_InnerBuildProperty Include="ContinuousIntegrationBuild=$(ContinuousIntegrationBuild)" Condition="'$(ContinuousIntegrationBuild)' != ''" />
+      <_InnerBuildProperty Include="Version=$(OriginalVersion)" Condition="'$(OriginalVersion)' != ''" />
+      <_InnerBuildProperty Include="BuildNumber=$(OriginalBuildNumber)" Condition="'$(OriginalBuildNumber)' != ''" />
+      <_InnerBuildProperty Include="_RuntimeAsyncBuildTarget=$(TargetFramework)" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_InnerBuildProperties>@(_InnerBuildProperty->'%(Identity)', ';')</_InnerBuildProperties>
+    </PropertyGroup>
+
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore;Build"
+             Properties="$(_InnerBuildProperties)">
+      <Output TaskParameter="TargetOutputs" ItemName="_RuntimeAsyncOutputPath" />
+    </MSBuild>
+
+    <Warning Text="@(_RuntimeAsyncOutputPath)" />
+  </Target>
+
+  <Target Name="_IncludeRuntimeAsyncAssembly"
+          Condition="'$(TargetFramework)' == 'net11.0' AND '$(_RuntimeAsyncBuildTarget)' == ''">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="@(_RuntimeAsyncOutputPath)">
+        <PackagePath>lib-runtime-async/$(TargetFramework)/%(_RuntimeAsyncOutputPath.Filename)%(_RuntimeAsyncOutputPath.Extension)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+</Project>

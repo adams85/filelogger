@@ -400,7 +400,9 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                         if (logFile.PendingSyncWriteCount <= 0)
                             break;
 
+#pragma warning disable CA1416 // Validate platform compatibility
                         Monitor.Wait(logFile);
+#pragma warning restore CA1416 // Validate platform compatibility
                     }
                 }
 
@@ -617,7 +619,9 @@ public partial class FileLoggerProcessor : IFileLoggerProcessor
                         if (!logFile.IsSyncWriteInProgress)
                             break;
 
+#pragma warning disable CA1416 // Validate platform compatibility
                         Monitor.Wait(logFile);
+#pragma warning restore CA1416 // Validate platform compatibility
                     }
 
                     logFile.IsSyncWriteInProgress = hasStartedSyncWrite = true;

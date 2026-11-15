@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Threading;
 using Karambolo.Extensions.Logging.File.Properties;
@@ -21,6 +22,9 @@ public enum LogFileAccessMode
 
 public enum LogFileWriteStrategy
 {
+#if NET6_0_OR_GREATER
+    [UnsupportedOSPlatform("browser")]
+#endif
     DirectSyncWrite = -1,
     QueuedAsyncWrite,
     QueuedSyncWrite,

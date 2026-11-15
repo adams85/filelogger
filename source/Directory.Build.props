@@ -4,7 +4,7 @@
   <PropertyGroup Condition="$([System.Text.RegularExpressions.Regex]::IsMatch($(Version), '^\d+\.\d+\.\d+(?:[+-]|$)'))">
     <VersionPrefix Condition="$(Version.Contains('-'))">$(Version.Split('-')[0])</VersionPrefix>
     <VersionPrefix Condition="!$(Version.Contains('-'))">$(Version)</VersionPrefix>
-    <BuildNumber Condition="$(BuildNumber) == ''">0</BuildNumber>
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
 
     <AssemblyVersion>$(VersionPrefix.Split('.')[0]).$(VersionPrefix.Split('.')[1])</AssemblyVersion>
     <FileVersion>$(VersionPrefix).$(BuildNumber)</FileVersion>
@@ -18,6 +18,11 @@
 
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <ArtifactsPath>$(MSBuildThisFileDirectory)..\artifacts</ArtifactsPath>
+    <ArtifactsPath Condition="'$(_RuntimeAsyncBuildTarget)' != ''">$(ArtifactsPath)\runtime-async</ArtifactsPath>
+
+    <Features Condition="'$(_RuntimeAsyncBuildTarget)' != ''">runtime-async=on;$(Features)</Features>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);_IncludeRuntimeAsyncAssembly</TargetsForTfmSpecificContentInPackage>
+    <NoWarn>NU5100;$(NoWarn)</NoWarn>
 
     <Product>Karambolo.Extensions.Logging.File</Product>
     <Authors>Adam Simon</Authors>
@@ -37,5 +42,10 @@
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="" />
+
+    <Content Include="build*\**">
+      <Pack>true</Pack>
+      <PackagePath>/</PackagePath>
+    </Content>
   </ItemGroup>
 </Project>

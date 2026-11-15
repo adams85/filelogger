@@ -17,6 +17,7 @@
   </Folder>
   <Folder Name="/Solution Items/source/">
     <File Path="source/Directory.Build.props" />
+    <File Path="source/Directory.Build.targets" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="test/FileLogger.Test/FileLogger.Test.csproj" />
